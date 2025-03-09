@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, FormEvent } from 'react'
+import React, { useState, FormEvent, useRef, useEffect, ClipboardEvent } from 'react'
 import { Inter } from 'next/font/google'
 import Image from 'next/image'
 
@@ -61,12 +61,68 @@ function isMyntraUrl(url: string): boolean {
   return url.includes('myntra.com');
 }
 
+// Add ProductOverlay component
+const ProductOverlay = ({ 
+  products, 
+  onSelect, 
+  onClose 
+}: { 
+  products: SearchResult[], 
+  onSelect: (url: string) => void, 
+  onClose: () => void 
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Select a Product</h2>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {products.slice(0, 3).map((product, index) => (
+            <div 
+              key={index}
+              className="border rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => onSelect(product.url)}
+            >
+              {product.image && (
+                <img 
+                  src={product.image} 
+                  alt={product.name}
+                  className="w-full h-48 object-cover rounded-md mb-2"
+                />
+              )}
+              <h3 className="font-semibold">{product.brand}</h3>
+              <p className="text-sm text-gray-600 line-clamp-2">{product.name}</p>
+              <div className="mt-2">
+                <span className="font-bold">{product.price}</span>
+                {product.discount && (
+                  <span className="text-green-600 text-sm ml-2">{product.discount}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function Home() {
   const [inputValue, setInputValue] = useState('')
   const [products, setProducts] = useState<MyntraProduct[]>([])
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isProcessingImage, setIsProcessingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showProductOverlay, setShowProductOverlay] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -141,10 +197,79 @@ export default function Home() {
   const handleProductSelect = async (url: string) => {
     try {
       await addProductToWardrobe(url)
+      handleOverlayClose()
     } catch (error) {
       console.error('Error in product selection:', error)
     }
   }
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      setIsProcessingImage(true)
+      setError(null)
+      setSearchResults([])
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Process image
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const response = await fetch('/api/process-image', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to process image')
+      }
+
+      const data = await response.json()
+      if (data.searchResults && data.searchResults.length > 0) {
+        setSearchResults(data.searchResults)
+        setShowProductOverlay(true)  // Show overlay when results are available
+      } else {
+        throw new Error('No matching products found')
+      }
+    } catch (error) {
+      console.error('Error processing image:', error)
+      setError(error instanceof Error ? error.message : 'Failed to process image')
+    } finally {
+      setIsProcessingImage(false)
+    }
+  }
+
+  const handlePaste = async (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of Array.from(items)) {
+      if (item.type.includes('image')) {
+        const file = item.getAsFile()
+        if (file) {
+          await handleImageUpload(file)
+          break
+        }
+      }
+    }
+  }
+
+  const handleOverlayClose = () => {
+    setShowProductOverlay(false)
+    setSearchResults([])
+    setImagePreview(null)
+  }
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [])
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 bg-gradient-to-b from-white to-gray-100">
@@ -166,7 +291,6 @@ export default function Home() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  required
                 />
                 <button 
                   type="submit"
@@ -176,21 +300,61 @@ export default function Home() {
                   {isLoading ? 'Loading...' : inputValue.includes('myntra.com') ? 'Add to Wardrobe' : 'Search'}
                 </button>
               </div>
+
+              <div className="flex items-center justify-center gap-4">
+                <div className="flex-1 h-px bg-gray-200"></div>
+                <span className="text-gray-500">or</span>
+                <div className="flex-1 h-px bg-gray-200"></div>
+              </div>
+
+              <div className="flex flex-col items-center gap-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                  className="hidden"
+                  ref={fileInputRef}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
+                  disabled={isProcessingImage}
+                >
+                  {isProcessingImage ? 'Processing...' : 'Upload Order Screenshot'}
+                </button>
+                <p className="text-sm text-gray-500">
+                  Or paste (Ctrl/Cmd + V) a screenshot of your Myntra order
+                </p>
+              </div>
+
               {error && (
                 <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
                   {error}
                 </div>
               )}
-              <p className="text-sm text-gray-500">
-                Tip: Paste a Myntra product URL to add directly, or type a product name to search
-              </p>
             </form>
+
+            {imagePreview && (
+              <div className="mt-4 p-4 border border-gray-200 rounded-lg">
+                <div className="aspect-video relative overflow-hidden rounded-lg">
+                  <img
+                    src={imagePreview}
+                    alt="Uploaded screenshot"
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Search Results Dropdown */}
             {searchResults.length > 0 && (
               <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[70vh] overflow-y-auto">
                 <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-800">Search Results</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">Found {searchResults.length} Products</h2>
+                  {imagePreview && (
+                    <p className="text-sm text-gray-600 mt-1">Results based on uploaded image</p>
+                  )}
                 </div>
                 <div className="divide-y divide-gray-100">
                   {searchResults.map((result, index) => (
@@ -199,32 +363,49 @@ export default function Home() {
                       className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       {result.image && (
-                        <img 
-                          src={result.image} 
-                          alt={result.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
+                        <div className="relative w-24 h-24 flex-shrink-0">
+                          <img 
+                            src={result.image} 
+                            alt={result.name}
+                            className="w-full h-full object-cover rounded"
+                          />
+                          {index < 3 && (
+                            <div className="absolute top-0 left-0 bg-purple-600 text-white px-2 py-1 text-xs rounded-br">
+                              Top {index + 1}
+                            </div>
+                          )}
+                        </div>
                       )}
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{result.brand}</h3>
-                        <p className="text-sm text-gray-600">{result.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{result.brand}</h3>
+                        <p className="text-sm text-gray-600 line-clamp-2">{result.name}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-semibold text-gray-900">{result.price}</span>
                           {result.originalPrice && (
                             <span className="text-sm text-gray-500 line-through">{result.originalPrice}</span>
                           )}
                           {result.discount && (
-                            <span className="text-sm text-green-600">{result.discount}</span>
+                            <span className="text-sm text-green-600 font-medium">{result.discount}</span>
                           )}
                         </div>
                       </div>
-                      <button 
-                        className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors"
-                        onClick={() => handleProductSelect(result.url)}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? 'Adding...' : 'Add to Wardrobe'}
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
+                          onClick={() => handleProductSelect(result.url)}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Adding...' : 'Add to Wardrobe'}
+                        </button>
+                        <a 
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors text-center"
+                        >
+                          View on Myntra
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -317,6 +498,36 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Add this before the closing main tag */}
+      {showProductOverlay && searchResults.length > 0 && (
+        <ProductOverlay
+          products={searchResults}
+          onSelect={handleProductSelect}
+          onClose={handleOverlayClose}
+        />
+      )}
+
+      {imagePreview && (
+        <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
+          <img 
+            src={imagePreview} 
+            alt="Uploaded preview" 
+            className="w-24 h-24 object-cover rounded"
+          />
+          {isProcessingImage && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded">
+              <div className="text-white text-sm">Processing...</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed bottom-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
     </main>
   )
 }
