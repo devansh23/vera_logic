@@ -73,37 +73,65 @@ const ProductOverlay = ({
 }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+      <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Select a Product</h2>
+          <h2 className="text-xl font-semibold">Select a Product to Add to Your Wardrobe</h2>
           <button 
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 p-2"
+            aria-label="Close"
           >
-            ✕
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {products.slice(0, 3).map((product, index) => (
             <div 
               key={index}
-              className="border rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => onSelect(product.url)}
+              className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
             >
               {product.image && (
-                <img 
-                  src={product.image} 
-                  alt={product.name}
-                  className="w-full h-48 object-cover rounded-md mb-2"
-                />
+                <div className="relative">
+                  <img 
+                    src={product.image} 
+                    alt={product.name}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute top-2 left-2 bg-purple-600 text-white px-2 py-1 text-xs rounded">
+                    Match #{index + 1}
+                  </div>
+                </div>
               )}
-              <h3 className="font-semibold">{product.brand}</h3>
-              <p className="text-sm text-gray-600 line-clamp-2">{product.name}</p>
-              <div className="mt-2">
-                <span className="font-bold">{product.price}</span>
-                {product.discount && (
-                  <span className="text-green-600 text-sm ml-2">{product.discount}</span>
-                )}
+              <div className="p-4">
+                <h3 className="font-semibold text-lg mb-1">{product.brand}</h3>
+                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="font-bold text-lg">{product.price}</span>
+                  {product.originalPrice && (
+                    <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
+                  )}
+                  {product.discount && (
+                    <span className="text-sm text-green-600 font-medium">{product.discount}</span>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button 
+                    onClick={() => onSelect(product.url)}
+                    className="w-full py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  >
+                    Add to Wardrobe
+                  </button>
+                  <a 
+                    href={product.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 px-4 text-center text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors"
+                  >
+                    View on Myntra
+                  </a>
+                </div>
               </div>
             </div>
           ))}
@@ -123,6 +151,7 @@ export default function Home() {
   const [isProcessingImage, setIsProcessingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showProductOverlay, setShowProductOverlay] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -264,6 +293,11 @@ export default function Home() {
     setShowProductOverlay(false)
     setSearchResults([])
     setImagePreview(null)
+  }
+
+  const handleDeleteProduct = (index: number) => {
+    setProducts(prevProducts => prevProducts.filter((_, i) => i !== index))
+    setShowDeleteConfirm(null)
   }
 
   useEffect(() => {
@@ -423,9 +457,19 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map((product, index) => (
-                <div key={index} className="p-6 bg-white rounded-lg shadow-lg">
+                <div key={index} className="p-6 bg-white rounded-lg shadow-lg relative group">
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => setShowDeleteConfirm(index)}
+                    className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10"
+                    aria-label="Delete item"
+                  >
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                   {product.image && (
-                    <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden group">
+                    <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden">
                       <img
                         src={product.image}
                         alt={product.name}
@@ -526,6 +570,30 @@ export default function Home() {
       {error && (
         <div className="fixed bottom-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Delete Item</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to remove this item from your wardrobe?</p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteProduct(showDeleteConfirm)}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>
