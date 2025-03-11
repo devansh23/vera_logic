@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, FormEvent, useRef, useEffect, ClipboardEvent } from 'react'
+import React, { useState, FormEvent, useRef, useEffect, ClipboardEvent as ReactClipboardEvent } from 'react'
 import { Inter } from 'next/font/google'
 import Image from 'next/image'
 
@@ -30,6 +30,9 @@ interface MyntraProduct {
   pattern?: string;
   fabric?: string;
   dateAdded: string;
+  size?: string;
+  quantity?: string;
+  seller?: string;
 }
 
 interface WardrobeItem {
@@ -150,8 +153,10 @@ export default function Home() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isProcessingImage, setIsProcessingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
   const [showProductOverlay, setShowProductOverlay] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
+  const [pdfText, setPdfText] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -274,7 +279,59 @@ export default function Home() {
     }
   }
 
-  const handlePaste = async (e: ClipboardEvent) => {
+  const handlePdfUpload = async (file: File) => {
+    try {
+      setError(null);
+      setPdfText(null);
+      console.log('Processing PDF:', file.name);
+
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      const response = await fetch('/api/process-pdf', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process PDF');
+      }
+
+      const data = await response.json();
+      console.log('PDF processing result:', data);
+
+      // Set the extracted text
+      setPdfText(data.extractedText);
+
+      // Add extracted items to wardrobe
+      if (data.items && data.items.length > 0) {
+        const newProducts = data.items.map((item: any) => ({
+          brand: item.brand || 'Unknown Brand',
+          name: item.name || 'Unknown Product',
+          price: item.price || '',
+          originalPrice: item.originalPrice || '',
+          discount: item.discount || '',
+          image: item.image || '',
+          size: item.size || '',
+          quantity: item.quantity || '',
+          seller: item.seller || '',
+          myntraLink: '', // We don't have the Myntra link from the PDF
+          dateAdded: new Date().toISOString()
+        }));
+
+        setProducts(prevProducts => [...prevProducts, ...newProducts]);
+        setError(`Successfully added ${newProducts.length} items to your wardrobe.`);
+      } else {
+        setError('No items found in the PDF.');
+      }
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      setError(error instanceof Error ? error.message : 'Failed to process PDF');
+    }
+  }
+
+  const handlePaste = async (e: ReactClipboardEvent<HTMLDivElement> | ClipboardEvent) => {
     const items = e.clipboardData?.items
     if (!items) return
 
@@ -301,9 +358,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    document.addEventListener('paste', handlePaste)
-    return () => document.removeEventListener('paste', handlePaste)
-  }, [])
+    const handleDocumentPaste = (e: ClipboardEvent) => {
+      handlePaste(e);
+    };
+    
+    document.addEventListener('paste', handleDocumentPaste);
+    return () => document.removeEventListener('paste', handleDocumentPaste);
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 bg-gradient-to-b from-white to-gray-100">
@@ -342,21 +403,38 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col items-center gap-4">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
-                  disabled={isProcessingImage}
-                >
-                  {isProcessingImage ? 'Processing...' : 'Upload Order Screenshot'}
-                </button>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                    className="hidden"
+                    ref={fileInputRef}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
+                    disabled={isProcessingImage}
+                  >
+                    {isProcessingImage ? 'Processing...' : 'Upload Order Screenshot'}
+                  </button>
+                  
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => e.target.files?.[0] && handlePdfUpload(e.target.files[0])}
+                    className="hidden"
+                    ref={pdfInputRef}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
+                  >
+                    Upload PDF
+                  </button>
+                </div>
                 <p className="text-sm text-gray-500">
                   Or paste (Ctrl/Cmd + V) a screenshot of your Myntra order
                 </p>
@@ -469,21 +547,18 @@ export default function Home() {
                     </svg>
                   </button>
                   {product.image && (
-                    <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="object-cover w-full h-full"
-                      />
-                      {product.images && product.images.length > 1 && (
-                        <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                          +{product.images.length - 1} more
-                        </div>
-                      )}
+                    <div className="relative w-full mb-4 rounded-lg overflow-hidden">
+                      <div className="relative pt-[100%]">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="absolute inset-0 w-full h-full object-contain bg-gray-50"
+                        />
+                      </div>
                     </div>
                   )}
                   <div className="space-y-3">
-                    <h2 className="text-xl font-semibold text-gray-800">{product.name}</h2>
+                    <h2 className="text-xl font-semibold text-gray-800 line-clamp-2">{product.name}</h2>
                     {product.brand && <p className="text-gray-600">{product.brand}</p>}
                     
                     <div className="flex items-center gap-2">
@@ -497,44 +572,36 @@ export default function Home() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                      {product.category && (
+                      {product.size && (
                         <div>
-                          <span className="font-medium">Category:</span> {product.category}
+                          <span className="font-medium">Size:</span> {product.size}
                         </div>
                       )}
-                      {product.subCategory && (
+                      {product.quantity && (
                         <div>
-                          <span className="font-medium">Type:</span> {product.subCategory}
+                          <span className="font-medium">Quantity:</span> {product.quantity}
                         </div>
                       )}
-                      {product.color && (
-                        <div>
-                          <span className="font-medium">Color:</span> {product.color}
+                      {product.seller && (
+                        <div className="col-span-2">
+                          <span className="font-medium">Seller:</span> {product.seller}
                         </div>
                       )}
-                      {product.pattern && (
-                        <div>
-                          <span className="font-medium">Pattern:</span> {product.pattern}
-                        </div>
-                      )}
-                      {product.fabric && (
-                        <div>
-                          <span className="font-medium">Material:</span> {product.fabric}
-                        </div>
-                      )}
-                      <div>
+                      <div className="col-span-2">
                         <span className="font-medium">Added:</span> {new Date(product.dateAdded).toLocaleDateString()}
                       </div>
                     </div>
 
-                    <a 
-                      href={product.myntraLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-2 text-sm text-purple-600 hover:text-purple-800 hover:underline"
-                    >
-                      View on Myntra →
-                    </a>
+                    {product.myntraLink && (
+                      <a 
+                        href={product.myntraLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-2 text-sm text-purple-600 hover:text-purple-800 hover:underline"
+                      >
+                        View on Myntra →
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
@@ -570,6 +637,17 @@ export default function Home() {
       {error && (
         <div className="fixed bottom-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {pdfText && (
+        <div className="mt-8 w-full max-w-6xl">
+          <h2 className="text-2xl font-bold mb-4">Extracted Text from PDF</h2>
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <pre className="whitespace-pre-wrap font-mono text-sm">
+              {pdfText}
+            </pre>
+          </div>
         </div>
       )}
 
