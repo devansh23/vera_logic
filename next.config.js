@@ -2,8 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['assets.myntassets.com'],
-  },
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'assets.myntassets.com'
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com'
+      }
+    ]
+  }
 }
 
 module.exports = nextConfig 
