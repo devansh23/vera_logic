@@ -214,24 +214,7 @@ export default function Home() {
   const [pdfText, setPdfText] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [showSaveReminder, setShowSaveReminder] = useState(false)
-
-  // Add beforeunload event listener to warn about unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        // Standard way to show a confirmation dialog
-        e.preventDefault();
-        // Chrome requires returnValue to be set
-        e.returnValue = '';
-        return '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
 
   // Load user's wardrobe on session change
   useEffect(() => {
@@ -239,6 +222,31 @@ export default function Home() {
       loadUserWardrobe();
     }
   }, [session]);
+
+  // Autosave effect - triggers save whenever products change
+  useEffect(() => {
+    // Don't save if there are no products or no session
+    if (!products.length || !session?.user?.id) return;
+    
+    // Clear any existing timeout to prevent multiple saves
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Set a new timeout to save after a short delay (debounce)
+    const timeout = setTimeout(() => {
+      saveWardrobe(false); // false means don't show success message for routine autosaves
+    }, 1500); // 1.5 second delay
+    
+    setAutoSaveTimeout(timeout);
+    
+    // Cleanup function to clear timeout if component unmounts
+    return () => {
+      if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+      }
+    };
+  }, [products]);
 
   const loadUserWardrobe = async () => {
     try {
@@ -248,7 +256,6 @@ export default function Home() {
       }
       const data = await response.json();
       setProducts(data);
-      setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Error loading wardrobe:', error);
       setError('Failed to load your wardrobe');
@@ -256,7 +263,7 @@ export default function Home() {
   };
 
   // Save the entire wardrobe state
-  const saveWardrobe = async () => {
+  const saveWardrobe = async (showMessage = true) => {
     if (!session) {
       setError('Please sign in to save your wardrobe');
       return;
@@ -264,7 +271,9 @@ export default function Home() {
 
     try {
       setIsSaving(true);
-      setSaveSuccess(null);
+      if (showMessage) {
+        setSaveSuccess(null);
+      }
       setError(null);
       
       const response = await fetch('/api/wardrobe/save', {
@@ -280,14 +289,15 @@ export default function Home() {
       }
       
       const data = await response.json();
-      setSaveSuccess(`Wardrobe saved successfully! (${data.count} items)`);
-      setHasUnsavedChanges(false);
-      setShowSaveReminder(false);
       
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSaveSuccess(null);
-      }, 3000);
+      if (showMessage) {
+        setSaveSuccess(`Wardrobe saved successfully! (${data.count} items)`);
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSaveSuccess(null);
+        }, 3000);
+      }
     } catch (error) {
       console.error('Error saving wardrobe:', error);
       setError(error instanceof Error ? error.message : 'Failed to save wardrobe');
@@ -358,7 +368,7 @@ export default function Home() {
       setProducts(prevProducts => [...prevProducts, data]);
       setInputValue('');
       setSearchResults([]);
-      setHasUnsavedChanges(true);
+      // Autosave will be triggered by the useEffect
     } catch (error) {
       console.error('Error adding product:', error);
       setError(error instanceof Error ? error.message : 'Failed to add product to wardrobe');
@@ -461,17 +471,8 @@ export default function Home() {
         }));
 
         setProducts(prevProducts => [...prevProducts, ...newProducts]);
-        setHasUnsavedChanges(true); // Set unsaved changes flag when adding items from PDF
-        setShowSaveReminder(true); // Show the save reminder
-        setError(`Successfully added ${newProducts.length} items to your wardrobe. Please click "Save Wardrobe" to permanently save these items.`);
-        
-        // Scroll to the wardrobe section to make the save button visible
-        setTimeout(() => {
-          document.querySelector('.text-2xl.font-bold.text-gray-900')?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
-          });
-        }, 500);
+        // Autosave will be triggered by the useEffect
+        setError(`Successfully added ${newProducts.length} items to your wardrobe.`);
       } else {
         setError('No items found in the PDF.');
       }
@@ -505,7 +506,7 @@ export default function Home() {
   const handleDeleteProduct = (index: number) => {
     setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
     setShowDeleteConfirm(null);
-    setHasUnsavedChanges(true);
+    // Autosave will be triggered by the useEffect
   }
 
   useEffect(() => {
@@ -735,22 +736,15 @@ export default function Home() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Your Wardrobe</h2>
               <div className="flex items-center gap-4">
-                {hasUnsavedChanges && (
-                  <span className="text-amber-600 font-medium">
-                    You have unsaved changes!
+                {isSaving && (
+                  <span className="text-gray-600 text-sm flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Autosaving...
                   </span>
                 )}
-                <button
-                  onClick={saveWardrobe}
-                  disabled={isSaving || !hasUnsavedChanges}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    hasUnsavedChanges
-                      ? 'bg-green-600 text-white hover:bg-green-700 font-medium animate-pulse'
-                      : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {isSaving ? 'Saving...' : 'Save Wardrobe'}
-                </button>
                 <span className="text-gray-500">{products.length} items</span>
               </div>
             </div>
@@ -831,35 +825,6 @@ export default function Home() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Save Reminder */}
-      {showSaveReminder && hasUnsavedChanges && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded shadow-lg z-50 flex items-center gap-3 max-w-md">
-          <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div>
-            <p className="font-medium">Don't forget to save your changes!</p>
-            <p className="text-sm">Click the "Save Wardrobe" button to permanently save your items.</p>
-          </div>
-          <button 
-            onClick={saveWardrobe}
-            disabled={isSaving}
-            className="ml-auto bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-sm font-medium"
-          >
-            {isSaving ? 'Saving...' : 'Save Now'}
-          </button>
-          <button 
-            onClick={() => setShowSaveReminder(false)} 
-            className="text-amber-700 hover:text-amber-900"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       )}
     </main>
