@@ -35,9 +35,28 @@ async function fetchEmailsHandler(request: NextRequest) {
     });
   }
 
+  // Define common order confirmation keywords
+  const orderConfirmationKeywords = [
+    'order confirmation',
+    'order confirmed',
+    'order placed',
+    'thank you for your order',
+    'your order',
+    'order number',
+    'order receipt',
+    'purchase confirmation',
+    'receipt'
+  ];
+  
+  // Create a combined query string with OR conditions for order confirmation keywords
+  const confirmationKeywordQuery = orderConfirmationKeywords
+    .map(keyword => `subject:(${keyword})`)
+    .join(' OR ');
+
+  // Build retailer-specific search query combined with confirmation keywords
   const searchQuery = normalizedRetailer === 'myntra'
-    ? 'from:myntra.com OR subject:myntra'
-    : 'from:hm.com OR from:delivery.hm.com OR subject:H&M';
+    ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
+    : `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`;
 
   try {
     const emailsResponse = await GmailService.listEmails(session.user.id, {
