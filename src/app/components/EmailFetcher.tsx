@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import GmailConnectButton from '@/components/GmailConnectButton';
+import Link from 'next/link';
+import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 // Define TypeScript interfaces for better type safety
 interface EmailMessage {
@@ -9,10 +12,17 @@ interface EmailMessage {
   subject: string;
   date: string;
   snippet: string;
-  body: {
-    text: string;
-    html: string;
-  };
+  body?: string;
+}
+
+// Define the extraction result type
+interface ExtractionResult {
+  success: boolean;
+  message: string;
+  totalItemsFound: number;
+  itemsAdded: number;
+  items: any[];
+  debugKey?: string;
 }
 
 export default function EmailFetcher() {
@@ -21,20 +31,36 @@ export default function EmailFetcher() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
+  const [processingEmail, setProcessingEmail] = useState<string | null>(null);
+  const [processingAll, setProcessingAll] = useState(false);
+  const [isAuthError, setIsAuthError] = useState(false);
+  const [useScreenshot, setUseScreenshot] = useState(false);
+  const [useDirectHtml, setUseDirectHtml] = useState(true);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   const fetchEmails = async () => {
     setLoading(true);
     setError(null);
     setSelectedEmail(null);
+    setExtractionResult(null);
+    setIsAuthError(false);
     try {
       const encodedRetailer = encodeURIComponent(retailer);
       const response = await fetch(`/api/gmail/fetch-emails?retailer=${encodedRetailer}`);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.error || `Failed to fetch emails: ${response.status} ${response.statusText}`
-        );
+        const errorMessage = errorData?.error || `Failed to fetch emails: ${response.status} ${response.statusText}`;
+        
+        // Check if this is an authentication error
+        if (errorMessage.includes('Failed to refresh Gmail token') || 
+            errorMessage.includes('User has not connected Gmail') ||
+            errorMessage.includes('Missing Gmail tokens')) {
+          setIsAuthError(true);
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
@@ -78,6 +104,103 @@ export default function EmailFetcher() {
     setSelectedEmail(selectedEmail === emailId ? null : emailId);
   };
 
+  // Add items from a single email to wardrobe
+  const addEmailItemsToWardrobe = async (emailId: string) => {
+    setProcessingEmail(emailId);
+    setExtractionResult(null);
+    setError(null);
+    setErrorDetails(null);
+    
+    try {
+      // Always use the HTML method endpoint
+      const endpoint = '/api/wardrobe/add-from-emails-html';
+        
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          emailId,
+          retailer
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to process email: ${response.status}`);
+      }
+      
+      // Check for detailed error message
+      if (data.details) {
+        setErrorDetails(data.details);
+      }
+      
+      setExtractionResult(data);
+      
+      // Show the result for this specific email
+      setSelectedEmail(emailId);
+    } catch (err) {
+      console.error('Error processing email:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process email');
+    } finally {
+      setProcessingEmail(null);
+    }
+  };
+  
+  // Add items from all emails to wardrobe
+  const addAllEmailItemsToWardrobe = async () => {
+    if (emails.length === 0) return;
+    
+    setProcessingAll(true);
+    setExtractionResult(null);
+    setError(null);
+    
+    try {
+      const endpoint = '/api/wardrobe/add-from-emails-html';
+        
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          retailer,
+          maxEmails: 20 // Limit to avoid processing too many at once
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `Failed to process emails: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      setExtractionResult(result);
+    } catch (err) {
+      console.error('Error processing emails:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process emails');
+    } finally {
+      setProcessingAll(false);
+    }
+  };
+
+  // Handler for successful Gmail connection
+  const handleGmailConnectSuccess = () => {
+    setIsAuthError(false);
+    setError(null);
+    // Wait a moment for the connection to register
+    setTimeout(() => {
+      fetchEmails();
+    }, 1000);
+  };
+
+  // Handler for Gmail connection errors
+  const handleGmailConnectError = (errorMessage: string) => {
+    setError(`Gmail connection error: ${errorMessage}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -109,13 +232,122 @@ export default function EmailFetcher() {
 
       {error && (
         <div className="px-4 py-3 text-sm bg-red-50 text-red-600 rounded-lg">
-          {error}
+          <p className="font-medium">Error:</p>
+          <p>{error}</p>
+          {errorDetails && (
+            <div className="mt-2 p-2 bg-red-100 rounded">
+              <p className="text-xs font-mono whitespace-pre-wrap">{errorDetails}</p>
+            </div>
+          )}
+          {isAuthError && (
+            <div className="mt-4 flex flex-col items-start space-y-2">
+              <p className="font-medium">You need to connect your Gmail account first:</p>
+              <GmailConnectButton 
+                onSuccess={handleGmailConnectSuccess}
+                onError={handleGmailConnectError}
+                variant="primary"
+              />
+              <p className="text-xs mt-1">
+                <Link href="/settings" className="text-blue-600 hover:underline">
+                  Manage your Gmail settings
+                </Link>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show detailed error or success information even when there's no error */}
+      {!error && errorDetails && (
+        <div className="px-4 py-3 text-sm bg-green-50 text-green-600 rounded-lg">
+          <p className="font-medium">System Information:</p>
+          <p className="mt-1">{errorDetails}</p>
+        </div>
+      )}
+
+      {/* Success message */}
+      {extractionResult && (
+        <div className={`mt-4 p-4 rounded ${extractionResult.success ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+          <h3 className="font-semibold">Processing Results</h3>
+          <p>{extractionResult.message}</p>
+          <div className="text-sm mt-2">
+            <p>Items found: {extractionResult.totalItemsFound}</p>
+            <p>Items added to wardrobe: {extractionResult.itemsAdded}</p>
+          </div>
+          {!extractionResult.success && extractionResult.totalItemsFound === 0 && (
+            <div className="mt-2 text-sm text-gray-600">
+              <p>No items were detected in this email. This could be because:</p>
+              <ul className="list-disc list-inside mt-1">
+                <li>The email isn't an order confirmation</li>
+                <li>The email format isn't recognized</li>
+                <li>There might be an issue with the extraction process</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Debug information section */}
+      {extractionResult && selectedEmail && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <div className="mb-4">
+            <h3 className="font-semibold text-blue-700">Debug Information</h3>
+            <p className="text-sm text-blue-600">
+              {extractionResult.itemsAdded} items added to wardrobe out of {extractionResult.totalItemsFound} found in the email.
+            </p>
+          </div>
+          
+          <div className="flex flex-col space-y-2">
+            {/* Screenshot download button */}
+            <a
+              href={`/api/debug/download-screenshot?emailId=${encodeURIComponent(selectedEmail)}`}
+              target="_blank"
+              className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              rel="noopener noreferrer"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> Download Email Screenshot
+            </a>
+            
+            {/* OCR Text download button */}
+            {extractionResult.debugKey && (
+              <a
+                href={`/api/extract-items-from-email?debugKey=${encodeURIComponent(extractionResult.debugKey)}`}
+                target="_blank"
+                className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                rel="noopener noreferrer"
+              >
+                <DocumentTextIcon className="w-4 h-4 mr-2" /> Download OCR Text
+              </a>
+            )}
+            
+            <p className="text-xs text-gray-500 mt-1">
+              These debug files can help diagnose issues with item extraction.
+            </p>
+          </div>
         </div>
       )}
 
       {!loading && emails.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-lg font-medium mb-4">Order Confirmation Emails ({emails.length})</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Order Confirmation Emails ({emails.length})</h3>
+            
+            <button
+              onClick={addAllEmailItemsToWardrobe}
+              disabled={processingAll || emails.length === 0}
+              className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-green-300 transition-colors flex items-center space-x-1"
+            >
+              {processingAll ? (
+                <>
+                  <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>Add All Items to Wardrobe</span>
+              )}
+            </button>
+          </div>
+          
           <div className="space-y-4">
             {emails.map((email) => (
               <div 
@@ -177,6 +409,24 @@ export default function EmailFetcher() {
                         >
                           View in Gmail
                         </a>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addEmailItemsToWardrobe(email.id);
+                          }}
+                          disabled={processingEmail === email.id}
+                          className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded hover:bg-green-100 transition-colors flex items-center"
+                        >
+                          {processingEmail === email.id ? (
+                            <>
+                              <span className="inline-block animate-spin h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full mr-1"></span>
+                              Processing...
+                            </>
+                          ) : (
+                            'Add Items to Wardrobe'
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
