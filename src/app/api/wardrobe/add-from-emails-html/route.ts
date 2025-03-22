@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
-import { getEmailById } from '@/lib/gmail-service';
+import { getEmailById, listEmails } from '@/lib/gmail-service';
 import { Mistral } from '@mistralai/mistralai';
 import { createHMPrompt, createMyntraPrompt } from '@/lib/email-extraction-prompts';
 import { addItemsToWardrobe } from '@/lib/wardrobe-integration';
@@ -18,11 +18,7 @@ export async function POST(req: NextRequest) {
 
     // Parse the request body
     const body = await req.json();
-    const { emailId, retailer } = body;
-
-    if (!emailId) {
-      return NextResponse.json({ error: 'Email ID is required' }, { status: 400 });
-    }
+    const { emailId, retailer, maxEmails } = body;
 
     if (!retailer) {
       return NextResponse.json({ error: 'Retailer is required' }, { status: 400 });
@@ -37,32 +33,161 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch the email HTML content
-    log('Fetching email content via Gmail API', { emailId, retailer: normalizedRetailer });
-    const email = await getEmailById(session.user.id, emailId);
-    
-    if (!email) {
-      return NextResponse.json({ error: 'Failed to fetch email content' }, { status: 500 });
+    // Determine if we're processing a single email or batch processing
+    if (emailId) {
+      // Single email processing
+      return await processSingleEmail(session.user.id, emailId, normalizedRetailer);
+    } else if (maxEmails) {
+      // Batch processing of multiple emails
+      return await processMultipleEmails(session.user.id, normalizedRetailer, maxEmails);
+    } else {
+      return NextResponse.json({ error: 'Either emailId or maxEmails parameter is required' }, { status: 400 });
     }
-    
-    if (!email.body?.html) {
-      return NextResponse.json({ error: 'No HTML content found in email' }, { status: 400 });
-    }
+  } catch (error) {
+    log('Error in add-from-emails-html API', { error });
+    return NextResponse.json({
+      error: 'Failed to extract items from email HTML',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
 
-    // Process the HTML content to extract items
-    log('Processing HTML content with AI', { emailId });
+/**
+ * Process a single email and extract items from it
+ */
+async function processSingleEmail(userId: string, emailId: string, retailer: string) {
+  // Fetch the email HTML content
+  log('Fetching email content via Gmail API', { emailId, retailer });
+  const email = await getEmailById(userId, emailId);
+  
+  if (!email) {
+    return NextResponse.json({ error: 'Failed to fetch email content' }, { status: 500 });
+  }
+  
+  if (!email.body?.html) {
+    return NextResponse.json({ error: 'No HTML content found in email' }, { status: 400 });
+  }
+
+  // Process the HTML content to extract items
+  log('Processing HTML content with AI', { emailId });
+  
+  try {
+    const items = await extractItemsFromHtml(
+      email.body.html, 
+      retailer
+    );
     
-    try {
-      const items = await extractItemsFromHtml(
-        email.body.html, 
-        normalizedRetailer
+    // Add items to the user's wardrobe
+    if (items.length > 0) {
+      log('Adding items to wardrobe', { count: items.length, emailId });
+      
+      // Convert ExtractedItem to ExtractedWardrobeItem
+      const wardrobeItems = items.map(item => ({
+        brand: item.brand,
+        name: item.name,
+        price: item.price || '',
+        originalPrice: item.originalPrice || '',
+        discount: item.discount || '',
+        size: item.size || '',
+        color: item.color || '',
+        imageUrl: item.image,
+        productLink: item.productLink || '',
+        emailId,
+        retailer
+      }));
+      
+      const result = await addItemsToWardrobe(
+        userId,
+        wardrobeItems
       );
       
-      // Add items to the user's wardrobe
+      return NextResponse.json({
+        success: true,
+        message: `${result.addedItems} items added to wardrobe`,
+        totalItemsFound: items.length,
+        itemsAdded: result.addedItems,
+        items: result.addedWardrobeItems
+      });
+    } else {
+      return NextResponse.json({
+        success: false,
+        message: '0 items detected in the email',
+        totalItemsFound: 0,
+        itemsAdded: 0,
+        items: []
+      });
+    }
+  } catch (error) {
+    log('Error processing HTML content', { error, emailId });
+    return NextResponse.json({
+      error: 'Failed to process email HTML content',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
+
+/**
+ * Process multiple emails and extract items from them
+ */
+async function processMultipleEmails(userId: string, retailer: string, maxEmails: number) {
+  log('Processing multiple emails', { retailer, maxEmails });
+  
+  // Create retailer-specific search query
+  const orderConfirmationKeywords = [
+    'order confirmation',
+    'order confirmed',
+    'order placed',
+    'thank you for your order',
+    'your order',
+    'order number',
+    'order receipt',
+    'purchase confirmation',
+    'receipt'
+  ];
+  
+  const confirmationKeywordQuery = orderConfirmationKeywords
+    .map(keyword => `subject:(${keyword})`)
+    .join(' OR ');
+
+  const searchQuery = retailer === 'myntra'
+    ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
+    : `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`;
+
+  // Fetch emails
+  const emailsResponse = await listEmails(userId, {
+    q: searchQuery,
+    maxResults: maxEmails,
+  });
+  
+  if (!emailsResponse.messages || emailsResponse.messages.length === 0) {
+    return NextResponse.json({
+      success: false,
+      message: 'No matching emails found',
+      totalItemsFound: 0,
+      itemsAdded: 0,
+      items: []
+    });
+  }
+  
+  // Process each email one by one
+  let totalItemsFound = 0;
+  let totalItemsAdded = 0;
+  const addedItems = [];
+  const errors = [];
+  
+  for (const emailMessage of emailsResponse.messages) {
+    try {
+      const email = await getEmailById(userId, emailMessage.id);
+      
+      if (!email?.body?.html) {
+        errors.push({ emailId: emailMessage.id, error: 'No HTML content found' });
+        continue;
+      }
+      
+      const items = await extractItemsFromHtml(email.body.html, retailer);
+      totalItemsFound += items.length;
+      
       if (items.length > 0) {
-        log('Adding items to wardrobe', { count: items.length, emailId });
-        
-        // Convert ExtractedItem to ExtractedWardrobeItem
         const wardrobeItems = items.map(item => ({
           brand: item.brand,
           name: item.name,
@@ -73,45 +198,32 @@ export async function POST(req: NextRequest) {
           color: item.color || '',
           imageUrl: item.image,
           productLink: item.productLink || '',
-          emailId,
-          retailer: normalizedRetailer
+          emailId: emailMessage.id,
+          retailer
         }));
         
-        const result = await addItemsToWardrobe(
-          session.user.id,
-          wardrobeItems
-        );
-        
-        return NextResponse.json({
-          success: true,
-          message: `${result.addedItems} items added to wardrobe`,
-          totalItemsFound: items.length,
-          itemsAdded: result.addedItems,
-          items: result.addedWardrobeItems
-        });
-      } else {
-        return NextResponse.json({
-          success: false,
-          message: '0 items detected in the email',
-          totalItemsFound: 0,
-          itemsAdded: 0,
-          items: []
-        });
+        const result = await addItemsToWardrobe(userId, wardrobeItems);
+        totalItemsAdded += result.addedItems;
+        addedItems.push(...result.addedWardrobeItems);
       }
     } catch (error) {
-      log('Error processing HTML content', { error, emailId });
-      return NextResponse.json({
-        error: 'Failed to process email HTML content',
-        details: error instanceof Error ? error.message : String(error)
-      }, { status: 500 });
+      log('Error processing email', { error, emailId: emailMessage.id });
+      errors.push({ 
+        emailId: emailMessage.id, 
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
-  } catch (error) {
-    log('Error in add-from-emails-html API', { error });
-    return NextResponse.json({
-      error: 'Failed to extract items from email HTML',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
   }
+  
+  return NextResponse.json({
+    success: totalItemsAdded > 0,
+    message: `${totalItemsAdded} items added to wardrobe from ${emailsResponse.messages.length} emails`,
+    totalItemsFound,
+    itemsAdded: totalItemsAdded,
+    items: addedItems,
+    processedEmails: emailsResponse.messages.length,
+    errors: errors.length > 0 ? errors : undefined
+  });
 }
 
 /**
