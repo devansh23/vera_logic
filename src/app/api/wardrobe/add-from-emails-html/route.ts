@@ -26,9 +26,9 @@ export async function POST(req: NextRequest) {
 
     // Validate retailer
     const normalizedRetailer = retailer.trim().toLowerCase();
-    if (!['h&m', 'myntra'].includes(normalizedRetailer)) {
+    if (!['h&m', 'myntra', 'zara'].includes(normalizedRetailer)) {
       return NextResponse.json(
-        { error: 'Invalid retailer. Supported retailers: H&M, Myntra' },
+        { error: 'Invalid retailer. Supported retailers: H&M, Myntra, Zara' },
         { status: 400 }
       );
     }
@@ -151,6 +151,8 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
 
   const searchQuery = retailer === 'myntra'
     ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
+    : retailer === 'zara'
+    ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
     : `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`;
 
   // Fetch emails

@@ -214,6 +214,7 @@ export default function EmailFetcher() {
         >
           <option value="Myntra">Myntra</option>
           <option value="H&M">H&M</option>
+          <option value="Zara">Zara</option>
         </select>
         <button
           onClick={fetchEmails}

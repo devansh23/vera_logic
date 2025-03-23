@@ -39,6 +39,9 @@ export async function extractItemsFromEmail(email: EmailMessage, retailer: strin
     case 'h&m':
       items = await extractHnMItems(email);
       break;
+    case 'zara':
+      items = await extractZaraItems(email);
+      break;
     default:
       // Use generic extractor for unknown retailers
       items = await extractGenericItems(email, retailer);
@@ -176,6 +179,61 @@ async function extractHnMItems(email: EmailMessage): Promise<ExtractedWardrobeIt
       color: product.color,
       productLink: product.productLink,
       retailer: 'H&M',
+      emailId: email.id,
+      orderId
+    };
+  });
+}
+
+/**
+ * Extract items from Zara emails
+ */
+async function extractZaraItems(email: EmailMessage): Promise<ExtractedWardrobeItem[]> {
+  if (!email.body?.html) return [];
+  
+  const dom = new JSDOM(email.body.html);
+  const document = dom.window.document;
+  
+  const extractedProducts = extractProductsFromHtml(email.body.html);
+  const extractedImages = extractImages(email.body.html);
+  
+  // Extract order ID from subject or email body
+  // Zara order numbers are typically numeric, sometimes prefixed with "#"
+  const orderIdMatch = (email.subject && email.subject.match(/Order\s+[#:]?\s*([A-Za-z0-9-_]+)/i)) || 
+                       email.body.html.match(/Order\s+[#:]?\s*([A-Za-z0-9-_]+)/i) ||
+                       email.body.html.match(/Order\s+(?:number|reference|ID)[#:]?\s*([A-Za-z0-9-_]+)/i);
+  const orderId = orderIdMatch ? orderIdMatch[1] : undefined;
+  
+  return extractedProducts.map(product => {
+    // Find the best image for this product
+    let imageUrl: string | undefined = undefined;
+    
+    // First check if the product already has images
+    if (product.images && product.images.length > 0) {
+      imageUrl = product.images[0];
+    } else {
+      // Try to match images with product by alt text or context
+      const matchingImage = extractedImages.find(img => 
+        (img.alt && product.name && img.alt.includes(product.name)) ||
+        (img.alt && product.brand && img.alt.includes(product.brand))
+      );
+      
+      if (matchingImage) {
+        imageUrl = matchingImage.src;
+      }
+    }
+    
+    return {
+      brand: product.brand || 'Zara',
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      discount: product.discount,
+      imageUrl,
+      size: product.size,
+      color: product.color,
+      productLink: product.productLink,
+      retailer: 'Zara',
       emailId: email.id,
       orderId
     };

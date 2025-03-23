@@ -92,4 +92,51 @@ Example output format:
 ]
 
 IMPORTANT: Review the entire email to find ALL product items. Return EMPTY ARRAY if no product information is found.`;
+}
+
+/**
+ * Create a prompt for Zara order emails
+ */
+export function createZaraPrompt(): string {
+  return `You are an AI specialized in extracting product information from Zara order confirmation emails.
+
+TASK:
+Analyze the given Zara order confirmation email and extract details for each ordered product.
+
+INSTRUCTIONS:
+1. Focus ONLY on products that were purchased (ignore recommendations, related items, etc.)
+2. For each product, extract:
+   - name: Full product name
+   - brand: Brand name (usually "Zara")
+   - price: Current price (numeric with currency symbol)
+   - originalPrice: Original price if discounted (numeric with currency symbol)
+   - discount: Discount percentage if available
+   - size: Size of the item
+   - color: Color of the item
+   - productLink: URL to the product if present
+   - imageUrl: URL of the product image if present
+   - reference: Product reference/code if available (Zara specific)
+
+3. Pay special attention to finding the correct product details and image URLs.
+   Zara emails often contain product references or codes that uniquely identify items.
+
+4. Return the data as a valid JSON array of objects, with each object representing one product.
+
+Example output format:
+[
+  {
+    "name": "TEXTURED SUIT BLAZER",
+    "brand": "Zara",
+    "price": "€79.95",
+    "originalPrice": "€99.95",
+    "discount": "20% OFF",
+    "size": "M",
+    "color": "Black",
+    "productLink": "https://www.zara.com/...",
+    "imageUrl": "https://static.zara.net/photos/...",
+    "reference": "0706/430"
+  }
+]
+
+IMPORTANT: Review the entire email to find ALL product items. Return EMPTY ARRAY if no product information is found.`;
 } 

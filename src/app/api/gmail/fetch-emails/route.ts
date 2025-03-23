@@ -25,13 +25,13 @@ async function fetchEmailsHandler(request: NextRequest) {
   }
   
   // Normalize the retailer value by trimming and converting to lowercase
-  const normalizedRetailer = retailer.toLowerCase().trim();
+  const normalizedRetailer = retailer.toLowerCase();
   
   // Validate against allowed values
-  if (normalizedRetailer !== 'myntra' && normalizedRetailer !== 'h&m') {
+  if (normalizedRetailer !== 'myntra' && normalizedRetailer !== 'h&m' && normalizedRetailer !== 'hm' && normalizedRetailer !== 'zara') {
     throw new ApiError(`Invalid retailer specified: ${retailer}`, 400, { 
       providedValue: retailer,
-      allowedValues: ['Myntra', 'H&M'] 
+      allowedValues: ['Myntra', 'H&M', 'Zara'] 
     });
   }
 
@@ -56,7 +56,11 @@ async function fetchEmailsHandler(request: NextRequest) {
   // Build retailer-specific search query combined with confirmation keywords
   const searchQuery = normalizedRetailer === 'myntra'
     ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
-    : `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`;
+    : normalizedRetailer === 'h&m' || normalizedRetailer === 'hm'
+    ? `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`
+    : normalizedRetailer === 'zara'
+    ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
+    : `from:${retailer} AND (${confirmationKeywordQuery})`;
 
   try {
     const emailsResponse = await GmailService.listEmails(session.user.id, {
