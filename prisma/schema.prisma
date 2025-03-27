@@ -49,6 +49,12 @@ model User {
   accounts      Account[]
   sessions      Session[]
   wardrobe      Wardrobe[]
+  // Gmail OAuth fields
+  gmailAccessToken   String?    @db.Text
+  gmailRefreshToken  String?    @db.Text
+  gmailTokenExpiry   DateTime?
+  gmailConnected     Boolean    @default(false)
+  gmailLastSynced    DateTime?
 }
 
 model VerificationToken {
@@ -60,18 +66,23 @@ model VerificationToken {
 }
 
 model Wardrobe {
-  id          String   @id @default(cuid())
-  userId      String
-  brand       String
-  name        String
-  price       String
+  id            String   @id @default(cuid())
+  userId        String
+  brand         String
+  name          String
+  price         String
   originalPrice String?
-  discount    String?
-  image       String?
-  productLink String?
-  myntraLink  String?
-  size        String?
-  color       String?
-  dateAdded   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discount      String?
+  image         String?
+  productLink   String?
+  myntraLink    String?
+  size          String?
+  color         String?
+  dateAdded     DateTime @default(now())
+  // Source tracking for items added from emails
+  source        String?  // 'email', 'manual', etc.
+  sourceEmailId String?  // Reference to the email ID this was extracted from
+  sourceOrderId String?  // Order ID from the email
+  sourceRetailer String? // Retailer name (Myntra, H&M, etc.)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

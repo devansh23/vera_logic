@@ -162,19 +162,37 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
           className="w-full h-full object-contain bg-gray-50"
         />
       </div>
+      <button
+        onClick={onDelete}
+        className="absolute top-2 left-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Delete item"
+      >
+        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </button>
+      <div className="absolute top-2 right-2 group/price">
+        <div className="bg-white shadow-md rounded-lg p-2 cursor-help">
+          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+          </svg>
+          <div className="absolute right-0 top-full mt-2 w-auto min-w-max bg-white shadow-lg rounded-lg p-3 opacity-0 invisible group-hover/price:opacity-100 group-hover/price:visible transition-all duration-200 z-10">
+            <div className="flex flex-col gap-1">
+              <span className="font-bold text-gray-900">{product.price}</span>
+              {product.originalPrice && (
+                <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
+              )}
+              {product.discount && (
+                <span className="text-sm text-green-600">{product.discount}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div className="p-4 bg-white">
       <h3 className="font-semibold mb-1">{product.brand}</h3>
       <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-bold">{product.price}</span>
-        {product.originalPrice && (
-          <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
-        )}
-        {product.discount && (
-          <span className="text-sm text-green-600">{product.discount}</span>
-        )}
-      </div>
       <div className="flex flex-col gap-2">
         {(product.productLink || product.myntraLink) && (
           <a
@@ -189,15 +207,6 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
             </svg>
           </a>
         )}
-        <button
-          onClick={onDelete}
-          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-label="Delete item"
-        >
-          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
       </div>
     </div>
   </div>
@@ -932,9 +941,6 @@ export default function Home() {
             )}
             <span className="text-sm">{session.user.name}</span>
             <button className="text-sm text-purple-600 hover:underline" onClick={() => signOut()}>Sign Out</button>
-            <a href="/email-fetcher" className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 ml-2">
-              Email Fetcher
-            </a>
           </div>
         )}
         
@@ -948,69 +954,61 @@ export default function Home() {
         {session ? (
           <div className="relative max-w-2xl mx-auto mb-16">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <a 
+                href="/email-fetcher" 
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Import Items from Your Email
+              </a>
               <div className="flex flex-col sm:flex-row gap-4">
-                <input
-                  type="text"
-                  placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-                <button 
-                  type="submit"
-                  className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Loading...' : inputValue.includes('myntra.com') ? 'Add to Wardrobe' : 'Search'}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-center gap-4">
-                <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="text-gray-500">or</span>
-                <div className="flex-1 h-px bg-gray-200"></div>
-              </div>
-
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex flex-wrap justify-center gap-4">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
                   <input
                     type="file"
-                    accept="image/*"
-                    onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                    accept="image/*,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.type.startsWith('image/')) {
+                        handleImageUpload(file);
+                      } else if (file.type === 'application/pdf') {
+                        handlePdfUpload(file);
+                      }
+                    }}
                     className="hidden"
                     ref={fileInputRef}
                   />
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
-                    disabled={isProcessingImage}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                    aria-label="Upload file"
                   >
-                    {isProcessingImage ? 'Processing...' : 'Upload Order Screenshot'}
-                  </button>
-                  
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => e.target.files?.[0] && handlePdfUpload(e.target.files[0])}
-                    className="hidden"
-                    ref={pdfInputRef}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => pdfInputRef.current?.click()}
-                    className="px-8 py-3 border-2 border-dashed border-purple-300 text-purple-600 rounded-lg hover:border-purple-500 hover:text-purple-700 transition-all"
-                  >
-                    Upload PDF
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
                   </button>
                 </div>
-                <p className="text-sm text-gray-500">
-                  Or paste (Ctrl/Cmd + V) a screenshot of your Myntra order
-                </p>
+                <button 
+                  type="submit"
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Add to Wardrobe'}
+                </button>
               </div>
 
               {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+                <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
                   {error}
                 </div>
               )}
