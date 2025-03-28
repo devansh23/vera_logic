@@ -36,6 +36,8 @@ interface MyntraProduct {
   size?: string;
   quantity?: string;
   seller?: string;
+  sourceRetailer?: string;
+  id: string;
 }
 
 interface WardrobeItem {
@@ -60,6 +62,24 @@ interface SearchResult {
 // Add types for categorized wardrobe
 interface CategoryMap {
   [key: string]: MyntraProduct[];
+}
+
+// Add new interfaces for sorting and filtering
+interface FilterOptions {
+  categories: string[];
+  brands: string[];
+  retailers: string[];
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  sizes: string[];
+  colors: string[];
+}
+
+interface SortOption {
+  type: 'date' | 'name' | 'price';
+  direction: 'asc' | 'desc';
 }
 
 function getYouTubeVideoId(url: string): string | null {
@@ -241,7 +261,7 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Briefs & Trunks': ['brief', 'trunk', 'underwear', 'undergarment', 'men brief', 'men trunk'],
     'Boxers': ['boxer', 'boxer brief', 'boxer short', 'men boxer'],
     'Vests': ['vest', 'undershirt', 'sleeveless undershirt', 'inner vest', 'men vest'],
-    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pyjama', 'lounge pant', 'night suit', 'night dress', 'sleep shirt', 'men sleepwear'],
+    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pyjama', 'lounge pant', 'night suit', 'night dress', 'sleep shirt', 'men sleepwear', 'lounge shorts', 'sleep shorts', 'night shorts'],
     'Mens Thermals': ['thermal', 'thermal wear', 'winter thermal', 'heat tech', 'warm underwear', 'men thermal'],
 
     // ====== MEN'S INDIAN & FESTIVE WEAR ======
@@ -254,7 +274,7 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'men plus size'],
     
     // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'everyday shoe', 'lifestyle shoe', 'men casual shoe'],
+    'Mens Casual Shoes': ['casual shoe', 'everyday shoe', 'lifestyle shoe', 'men casual shoe', 'espadrille', 'espadrilles', 'canvas shoe'],
     'Mens Sports Shoes': ['sports shoe', 'running shoe', 'training shoe', 'athletic shoe', 'gym shoe', 'men sports shoe'],
     'Formal Shoes': ['formal shoe', 'oxford', 'brogue', 'derby', 'loafer', 'monk shoe', 'dress shoe', 'men formal shoe'],
     'Sneakers': ['sneaker', 'casual sneaker', 'fashion sneaker', 'high-top', 'low-top', 'men sneaker'],
@@ -400,15 +420,41 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     
     let matched = false;
     
-    // Special case: handle joggers and track pants first to avoid misclassification
-    if (/\b(jogger|track\s*pant|sweat\s*pant)\b/i.test(nameAndDesc)) {
-      const category = 'Track Pants & Joggers';
+    // Special case: handle footwear first to avoid misclassification
+    if (/\b(espadrille|canvas shoe|casual shoe)\b/i.test(nameAndDesc)) {
+      const category = 'Mens Casual Shoes';
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
-    } 
+    }
+    
+    // Special case: handle shorts and loungewear first to avoid misclassification
+    else if (/\b(shorts?|bermuda|cargo)\b/i.test(nameAndDesc)) {
+      let category = 'Mens Shorts';
+      
+      // Check if it's loungewear/sleepwear
+      if (/\b(lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
+        category = 'Mens Sleepwear & Loungewear';
+      }
+      
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push(item);
+      matched = true;
+    }
+    
+    // Special case: handle loungewear and sleepwear that aren't shorts
+    else if (/\b(lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
+      const category = 'Mens Sleepwear & Loungewear';
+      if (!categories[category]) {
+        categories[category] = [];
+      }
+      categories[category].push(item);
+      matched = true;
+    }
     
     // Special case: handle shirts to ensure proper classification
     else if (/\b(shirt)\b/i.test(nameAndDesc)) {
@@ -442,36 +488,13 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     }
     
     // Special case: handle women's lingerie to ensure proper classification
-    else if (/\b(bra|panty|underwear|lingerie|shapewear|bodysuit)\b/i.test(nameAndDesc)) {
+    else if (/\b(bra|brassiere|panty|underwear|lingerie|shapewear|bodysuit)\b/i.test(nameAndDesc) &&
+             !/\b(shorts?|bermuda|cargo|lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
       let category = 'Briefs';
       if (/\b(bra|brassiere)\b/i.test(nameAndDesc)) {
         category = 'Bra';
       } else if (/\b(shapewear|body\s*shaper|slimming|control)\b/i.test(nameAndDesc)) {
         category = 'Shapewear';
-      }
-      
-      if (!categories[category]) {
-        categories[category] = [];
-      }
-      categories[category].push(item);
-      matched = true;
-    }
-    
-    // Special case: handle bottomwear that might be incorrectly classified as dresses
-    else if (/\b(trouser|pant|chino|jeans|shorts)\b/i.test(nameAndDesc) && nameAndDesc.includes('dressy')) {
-      // Check specific keywords to determine exact category
-      let category = 'Casual Trousers';
-      
-      if (/\bjogger|\btrack pant/i.test(nameAndDesc)) {
-        category = 'Track Pants & Joggers';
-      } else if (/\bjean/i.test(nameAndDesc)) {
-        category = 'Mens Jeans';
-      } else if (/\bshort/i.test(nameAndDesc)) {
-        category = 'Mens Shorts';
-      } else if (/\bformal|\bdress pant/i.test(nameAndDesc)) {
-        category = 'Formal Trousers';
-      } else if (/\bwomen|\bladies/i.test(nameAndDesc)) {
-        category = 'Trousers & Capris';
       }
       
       if (!categories[category]) {
@@ -552,6 +575,17 @@ export default function Home() {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
   // Add state for wardrobe search/filter
   const [wardrobeFilter, setWardrobeFilter] = useState('')
+  const [sortOption, setSortOption] = useState<SortOption>({ type: 'date', direction: 'desc' });
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    categories: [],
+    brands: [],
+    retailers: [],
+    priceRange: { min: 0, max: Infinity },
+    sizes: [],
+    colors: []
+  });
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
 
   // Load user's wardrobe on session change
   useEffect(() => {
@@ -818,7 +852,8 @@ export default function Home() {
           seller: item.seller || '',
           productLink: item.productLink || item.myntraLink || '', // Handle both types of links
           myntraLink: item.myntraLink || '', // Keep for backward compatibility
-          dateAdded: new Date().toISOString()
+          dateAdded: new Date().toISOString(),
+          id: item.id || '',
         }));
 
         setProducts(prevProducts => [...prevProducts, ...newProducts]);
@@ -918,17 +953,96 @@ export default function Home() {
     }));
   };
 
-  // Add function to filter wardrobe items
+  // Add helper function to extract unique values
+  const getUniqueValues = (products: MyntraProduct[], key: keyof MyntraProduct) => {
+    return Array.from(new Set(products.map(product => product[key]).filter(Boolean)));
+  };
+
+  // Add function to get price as number
+  const getPriceAsNumber = (price: string) => {
+    return Number(price.replace(/[^0-9.-]+/g, '')) || 0;
+  };
+
+  // Add sorting function
+  const getSortedProducts = (products: MyntraProduct[]) => {
+    return [...products].sort((a, b) => {
+      switch (sortOption.type) {
+        case 'date':
+          const dateA = new Date(a.dateAdded || 0);
+          const dateB = new Date(b.dateAdded || 0);
+          return sortOption.direction === 'asc' 
+            ? dateA.getTime() - dateB.getTime()
+            : dateB.getTime() - dateA.getTime();
+        case 'name':
+          return sortOption.direction === 'asc'
+            ? (a.name || '').localeCompare(b.name || '')
+            : (b.name || '').localeCompare(a.name || '');
+        case 'price':
+          const priceA = getPriceAsNumber(a.price);
+          const priceB = getPriceAsNumber(b.price);
+          return sortOption.direction === 'asc'
+            ? priceA - priceB
+            : priceB - priceA;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  // Add filtering function with proper types
   const getFilteredProducts = () => {
-    if (!wardrobeFilter.trim()) return products;
+    if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => 
+      Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity
+    )) {
+      return getSortedProducts(products);
+    }
     
-    const filterLower = wardrobeFilter.toLowerCase();
-    return products.filter(product => 
-      product.name.toLowerCase().includes(filterLower) ||
-      product.brand.toLowerCase().includes(filterLower) ||
-      (product.color && product.color.toLowerCase().includes(filterLower)) ||
-      (product.size && product.size.toLowerCase().includes(filterLower))
-    );
+    return getSortedProducts(products.filter(product => {
+      // Text search
+      const searchMatch = !wardrobeFilter.trim() || [
+        product.name,
+        product.brand,
+        product.color,
+        product.size
+      ].some(field => field?.toLowerCase().includes(wardrobeFilter.toLowerCase()));
+
+      // Category filter
+      const categoryMatch = filterOptions.categories.length === 0 || 
+        filterOptions.categories.includes(product.category || 'Uncategorized');
+
+      // Brand filter
+      const brandMatch = filterOptions.brands.length === 0 ||
+        filterOptions.brands.includes(product.brand || '');
+
+      // Retailer filter
+      const retailerMatch = filterOptions.retailers.length === 0 ||
+        filterOptions.retailers.includes(product.sourceRetailer || 'Unknown');
+
+      // Price filter
+      const price = getPriceAsNumber(product.price);
+      const priceMatch = price >= filterOptions.priceRange.min && 
+        price <= filterOptions.priceRange.max;
+
+      // Size filter
+      const sizeMatch = filterOptions.sizes.length === 0 ||
+        filterOptions.sizes.includes(product.size || '');
+
+      // Color filter
+      const colorMatch = filterOptions.colors.length === 0 ||
+        filterOptions.colors.includes(product.color || '');
+
+      return searchMatch && categoryMatch && brandMatch && retailerMatch && 
+        priceMatch && sizeMatch && colorMatch;
+    }));
+  };
+
+  // Add bulk delete function with proper types
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    
+    const updatedProducts = products.filter(product => !selectedItems.has(product.id));
+    setProducts(updatedProducts);
+    setSelectedItems(new Set());
   };
 
   return (
@@ -1070,7 +1184,7 @@ export default function Home() {
                       </div>
                       <div className="flex flex-col gap-2">
                         <button 
-                          className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
+                          className="px-4 py-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
                           onClick={() => handleProductSelect(result.url)}
                           disabled={isLoading}
                         >
@@ -1138,66 +1252,268 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Add search/filter for wardrobe items */}
-            <div className="mb-6">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search your wardrobe by name, brand, color or size..."
-                  value={wardrobeFilter}
-                  onChange={(e) => setWardrobeFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  {wardrobeFilter ? (
+            {/* Add sorting and filtering controls */}
+            <div className="mb-6 space-y-4">
+              {/* Search and main controls */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    placeholder="Search your wardrobe by name, brand, color or size..."
+                    value={wardrobeFilter}
+                    onChange={(e) => setWardrobeFilter(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    {wardrobeFilter && (
+                      <button
+                        onClick={() => setWardrobeFilter('')}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <select
+                    value={sortOption.type}
+                    onChange={(e) => setSortOption({ ...sortOption, type: e.target.value as 'date' | 'name' | 'price' })}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                  >
+                    <option value="date">Date</option>
+                    <option value="name">Name</option>
+                    <option value="price">Price</option>
+                  </select>
+
+                  <select
+                    value={sortOption.direction}
+                    onChange={(e) => setSortOption({ ...sortOption, direction: e.target.value as 'asc' | 'desc' })}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filters
+                    {Object.values(filterOptions).some(v => Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity) && (
+                      <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                        Active
+                      </span>
+                    )}
+                  </button>
+
+                  {selectedItems.size > 0 && (
                     <button
-                      onClick={() => setWardrobeFilter('')}
-                      className="text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowDeleteConfirm(null)}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
+                      Delete Selected ({selectedItems.size})
                     </button>
-                  ) : (
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
                   )}
                 </div>
               </div>
+
+              {/* Filter panel */}
+              {showFilters && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Categories */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
+                      <select
+                        multiple
+                        value={filterOptions.categories}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          categories: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products, 'category').map(category => (
+                          <option key={category?.toString() || 'uncategorized'} value={category || 'Uncategorized'}>
+                            {category || 'Uncategorized'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Brands */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Brands</label>
+                      <select
+                        multiple
+                        value={filterOptions.brands}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          brands: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products, 'brand').map(brand => (
+                          <option key={brand?.toString() || 'unknown'} value={brand || 'Unknown'}>
+                            {brand || 'Unknown'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Retailers */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Retailers</label>
+                      <select
+                        multiple
+                        value={filterOptions.retailers}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          retailers: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products, 'sourceRetailer').map(retailer => (
+                          <option key={retailer?.toString() || 'unknown'} value={retailer || 'Unknown'}>
+                            {retailer || 'Unknown'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Price Range */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={filterOptions.priceRange.min || ''}
+                          onChange={(e) => setFilterOptions(prev => ({
+                            ...prev,
+                            priceRange: {
+                              ...prev.priceRange,
+                              min: Number(e.target.value) || 0
+                            }
+                          }))}
+                          className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={filterOptions.priceRange.max === Infinity ? '' : filterOptions.priceRange.max}
+                          onChange={(e) => setFilterOptions(prev => ({
+                            ...prev,
+                            priceRange: {
+                              ...prev.priceRange,
+                              max: Number(e.target.value) || Infinity
+                            }
+                          }))}
+                          className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Sizes */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Sizes</label>
+                      <select
+                        multiple
+                        value={filterOptions.sizes}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          sizes: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products, 'size').map(size => (
+                          <option key={size?.toString() || 'no-size'} value={size || ''}>
+                            {size || 'No Size'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Colors */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Colors</label>
+                      <select
+                        multiple
+                        value={filterOptions.colors}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          colors: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products, 'color').map(color => (
+                          <option key={color?.toString() || 'no-color'} value={color || ''}>
+                            {color || 'No Color'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Filter actions */}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setFilterOptions({
+                        categories: [],
+                        brands: [],
+                        retailers: [],
+                        priceRange: { min: 0, max: Infinity },
+                        sizes: [],
+                        colors: []
+                      })}
+                      className="px-4 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            {/* New categorized wardrobe display */}
-            <div className="space-y-6">
-              {Object.entries(categorizeItems(getFilteredProducts())).map(([category, items]) => (
+
+            {/* Update the WardrobeItem component to include selection */}
+            <div className="space-y-4">
+              {Object.entries(categorizeItems(getFilteredProducts()))
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([category, items]) => (
                 <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <button 
+                  <button
                     onClick={() => toggleCategory(category)}
-                    className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
                   >
-                    <div className="flex items-center">
-                      <h3 className="text-lg font-medium">{category}</h3>
-                      <span className="ml-2 text-sm text-gray-600">({items.length} items)</span>
-                    </div>
-                    <div className="text-gray-500">
-                      {expandedCategories[category] ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </div>
+                    <span className="font-medium text-gray-800">
+                      {category} ({items.length})
+                    </span>
+                    <svg
+                      className={`w-5 h-5 transform transition-transform ${
+                        expandedCategories[category] ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </button>
-                  
-                  {/* Collapsible category content */}
+
                   {expandedCategories[category] && (
                     <div className="p-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {items.map((product, index) => {
-                          // Find the global index of this product
                           const globalIndex = products.findIndex(p => 
                             p.name === product.name && 
                             p.brand === product.brand && 
@@ -1205,11 +1521,28 @@ export default function Home() {
                           );
                           
                           return (
-                            <WardrobeItem 
-                              key={`${category}-${index}`} 
-                              product={product} 
-                              onDelete={() => setShowDeleteConfirm(globalIndex)} 
-                            />
+                            <div key={`${category}-${index}`} className="relative group">
+                              <div className="absolute top-2 left-2 z-10">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedItems.has(product.id)}
+                                  onChange={(e) => {
+                                    const newSelected = new Set(selectedItems);
+                                    if (e.target.checked) {
+                                      newSelected.add(product.id);
+                                    } else {
+                                      newSelected.delete(product.id);
+                                    }
+                                    setSelectedItems(newSelected);
+                                  }}
+                                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                              </div>
+                              <WardrobeItem 
+                                product={product}
+                                onDelete={() => setShowDeleteConfirm(globalIndex)}
+                              />
+                            </div>
                           );
                         })}
                       </div>
@@ -1218,6 +1551,32 @@ export default function Home() {
                 </div>
               ))}
             </div>
+
+            {/* Add bulk delete confirmation modal */}
+            {selectedItems.size > 0 && showDeleteConfirm === null && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                  <h3 className="text-lg font-semibold mb-4">Delete Selected Items</h3>
+                  <p className="text-gray-600 mb-6">
+                    Are you sure you want to delete {selectedItems.size} selected items? This action cannot be undone.
+                  </p>
+                  <div className="flex justify-end gap-4">
+                    <button
+                      onClick={() => setShowDeleteConfirm(null)}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                    >
+                      Delete Selected
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

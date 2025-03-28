@@ -55,9 +55,9 @@ async function fetchEmailsHandler(request: NextRequest) {
 
   // Build retailer-specific search query combined with confirmation keywords
   const searchQuery = normalizedRetailer === 'myntra'
-    ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
+    ? `from:myntra.com subject:"Your Myntra order item has been shipped"`
     : normalizedRetailer === 'h&m' || normalizedRetailer === 'hm'
-    ? `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`
+    ? `from:delivery.hm.com subject:"Order Confirmation"`
     : normalizedRetailer === 'zara'
     ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
     : `from:${retailer} AND (${confirmationKeywordQuery})`;

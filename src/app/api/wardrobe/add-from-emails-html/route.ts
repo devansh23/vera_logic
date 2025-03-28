@@ -150,10 +150,10 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
     .join(' OR ');
 
   const searchQuery = retailer === 'myntra'
-    ? `(from:myntra.com OR from:donotreply@myntra.com OR from:orders@myntra.com) AND (${confirmationKeywordQuery})`
+    ? `from:myntra.com subject:"Your Myntra order item has been shipped"`
     : retailer === 'zara'
     ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
-    : `(from:hm.com OR from:delivery.hm.com OR from:orders.hm.com OR from:mailer.hm.com) AND (${confirmationKeywordQuery})`;
+    : `from:delivery.hm.com subject:"Order Confirmation"`;
 
   // Fetch emails
   const emailsResponse = await listEmails(userId, {
