@@ -106,35 +106,53 @@ Analyze the given Zara order confirmation email and extract details for each ord
 INSTRUCTIONS:
 1. Focus ONLY on products that were purchased (ignore recommendations, related items, etc.)
 2. For each product, extract:
-   - name: Full product name
-   - brand: Brand name (usually "Zara")
-   - price: Current price (numeric with currency symbol)
-   - originalPrice: Original price if discounted (numeric with currency symbol)
+   - name: Full product name (always in ALL CAPS)
+   - brand: Always "Zara"
+   - price: Current price in INR format (e.g., "₹ 3,330.00")
+   - originalPrice: Original price if discounted
    - discount: Discount percentage if available
-   - size: Size of the item
-   - color: Color of the item
+   - size: Size of the item (may be letter sizes like "L" or EU sizes like "EU 42 (UK 32)")
+   - color: Color of the item (appears before the reference code)
    - productLink: URL to the product if present
    - imageUrl: URL of the product image if present
-   - reference: Product reference/code if available (Zara specific)
+   - reference: Product reference code in format "0/XXXX/XXX/XXX/XX" (e.g., "0/8574/400/707/04")
 
-3. Pay special attention to finding the correct product details and image URLs.
-   Zara emails often contain product references or codes that uniquely identify items.
+3. Look for these patterns in the HTML:
+   - Product containers are in tables with class "rd-product"
+   - Product names are in ALL CAPS in the first div after the product image
+   - Colors and reference codes are in a div with color #666666, typically in format "COLOR REFERENCE"
+   - Prices are in a format like "₹ 3,330.00" and appear in a div containing "unit"
+   - Image URLs contain "static.zara.net/photos" and follow a pattern with product reference code
 
-4. Return the data as a valid JSON array of objects, with each object representing one product.
+4. Pay special attention to the HTML structure:
+   - Each product is contained in a table with class "rd-product"
+   - Product image is in an <img> tag with class "rd-product-img"
+   - Product name is in a div with uppercase text
+   - Color and reference code are in a div with color #666666
+   - Price and quantity information are in a div containing "unit"
+   - Size information is in a final div
+
+5. Return the data as a valid JSON array of objects, with each object representing one product.
 
 Example output format:
 [
   {
-    "name": "TEXTURED SUIT BLAZER",
+    "name": "OVERSHIRT WITH POCKETS",
     "brand": "Zara",
-    "price": "€79.95",
-    "originalPrice": "€99.95",
-    "discount": "20% OFF",
-    "size": "M",
-    "color": "Black",
-    "productLink": "https://www.zara.com/...",
-    "imageUrl": "https://static.zara.net/photos/...",
-    "reference": "0706/430"
+    "price": "₹ 3,330.00",
+    "size": "L",
+    "color": "Camel",
+    "imageUrl": "https://static.zara.net/photos//2024/I/0/2/p/8574/400/707/2/8574400707_1_1_1.jpg?ts=1724398713635",
+    "reference": "0/8574/400/707/04"
+  },
+  {
+    "name": "STRAIGHT-LEG JEANS",
+    "brand": "Zara",
+    "price": "₹ 3,550.00",
+    "size": "EU 42 (UK 32)",
+    "color": "Mid-Blue",
+    "imageUrl": "https://static.zara.net/photos//2024/I/0/2/p/4048/310/427/2/4048310427_1_1_1.jpg?ts=1727436117024",
+    "reference": "0/4048/310/427/42"
   }
 ]
 

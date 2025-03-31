@@ -240,156 +240,166 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
   // Define clothing categories following Myntra's official structure for both men and women
   const categoryKeywords: Record<string, string[]> = {
     // ====== MEN'S TOPWEAR ======
-    'T-Shirts': ['t-shirt', 't shirt', 'tshirt', 'tee', 'men t-shirt', 'men tee'],
-    'Casual Shirts': ['casual shirt', 'linen shirt', 'denim shirt', 'oxford shirt', 'chambray shirt', 'men casual shirt'],
-    'Formal Shirts': ['formal shirt', 'dress shirt', 'business shirt', 'office shirt', 'men formal shirt'],
-    'Sweatshirts': ['sweatshirt', 'pullover sweat', 'hooded sweatshirt', 'men sweatshirt'],
-    'Sweaters': ['sweater', 'pullover', 'cardigan', 'jumper', 'knit', 'men sweater'],
-    'Jackets': ['jacket', 'bomber', 'trucker jacket', 'denim jacket', 'zip-up jacket', 'men jacket'],
-    'Blazers & Coats': ['blazer', 'coat', 'sports coat', 'suit jacket', 'overcoat', 'trench coat', 'men blazer', 'men coat'],
-    'Suits': ['suit', 'three piece', 'two piece suit', 'tuxedo', 'men suit'],
-    'Rain Jackets': ['rain jacket', 'raincoat', 'waterproof jacket', 'windcheater', 'men rain jacket'],
+    'T-Shirts': ['t-shirt', 't shirts', 't-shirts', 't shirt', 'tshirt', 'tshirts', 'tee', 'tees', 'men t-shirt', 'men tee', 'men t-shirts', 'tops'],
+    'Casual Shirts': ['casual shirt', 'casual shirts', 'linen shirt', 'linen shirts', 'denim shirt', 'denim shirts', 'oxford shirt', 'oxford shirts', 'chambray shirt', 'chambray shirts', 'men casual shirt', 'men casual shirts', 'shirts'],
+    'Formal Shirts': ['formal shirt', 'formal shirts', 'dress shirt', 'dress shirts', 'business shirt', 'business shirts', 'office shirt', 'office shirts', 'men formal shirt', 'men formal shirts'],
+    'Sweatshirts': ['sweatshirt', 'sweatshirts', 'pullover sweat', 'hooded sweatshirt', 'hooded sweatshirts', 'men sweatshirt', 'men sweatshirts', 'hoodie'],
+    'Sweaters': ['sweater', 'sweaters', 'pullover', 'pullovers', 'cardigan', 'cardigans', 'jumper', 'jumpers', 'knit', 'knits', 'men sweater', 'men sweaters'],
+    'Jackets': ['jacket', 'jackets', 'bomber', 'bombers', 'trucker jacket', 'trucker jackets', 'denim jacket', 'denim jackets', 'zip-up jacket', 'zip-up jackets', 'men jacket', 'men jackets', 'coats'],
+    'Blazers & Coats': ['blazer', 'blazers', 'coat', 'coats', 'sports coat', 'sports coats', 'suit jacket', 'suit jackets', 'overcoat', 'overcoats', 'trench coat', 'trench coats', 'men blazer', 'men blazers', 'men coat', 'men coats', 'suits'],
+    'Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
+    'Mens Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean'],
+    'Casual Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'trousers'],
+    'Mens Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts'],
+    'Track Pants & Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
+    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts'],
+    'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'tops'],
+    'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses'],
+    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim'],
+    'Trousers & Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants'],
+    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts'],
+    'Rain Jackets': ['rain jacket', 'rain jackets', 'raincoat', 'raincoats', 'waterproof jacket', 'waterproof jackets', 'windcheater', 'windcheaters', 'men rain jacket', 'men rain jackets'],
 
     // ====== MEN'S BOTTOMWEAR ======
-    'Mens Jeans': ['jeans', 'denim jean', 'jean', 'men jeans', 'men jean'],
-    'Casual Trousers': ['casual trouser', 'chinos', 'khakis', 'casual pant', 'men casual trouser', 'men chinos'],
-    'Formal Trousers': ['formal trouser', 'dress pant', 'dress trouser', 'suit pant', 'office trouser', 'men formal trouser'],
-    'Mens Shorts': ['shorts', 'bermuda', 'cargo shorts', 'denim shorts', 'men shorts'],
-    'Track Pants & Joggers': ['track pant', 'jogger', 'joggers', 'trackpant', 'track bottom', 'athletic pant', 'sweatpant', 'drawstring pant', 'dressy jogger', 'men jogger'],
+    'Mens Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean', 'H&M jeans'],
+    'Casual Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'H&M trousers'],
+    'Formal Trousers': ['formal trouser', 'formal trousers', 'dress pant', 'dress pants', 'dress trouser', 'dress trousers', 'suit pant', 'suit pants', 'office trouser', 'office trousers', 'men formal trouser', 'men formal trousers'],
+    'Mens Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts', 'H&M shorts'],
+    'Track Pants & Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
 
     // ====== MEN'S INNERWEAR & SLEEPWEAR ======
-    'Briefs & Trunks': ['brief', 'trunk', 'underwear', 'undergarment', 'men brief', 'men trunk'],
-    'Boxers': ['boxer', 'boxer brief', 'boxer short', 'men boxer'],
-    'Vests': ['vest', 'undershirt', 'sleeveless undershirt', 'inner vest', 'men vest'],
-    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pyjama', 'lounge pant', 'night suit', 'night dress', 'sleep shirt', 'men sleepwear', 'lounge shorts', 'sleep shorts', 'night shorts'],
-    'Mens Thermals': ['thermal', 'thermal wear', 'winter thermal', 'heat tech', 'warm underwear', 'men thermal'],
+    'Briefs & Trunks': ['brief', 'briefs', 'trunk', 'trunks', 'underwear', 'underwears', 'undergarment', 'undergarments', 'men brief', 'men briefs', 'men trunk', 'men trunks', 'H&M underwear'],
+    'Boxers': ['boxer', 'boxers', 'boxer brief', 'boxer briefs', 'boxer short', 'boxer shorts', 'men boxer', 'men boxers'],
+    'Vests': ['vest', 'vests', 'undershirt', 'undershirts', 'sleeveless undershirt', 'sleeveless undershirts', 'inner vest', 'inner vests', 'men vest', 'men vests'],
+    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts', 'H&M sleepwear'],
+    'Mens Thermals': ['thermal', 'thermals', 'thermal wear', 'winter thermal', 'winter thermals', 'heat tech', 'warm underwear', 'men thermal', 'men thermals'],
 
     // ====== MEN'S INDIAN & FESTIVE WEAR ======
-    'Kurtas & Kurta Sets': ['kurta', 'kurta set', 'kurta pajama', 'kurta pyjama', 'men kurta'],
-    'Sherwanis': ['sherwani', 'wedding sherwani', 'groom sherwani'],
-    'Nehru Jackets': ['nehru jacket', 'modi jacket', 'waistcoat', 'ethnic jacket', 'indian jacket'],
-    'Dhotis': ['dhoti', 'dhoti pant', 'ethnic bottom', 'men dhoti'],
+    'Kurtas & Kurta Sets': ['kurta', 'kurtas', 'kurta set', 'kurta sets', 'kurta pajama', 'kurta pajamas', 'kurta pyjama', 'kurta pyjamas', 'men kurta', 'men kurtas'],
+    'Sherwanis': ['sherwani', 'sherwanis', 'wedding sherwani', 'wedding sherwanis', 'groom sherwani', 'groom sherwanis'],
+    'Nehru Jackets': ['nehru jacket', 'nehru jackets', 'modi jacket', 'modi jackets', 'waistcoat', 'waistcoats', 'ethnic jacket', 'ethnic jackets', 'indian jacket', 'indian jackets'],
+    'Dhotis': ['dhoti', 'dhotis', 'dhoti pant', 'dhoti pants', 'ethnic bottom', 'ethnic bottoms', 'men dhoti', 'men dhotis'],
 
     // ====== MEN'S PLUS SIZE ======
-    'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'men plus size'],
+    'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'extended sizes', 'men plus size'],
     
     // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'everyday shoe', 'lifestyle shoe', 'men casual shoe', 'espadrille', 'espadrilles', 'canvas shoe'],
-    'Mens Sports Shoes': ['sports shoe', 'running shoe', 'training shoe', 'athletic shoe', 'gym shoe', 'men sports shoe'],
-    'Formal Shoes': ['formal shoe', 'oxford', 'brogue', 'derby', 'loafer', 'monk shoe', 'dress shoe', 'men formal shoe'],
-    'Sneakers': ['sneaker', 'casual sneaker', 'fashion sneaker', 'high-top', 'low-top', 'men sneaker'],
-    'Sandals & Floaters': ['sandal', 'floater', 'slider', 'open toe', 'men sandal'],
-    'Flip Flops': ['flip flop', 'thong', 'beach sandal', 'slipper', 'men flip flop'],
-    'Mens Socks': ['sock', 'ankle sock', 'crew sock', 'no-show sock', 'low cut sock', 'men sock'],
+    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'everyday shoe', 'everyday shoes', 'lifestyle shoe', 'lifestyle shoes', 'men casual shoe', 'men casual shoes', 'espadrille', 'espadrilles', 'canvas shoe', 'canvas shoes'],
+    'Mens Sports Shoes': ['sports shoe', 'sports shoes', 'running shoe', 'running shoes', 'training shoe', 'training shoes', 'athletic shoe', 'athletic shoes', 'gym shoe', 'gym shoes', 'men sports shoe', 'men sports shoes'],
+    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues', 'derby', 'derbies', 'loafer', 'loafers', 'monk shoe', 'monk shoes', 'dress shoe', 'dress shoes', 'men formal shoe', 'men formal shoes'],
+    'Sneakers': ['sneaker', 'sneakers', 'casual sneaker', 'casual sneakers', 'fashion sneaker', 'fashion sneakers', 'high-top', 'high-tops', 'low-top', 'low-tops', 'men sneaker', 'men sneakers'],
+    'Sandals & Floaters': ['sandal', 'sandals', 'floater', 'floaters', 'slider', 'sliders', 'open toe', 'open toes', 'men sandal', 'men sandals'],
+    'Flip Flops': ['flip flop', 'flip flops', 'thong', 'thongs', 'beach sandal', 'beach sandals', 'slipper', 'slippers', 'men flip flop', 'men flip flops'],
+    'Mens Socks': ['sock', 'socks', 'ankle sock', 'ankle socks', 'crew sock', 'crew socks', 'no-show sock', 'no-show socks', 'low cut sock', 'low cut socks', 'men sock', 'men socks'],
     
     // ====== PERSONAL CARE & GROOMING ======
-    'Personal Care & Grooming': ['grooming', 'personal care', 'skincare', 'face wash', 'moisturizer', 'sunscreen', 'men grooming'],
+    'Personal Care & Grooming': ['grooming', 'personal care', 'skincare', 'face wash', 'face washes', 'moisturizer', 'moisturizers', 'sunscreen', 'sunscreens', 'men grooming'],
     
     // ====== SUNGLASSES & FRAMES ======
-    'Sunglasses & Frames': ['sunglasses', 'eyeglasses', 'spectacles', 'frames', 'sun glass', 'shades'],
+    'Sunglasses & Frames': ['sunglass', 'sunglasses', 'eyeglass', 'eyeglasses', 'spectacle', 'spectacles', 'frame', 'frames', 'sun glass', 'sun glasses', 'shade', 'shades'],
     
     // ====== WATCHES ======
-    'Mens Watches': ['watch', 'wristwatch', 'analog watch', 'digital watch', 'chronograph', 'men watch'],
+    'Mens Watches': ['watch', 'watches', 'wristwatch', 'wristwatches', 'analog watch', 'analog watches', 'digital watch', 'digital watches', 'chronograph', 'chronographs', 'men watch', 'men watches'],
     
     // ====== SPORTS & ACTIVE WEAR ======
-    'Sports Sandals': ['sports sandal', 'hiking sandal', 'outdoor sandal'],
-    'Active T-Shirts': ['active t-shirt', 'gym t-shirt', 'workout tee', 'sport tee', 'training t-shirt', 'dry fit', 'quick dry'],
-    'Track Pants & Shorts': ['track pant', 'athletic short', 'running short', 'gym short', 'workout pant'],
-    'Tracksuits': ['tracksuit', 'training suit', 'warm up suit', 'athletic set'],
-    'Sports Jackets & Sweatshirts': ['sports jacket', 'athletic jacket', 'hoodie', 'workout sweatshirt', 'gym hoodie'],
-    'Mens Sports Accessories': ['sports accessory', 'wristband', 'headband', 'sport sock', 'gym glove'],
-    'Mens Swimwear': ['swimwear', 'swim trunk', 'swimming short', 'swim brief', 'men swimwear'],
+    'Sports Sandals': ['sports sandal', 'sports sandals', 'hiking sandal', 'hiking sandals', 'outdoor sandal', 'outdoor sandals'],
+    'Active T-Shirts': ['active t-shirt', 'active t-shirts', 'gym t-shirt', 'gym t-shirts', 'workout tee', 'workout tees', 'sport tee', 'sport tees', 'training t-shirt', 'training t-shirts', 'dry fit', 'quick dry'],
+    'Track Pants & Shorts': ['track pant', 'track pants', 'athletic short', 'athletic shorts', 'running short', 'running shorts', 'gym short', 'gym shorts', 'workout pant', 'workout pants'],
+    'Tracksuits': ['tracksuit', 'tracksuits', 'training suit', 'training suits', 'warm up suit', 'warm up suits', 'athletic set', 'athletic sets'],
+    'Sports Jackets & Sweatshirts': ['sports jacket', 'sports jackets', 'athletic jacket', 'athletic jackets', 'hoodie', 'hoodies', 'workout sweatshirt', 'workout sweatshirts', 'gym hoodie', 'gym hoodies'],
+    'Mens Sports Accessories': ['sports accessory', 'sports accessories', 'wristband', 'wristbands', 'headband', 'headbands', 'sport sock', 'sport socks', 'gym glove', 'gym gloves'],
+    'Mens Swimwear': ['swimwear', 'swim trunk', 'swim trunks', 'swimming short', 'swimming shorts', 'swim brief', 'swim briefs', 'men swimwear'],
     
     // ====== GADGETS ======
-    'Smart Wearables': ['smart watch', 'fitness tracker', 'smart band', 'activity tracker'],
-    'Fitness Gadgets': ['fitness gadget', 'smart scale', 'muscle massager', 'fitness monitor'],
-    'Headphones': ['headphone', 'earphone', 'earbud', 'wireless earphone', 'airpod'],
-    'Speakers': ['speaker', 'bluetooth speaker', 'wireless speaker', 'portable speaker'],
+    'Smart Wearables': ['smart watch', 'smart watches', 'fitness tracker', 'fitness trackers', 'smart band', 'smart bands', 'activity tracker', 'activity trackers'],
+    'Fitness Gadgets': ['fitness gadget', 'fitness gadgets', 'smart scale', 'smart scales', 'muscle massager', 'muscle massagers', 'fitness monitor', 'fitness monitors'],
+    'Headphones': ['headphone', 'headphones', 'earphone', 'earphones', 'earbud', 'earbuds', 'wireless earphone', 'wireless earphones', 'airpod', 'airpods'],
+    'Speakers': ['speaker', 'speakers', 'bluetooth speaker', 'bluetooth speakers', 'wireless speaker', 'wireless speakers', 'portable speaker', 'portable speakers'],
     
     // ====== FASHION ACCESSORIES ======
-    'Mens Wallets': ['wallet', 'card holder', 'money clip', 'billfold', 'men wallet'],
-    'Mens Belts': ['belt', 'leather belt', 'casual belt', 'formal belt', 'men belt'],
-    'Mens Perfumes': ['perfume', 'fragrance', 'cologne', 'body mist', 'body spray', 'eau de toilette', 'men perfume'],
-    'Trimmers': ['trimmer', 'beard trimmer', 'shaver', 'grooming kit'],
-    'Mens Deodorants': ['deodorant', 'antiperspirant', 'body spray', 'deo stick', 'men deodorant'],
-    'Ties, Cufflinks & Pocket Squares': ['tie', 'necktie', 'bow tie', 'cufflink', 'pocket square', 'handkerchief'],
-    'Accessory Gift Sets': ['gift set', 'accessory set', 'wallet belt set', 'tie cufflink set'],
-    'Mens Caps & Hats': ['cap', 'hat', 'beanie', 'snapback', 'baseball cap', 'fedora', 'men cap', 'men hat'],
-    'Mens Mufflers & Scarves': ['muffler', 'scarf', 'glove', 'mitten', 'winter accessory', 'men scarf', 'men glove'],
-    'Phone Cases': ['phone case', 'mobile cover', 'phone cover', 'smartphone case'],
-    'Mens Rings & Wristwear': ['ring', 'bracelet', 'wristband', 'bangle', 'men bracelet', 'men ring'],
-    'Helmets': ['helmet', 'bike helmet', 'motorcycle helmet'],
+    'Mens Wallets': ['wallet', 'wallets', 'card holder', 'card holders', 'money clip', 'money clips', 'billfold', 'billfolds', 'men wallet', 'men wallets'],
+    'Mens Belts': ['belt', 'belts', 'leather belt', 'leather belts', 'casual belt', 'casual belts', 'formal belt', 'formal belts', 'men belt', 'men belts'],
+    'Mens Perfumes': ['perfume', 'perfumes', 'fragrance', 'fragrances', 'cologne', 'colognes', 'body mist', 'body mists', 'body spray', 'body sprays', 'eau de toilette', 'men perfume', 'men perfumes'],
+    'Trimmers': ['trimmer', 'trimmers', 'beard trimmer', 'beard trimmers', 'shaver', 'shavers', 'grooming kit', 'grooming kits'],
+    'Mens Deodorants': ['deodorant', 'deodorants', 'antiperspirant', 'antiperspirants', 'body spray', 'body sprays', 'deo stick', 'deo sticks', 'men deodorant', 'men deodorants'],
+    'Ties, Cufflinks & Pocket Squares': ['tie', 'ties', 'necktie', 'neckties', 'bow tie', 'bow ties', 'cufflink', 'cufflinks', 'pocket square', 'pocket squares', 'handkerchief', 'handkerchiefs'],
+    'Accessory Gift Sets': ['gift set', 'gift sets', 'accessory set', 'accessory sets', 'wallet belt set', 'wallet belt sets', 'tie cufflink set', 'tie cufflink sets'],
+    'Mens Caps & Hats': ['cap', 'caps', 'hat', 'hats', 'beanie', 'beanies', 'snapback', 'snapbacks', 'baseball cap', 'baseball caps', 'fedora', 'fedoras', 'men cap', 'men caps', 'men hat', 'men hats'],
+    'Mens Mufflers & Scarves': ['muffler', 'mufflers', 'scarf', 'scarves', 'glove', 'gloves', 'mitten', 'mittens', 'winter accessory', 'winter accessories', 'men scarf', 'men scarves', 'men glove', 'men gloves'],
+    'Phone Cases': ['phone case', 'phone cases', 'mobile cover', 'mobile covers', 'phone cover', 'phone covers', 'smartphone case', 'smartphone cases'],
+    'Mens Rings & Wristwear': ['ring', 'rings', 'bracelet', 'bracelets', 'wristband', 'wristbands', 'bangle', 'bangles', 'men bracelet', 'men bracelets', 'men ring', 'men rings'],
+    'Helmets': ['helmet', 'helmets', 'bike helmet', 'bike helmets', 'motorcycle helmet', 'motorcycle helmets'],
     
     // ====== BAGS & BACKPACKS ======
-    'Mens Bags & Backpacks': ['bag', 'backpack', 'laptop bag', 'messenger bag', 'duffel bag', 'gym bag', 'sling bag', 'men bag', 'men backpack'],
+    'Mens Bags & Backpacks': ['bag', 'bags', 'backpack', 'backpacks', 'laptop bag', 'laptop bags', 'messenger bag', 'messenger bags', 'duffel bag', 'duffel bags', 'gym bag', 'gym bags', 'sling bag', 'sling bags', 'men bag', 'men bags', 'men backpack', 'men backpacks'],
     
     // ====== LUGGAGES & TROLLEYS ======
-    'Mens Luggages': ['luggage', 'trolley', 'suitcase', 'cabin bag', 'travel bag', 'hard case'],
+    'Mens Luggages': ['luggage', 'luggages', 'trolley', 'trolleys', 'suitcase', 'suitcases', 'cabin bag', 'cabin bags', 'travel bag', 'travel bags', 'hard case', 'hard cases'],
 
     // ====== WOMEN'S INDIAN & FUSION WEAR ======
-    'Kurtas & Suits': ['women kurta', 'women suit', 'ladies kurta', 'kurti', 'salwar kameez', 'anarkali', 'women ethnic suit'],
-    'Kurtis, Tunics & Tops': ['kurti', 'ethnic top', 'tunic', 'ladies top', 'ethnic tunic', 'women kurti'],
-    'Sarees': ['saree', 'sari', 'silk saree', 'cotton saree', 'designer saree'],
-    'Ethnic Wear': ['ethnic wear', 'ethnic dress', 'lehenga', 'choli', 'dupatta', 'gown', 'women ethnic'],
-    'Leggings, Salwars & Churidars': ['legging', 'salwar', 'churidar', 'patiala', 'palazzo', 'ethnic pant', 'women legging'],
-    'Skirts & Palazzos': ['skirt', 'palazzo pant', 'ethnic skirt', 'long skirt', 'maxi skirt', 'women skirt'],
-    'Dress Materials': ['dress material', 'fabric', 'unstitched', 'suit material', 'ethnic fabric'],
-    'Lehenga Cholis': ['lehenga', 'lehenga choli', 'bridal lehenga', 'wedding lehenga', 'ghagra choli'],
-    'Dupattas & Shawls': ['dupatta', 'shawl', 'stole', 'ethnic scarf', 'women shawl'],
+    'Kurtas & Suits': ['women kurta', 'women kurtas', 'women suit', 'women suits', 'ladies kurta', 'ladies kurtas', 'kurti', 'kurtis', 'salwar kameez', 'anarkali', 'anarkalis', 'women ethnic suit', 'women ethnic suits'],
+    'Kurtis, Tunics & Tops': ['kurti', 'kurtis', 'ethnic top', 'ethnic tops', 'tunic', 'tunics', 'ladies top', 'ladies tops', 'ethnic tunic', 'ethnic tunics', 'women kurti', 'women kurtis'],
+    'Sarees': ['saree', 'sarees', 'sari', 'saris', 'silk saree', 'silk sarees', 'cotton saree', 'cotton sarees', 'designer saree', 'designer sarees'],
+    'Ethnic Wear': ['ethnic wear', 'ethnic dress', 'ethnic dresses', 'lehenga', 'lehengas', 'choli', 'cholis', 'dupatta', 'dupattas', 'gown', 'gowns', 'women ethnic'],
+    'Leggings, Salwars & Churidars': ['legging', 'leggings', 'salwar', 'salwars', 'churidar', 'churidars', 'patiala', 'patialas', 'palazzo', 'palazzos', 'ethnic pant', 'ethnic pants', 'women legging', 'women leggings'],
+    'Skirts & Palazzos': ['skirt', 'skirts', 'palazzo pant', 'palazzo pants', 'ethnic skirt', 'ethnic skirts', 'long skirt', 'long skirts', 'maxi skirt', 'maxi skirts', 'women skirt', 'women skirts'],
+    'Dress Materials': ['dress material', 'dress materials', 'fabric', 'fabrics', 'unstitched', 'suit material', 'suit materials', 'ethnic fabric', 'ethnic fabrics'],
+    'Lehenga Cholis': ['lehenga', 'lehengas', 'lehenga choli', 'lehenga cholis', 'bridal lehenga', 'bridal lehengas', 'wedding lehenga', 'wedding lehengas', 'ghagra choli', 'ghagra cholis'],
+    'Dupattas & Shawls': ['dupatta', 'dupattas', 'shawl', 'shawls', 'stole', 'stoles', 'ethnic scarf', 'ethnic scarves', 'women shawl', 'women shawls'],
     
     // ====== WOMEN'S WESTERN WEAR ======
-    'Dresses': ['dress', 'gown', 'maxi', 'midi dress', 'a-line dress', 'bodycon', 'shift dress', 'women dress'],
-    'Womens Tops': ['women top', 'ladies top', 'fashion top', 'crop top', 'camisole', 'women blouse', 'ladies blouse', 'women shirt', 'ladies shirt'],
-    'Tshirts': ['women t-shirt', 'ladies tee', 'graphic tee', 'printed t-shirt', 'basic tee', 'women tshirt'],
-    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim'],
-    'Trousers & Capris': ['trouser', 'capri', 'cropped pant', 'cigarette pant', 'culottes', 'women trouser', 'ladies pant'],
-    'Shorts & Skirts': ['women short', 'ladies short', 'mini skirt', 'midi skirt', 'maxi skirt', 'denim skirt', 'pleated skirt'],
-    'Co-ords': ['co-ord', 'matching set', 'twin set', 'two piece set', 'coordinate set'],
-    'Playsuits': ['playsuit', 'romper', 'short jumpsuit', 'beach playsuit'],
-    'Jumpsuits': ['jumpsuit', 'overalls', 'dungarees', 'women jumpsuit', 'ladies jumpsuit'],
-    'Shrugs': ['shrug', 'bolero', 'cover up', 'women shrug', 'ladies shrug'],
-    'Womens Sweaters & Sweatshirts': ['women sweater', 'ladies sweatshirt', 'women pullover', 'women cardigan', 'knit top'],
-    'Womens Jackets & Coats': ['women jacket', 'ladies coat', 'women blazer', 'parka', 'trench coat', 'women outerwear'],
-    'Blazers & Waistcoats': ['women blazer', 'ladies waistcoat', 'women vest', 'suit jacket'],
+    'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses', 'H&M dress', 'H&M dresses'],
+    'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'H&M top', 'H&M tops'],
+    'Tshirts': ['women t-shirt', 'women t-shirts', 'ladies tee', 'ladies tees', 'graphic tee', 'graphic tees', 'printed t-shirt', 'printed t-shirts', 'basic tee', 'basic tees', 'women tshirt', 'women tshirts'],
+    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim', 'H&M jeans'],
+    'Trousers & Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants', 'H&M trousers'],
+    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts', 'H&M shorts'],
+    'Co-ords': ['co-ord', 'co-ords', 'matching set', 'matching sets', 'twin set', 'twin sets', 'two piece set', 'two piece sets', 'coordinate set', 'coordinate sets'],
+    'Playsuits': ['playsuit', 'playsuits', 'romper', 'rompers', 'short jumpsuit', 'short jumpsuits', 'beach playsuit', 'beach playsuits'],
+    'Jumpsuits': ['jumpsuit', 'jumpsuits', 'overall', 'overalls', 'dungaree', 'dungarees', 'women jumpsuit', 'women jumpsuits', 'ladies jumpsuit', 'ladies jumpsuits'],
+    'Shrugs': ['shrug', 'shrugs', 'bolero', 'boleros', 'cover up', 'cover ups', 'women shrug', 'women shrugs', 'ladies shrug', 'ladies shrugs'],
+    'Womens Sweaters & Sweatshirts': ['women sweater', 'women sweaters', 'ladies sweatshirt', 'ladies sweatshirts', 'women pullover', 'women pullovers', 'women cardigan', 'women cardigans', 'knit top', 'knit tops', 'H&M sweater', 'H&M cardigans'],
+    'Womens Jackets & Coats': ['women jacket', 'women jackets', 'ladies coat', 'ladies coats', 'women blazer', 'women blazers', 'parka', 'parkas', 'trench coat', 'trench coats', 'women outerwear', 'H&M jacket', 'H&M coats'],
+    'Blazers & Waistcoats': ['women blazer', 'women blazers', 'ladies waistcoat', 'ladies waistcoats', 'women vest', 'women vests', 'suit jacket', 'suit jackets'],
     
     // ====== WOMEN'S PLUS SIZE ======
-    'Womens Plus Size': ['women plus size', 'plus size dress', 'plus size top', 'plus size jeans', 'curve', 'extended size women'],
+    'Womens Plus Size': ['women plus size', 'plus size dress', 'plus size dresses', 'plus size top', 'plus size tops', 'plus size jeans', 'curve', 'extended size women'],
     
     // ====== MATERNITY ======
     'Maternity': ['maternity', 'pregnancy', 'prenatal', 'pregnant', 'nursing', 'maternal', 'maternity wear'],
     
     // ====== WOMEN'S LINGERIE & SLEEPWEAR ======
-    'Bra': ['bra', 'brassiere', 'sports bra', 'push up bra', 'padded bra', 'nursing bra', 'strapless bra'],
-    'Womens Briefs': ['women brief', 'panty', 'underwear', 'womens underwear', 'ladies brief', 'bikini brief'],
-    'Shapewear': ['shapewear', 'body shaper', 'slimming underwear', 'control brief', 'corset', 'waist trainer'],
-    'Womens Sleepwear': ['women sleepwear', 'nightdress', 'nightgown', 'pajama set', 'women loungewear', 'lounge pant women'],
-    'Womens Swimwear': ['women swimwear', 'swimsuit', 'bikini', 'one piece', 'swimming costume', 'beachwear'],
-    'Camisoles & Thermals': ['camisole', 'slip', 'women thermal', 'inner wear', 'tank top', 'spaghetti top'],
+    'Bra': ['bra', 'bras', 'brassiere', 'brassieres', 'sports bra', 'sports bras', 'push up bra', 'push up bras', 'padded bra', 'padded bras', 'nursing bra', 'nursing bras', 'strapless bra', 'strapless bras'],
+    'Womens Briefs': ['women brief', 'women briefs', 'panty', 'panties', 'underwear', 'womens underwear', 'ladies brief', 'ladies briefs', 'bikini brief', 'bikini briefs'],
+    'Shapewear': ['shapewear', 'body shaper', 'body shapers', 'slimming underwear', 'control brief', 'control briefs', 'corset', 'corsets', 'waist trainer', 'waist trainers'],
+    'Womens Sleepwear': ['women sleepwear', 'nightdress', 'nightdresses', 'nightgown', 'nightgowns', 'pajama set', 'pajama sets', 'women loungewear', 'lounge pant women', 'lounge pants women', 'H&M sleepwear'],
+    'Womens Swimwear': ['women swimwear', 'swimsuit', 'swimsuits', 'bikini', 'bikinis', 'one piece', 'one pieces', 'swimming costume', 'swimming costumes', 'beachwear'],
+    'Camisoles & Thermals': ['camisole', 'camisoles', 'slip', 'slips', 'women thermal', 'women thermals', 'inner wear', 'tank top', 'tank tops', 'spaghetti top', 'spaghetti tops'],
     
     // ====== WOMEN'S FOOTWEAR ======
-    'Flats': ['flat', 'ballet flat', 'moccasin', 'loafer', 'women flat', 'ladies flat', 'slip on', 'women shoe'],
-    'Womens Casual Shoes': ['women casual shoe', 'ladies sneaker', 'slip on shoe', 'fashion sneaker', 'women everyday shoe'],
-    'Heels': ['heel', 'stiletto', 'pump', 'platform heel', 'wedge', 'block heel', 'high heel', 'kitten heel'],
-    'Boots': ['women boot', 'ankle boot', 'knee high boot', 'ladies boot', 'winter boot', 'chelsea boot'],
-    'Womens Sports Shoes': ['women sports shoe', 'ladies running shoe', 'women athletic shoe', 'women floater'],
+    'Flats': ['flat', 'flats', 'ballet flat', 'ballet flats', 'moccasin', 'moccasins', 'loafer', 'loafers', 'women flat', 'women flats', 'ladies flat', 'ladies flats', 'slip on', 'slip ons', 'women shoe', 'women shoes'],
+    'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers', 'slip on shoe', 'slip on shoes', 'fashion sneaker', 'fashion sneakers', 'women everyday shoe', 'women everyday shoes'],
+    'Heels': ['heel', 'heels', 'stiletto', 'stilettos', 'pump', 'pumps', 'platform heel', 'platform heels', 'wedge', 'wedges', 'block heel', 'block heels', 'high heel', 'high heels', 'kitten heel', 'kitten heels'],
+    'Boots': ['women boot', 'women boots', 'ankle boot', 'ankle boots', 'knee high boot', 'knee high boots', 'ladies boot', 'ladies boots', 'winter boot', 'winter boots', 'chelsea boot', 'chelsea boots'],
+    'Womens Sports Shoes': ['women sports shoe', 'women sports shoes', 'ladies running shoe', 'ladies running shoes', 'women athletic shoe', 'women athletic shoes', 'women floater', 'women floaters'],
     
     // ====== WOMEN'S SPORTS & ACTIVE WEAR ======
     'Womens Sports Clothing': ['women sportswear', 'activewear', 'gym wear', 'workout clothing', 'yoga wear', 'fitness apparel'],
-    'Womens Sports Footwear': ['women sport shoe', 'training shoe', 'running shoe', 'women gym shoe', 'yoga shoe'],
-    'Womens Sports Accessories': ['women sport accessory', 'fitness accessory', 'yoga mat', 'gym bag', 'water bottle'],
-    'Sports Equipment': ['sports equipment', 'fitness equipment', 'yoga props', 'exercise equipment', 'home gym'],
+    'Womens Sports Footwear': ['women sport shoe', 'women sport shoes', 'training shoe', 'training shoes', 'running shoe', 'running shoes', 'women gym shoe', 'women gym shoes', 'yoga shoe', 'yoga shoes'],
+    'Womens Sports Accessories': ['women sport accessory', 'women sport accessories', 'fitness accessory', 'fitness accessories', 'yoga mat', 'yoga mats', 'gym bag', 'gym bags', 'water bottle', 'water bottles'],
+    'Sports Equipment': ['sports equipment', 'fitness equipment', 'yoga prop', 'yoga props', 'exercise equipment', 'home gym'],
     
     // ====== BEAUTY & PERSONAL CARE ======
-    'Makeup': ['makeup', 'cosmetic', 'foundation', 'lipstick', 'mascara', 'eyeliner', 'blush', 'beauty product'],
-    'Skincare': ['skincare', 'face cream', 'serum', 'moisturizer', 'face wash', 'sunscreen', 'beauty treatment'],
-    'Premium Beauty': ['premium beauty', 'luxury cosmetic', 'high end makeup', 'designer beauty', 'prestige beauty'],
-    'Lipsticks': ['lipstick', 'lip color', 'lip gloss', 'liquid lipstick', 'lip stain', 'lip product'],
-    'Fragrances': ['women perfume', 'ladies fragrance', 'eau de parfum', 'women cologne', 'women body mist', 'scent'],
+    'Makeup': ['makeup', 'cosmetic', 'cosmetics', 'foundation', 'foundations', 'lipstick', 'lipsticks', 'mascara', 'mascaras', 'eyeliner', 'eyeliners', 'blush', 'blushes', 'beauty product', 'beauty products'],
+    'Skincare': ['skincare', 'face cream', 'face creams', 'serum', 'serums', 'moisturizer', 'moisturizers', 'face wash', 'face washes', 'sunscreen', 'sunscreens', 'beauty treatment', 'beauty treatments'],
+    'Premium Beauty': ['premium beauty', 'luxury cosmetic', 'luxury cosmetics', 'high end makeup', 'designer beauty', 'prestige beauty'],
+    'Lipsticks': ['lipstick', 'lipsticks', 'lip color', 'lip colors', 'lip gloss', 'lip glosses', 'liquid lipstick', 'liquid lipsticks', 'lip stain', 'lip stains', 'lip product', 'lip products'],
+    'Fragrances': ['women perfume', 'women perfumes', 'ladies fragrance', 'ladies fragrances', 'eau de parfum', 'women cologne', 'women colognes', 'women body mist', 'women body mists', 'scent', 'scents'],
     
     // ====== JEWELLERY ======
-    'Fashion Jewellery': ['fashion jewellery', 'costume jewellery', 'artificial jewellery', 'statement necklace', 'fashion earring'],
-    'Fine Jewellery': ['fine jewellery', 'gold jewellery', 'silver jewellery', 'pearl jewellery', 'precious stone'],
-    'Earrings': ['earring', 'stud', 'hoop earring', 'drop earring', 'chandelier earring', 'ear cuff'],
+    'Fashion Jewellery': ['fashion jewellery', 'costume jewellery', 'artificial jewellery', 'statement necklace', 'statement necklaces', 'fashion earring', 'fashion earrings'],
+    'Fine Jewellery': ['fine jewellery', 'gold jewellery', 'silver jewellery', 'pearl jewellery', 'precious stone', 'precious stones'],
+    'Earrings': ['earring', 'earrings', 'stud', 'studs', 'hoop earring', 'hoop earrings', 'drop earring', 'drop earrings', 'chandelier earring', 'chandelier earrings', 'ear cuff', 'ear cuffs'],
     
     // ====== WOMEN'S ACCESSORIES ======
     'Belts, Scarves & More': ['women belt', 'ladies scarf', 'women glove', 'women hair accessory', 'women fashion accessory'],
@@ -397,6 +407,7 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Womens Backpacks': ['women backpack', 'ladies backpack', 'fashion backpack', 'mini backpack', 'women rucksack'],
     'Handbags, Bags & Wallets': ['handbag', 'purse', 'clutch', 'tote bag', 'shoulder bag', 'crossbody bag', 'women wallet'],
     'Womens Luggages': ['women luggage', 'ladies suitcase', 'travel bag women', 'carry on', 'women trolley'],
+    'Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
   };
   
   // Initialize categories
@@ -491,7 +502,9 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     else if (/\b(bra|brassiere|panty|underwear|lingerie|shapewear|bodysuit)\b/i.test(nameAndDesc) &&
              !/\b(shorts?|bermuda|cargo|lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
       let category = 'Briefs';
-      if (/\b(bra|brassiere)\b/i.test(nameAndDesc)) {
+      // Only match exact word "bra", not part of other words
+      if (/\b(bra|brassiere)\b/i.test(nameAndDesc) && 
+          !/(brand|zebra|cobra|abrasive|abrasion|vibrant|calibrate|celebrate|fabric|library|vibrate)/i.test(nameAndDesc)) {
         category = 'Bra';
       } else if (/\b(shapewear|body\s*shaper|slimming|control)\b/i.test(nameAndDesc)) {
         category = 'Shapewear';
@@ -506,12 +519,16 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     
     // General category matching
     if (!matched) {
-      // First pass: search for exact matches using word boundaries
+      // First pass: search for exact matches using word boundaries and ensuring complete words
       for (const [category, keywords] of Object.entries(categoryKeywords)) {
         for (const keyword of keywords) {
-          // Use word boundary checks for more accurate matching
-          const regex = new RegExp(`\\b${keyword.replace(/\s+/g, '\\s+')}\\b`, 'i');
-          if (regex.test(nameAndDesc)) {
+          // Split multi-word keywords and ensure each word is matched exactly
+          const keywordParts = keyword.split(/\s+/);
+          const keywordRegex = new RegExp(
+            keywordParts.map(part => `\\b${part}\\b`).join('\\s+'),
+            'i'
+          );
+          if (keywordRegex.test(nameAndDesc)) {
             if (!categories[category]) {
               categories[category] = [];
             }
@@ -523,22 +540,8 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
         if (matched) break;
       }
       
-      // Second pass: if no match found, try partial matches
-      if (!matched) {
-        for (const [category, keywords] of Object.entries(categoryKeywords)) {
-          for (const keyword of keywords) {
-            if (nameAndDesc.includes(keyword)) {
-              if (!categories[category]) {
-                categories[category] = [];
-              }
-              categories[category].push(item);
-              matched = true;
-              break;
-            }
-          }
-          if (matched) break;
-        }
-      }
+      // Remove the second pass that was doing partial matches
+      // This prevents incorrect categorization based on substrings
     }
     
     // If no match found, place in default category

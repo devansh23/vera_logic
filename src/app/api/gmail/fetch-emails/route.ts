@@ -59,7 +59,7 @@ async function fetchEmailsHandler(request: NextRequest) {
     : normalizedRetailer === 'h&m' || normalizedRetailer === 'hm'
     ? `from:delivery.hm.com subject:"Order Confirmation"`
     : normalizedRetailer === 'zara'
-    ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
+    ? `from:noreply@zara.com subject:"Thank you for your purchase"`
     : `from:${retailer} AND (${confirmationKeywordQuery})`;
 
   try {

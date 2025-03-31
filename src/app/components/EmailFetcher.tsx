@@ -35,7 +35,6 @@ export default function EmailFetcher() {
   const [processingEmail, setProcessingEmail] = useState<string | null>(null);
   const [processingAll, setProcessingAll] = useState(false);
   const [isAuthError, setIsAuthError] = useState(false);
-  const [useScreenshot, setUseScreenshot] = useState(false);
   const [useDirectHtml, setUseDirectHtml] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
@@ -299,16 +298,6 @@ export default function EmailFetcher() {
           </div>
           
           <div className="flex flex-col space-y-2">
-            {/* Screenshot download button */}
-            <a
-              href={`/api/debug/download-screenshot?emailId=${encodeURIComponent(selectedEmail)}`}
-              target="_blank"
-              className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-              rel="noopener noreferrer"
-            >
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> Download Email Screenshot
-            </a>
-            
             {/* OCR Text download button */}
             {extractionResult.debugKey && (
               <a

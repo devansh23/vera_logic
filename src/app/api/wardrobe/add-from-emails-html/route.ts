@@ -6,7 +6,8 @@ import { getEmailById, listEmails } from '@/lib/gmail-service';
 import { Mistral } from '@mistralai/mistralai';
 import { createHMPrompt, createMyntraPrompt } from '@/lib/email-extraction-prompts';
 import { addItemsToWardrobe } from '@/lib/wardrobe-integration';
-import { ExtractedItem } from '@/lib/email-screenshot-extractor';
+import { ExtractedItem } from '@/types/email-extraction';
+import { extractZaraProductsFromHtml } from '@/lib/email-content-parser';
 
 export async function POST(req: NextRequest) {
   try {
@@ -152,7 +153,7 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
   const searchQuery = retailer === 'myntra'
     ? `from:myntra.com subject:"Your Myntra order item has been shipped"`
     : retailer === 'zara'
-    ? `(from:zara.com OR from:notices@zara.com OR from:info@zara.com OR from:orders@zara.com OR from:noreply@zara.com) AND (${confirmationKeywordQuery})`
+    ? `from:noreply@zara.com subject:"Thank you for your purchase"`
     : `from:delivery.hm.com subject:"Order Confirmation"`;
 
   // Fetch emails
@@ -238,6 +239,28 @@ export async function extractItemsFromHtml(
   log('Extracting items from HTML content', { contentLength: htmlContent.length, retailer });
   
   try {
+    // Use specialized Zara parser for Zara emails
+    if (retailer.toLowerCase() === 'zara') {
+      log('Using specialized Zara parser');
+      const extractedProducts = extractZaraProductsFromHtml(htmlContent);
+      
+      return extractedProducts.map(product => ({
+        brand: 'Zara',
+        name: product.name,
+        price: product.price || '',
+        originalPrice: product.originalPrice || '',
+        discount: product.discount || '',
+        size: product.size || '',
+        color: product.color || '',
+        image: product.images?.[0] || '',
+        productLink: product.productLink || '',
+        myntraLink: '',
+        sourceRetailer: retailer,
+        reference: product.reference
+      }));
+    }
+
+    // For other retailers, use Mistral AI
     // Extract text content from HTML
     const textContent = extractTextFromHtml(htmlContent);
     log('Extracted text content', { textLength: textContent.length });

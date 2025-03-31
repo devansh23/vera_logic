@@ -1,26 +1,31 @@
 import { JSDOM } from 'jsdom';
-import { EmailMessage } from '@/types/gmail';
 import { log } from './logger';
-import { extractProductsFromHtml, extractImages, ExtractedProduct } from './email-content-parser';
+import { EmailMessage } from '@/types/gmail';
+import { 
+  extractImages, 
+  extractProductsFromHtml,
+  extractZaraProductsFromHtml
+} from './email-content-parser';
+import { normalizeImageUrl } from './image-utils';
 
 /**
- * Interface for a wardrobe item extracted from an email
+ * Interface for extracted wardrobe items from emails
  */
 export interface ExtractedWardrobeItem {
-  brand: string;
+  brand?: string;
   name: string;
   price?: string;
   originalPrice?: string;
   discount?: string;
-  imageUrl?: string;
-  productLink?: string;
   size?: string;
   color?: string;
-  // Source information for tracking/deduplication
-  emailId: string;
+  imageUrl?: string;
+  productLink?: string;
   retailer: string;
+  emailId: string;
   orderId?: string;
   normalizedImageUrl?: string; // Used for deduplication
+  reference?: string;
 }
 
 /**
@@ -191,10 +196,8 @@ async function extractHnMItems(email: EmailMessage): Promise<ExtractedWardrobeIt
 async function extractZaraItems(email: EmailMessage): Promise<ExtractedWardrobeItem[]> {
   if (!email.body?.html) return [];
   
-  const dom = new JSDOM(email.body.html);
-  const document = dom.window.document;
-  
-  const extractedProducts = extractProductsFromHtml(email.body.html);
+  // Use the specialized Zara extraction function
+  const extractedProducts = extractZaraProductsFromHtml(email.body.html);
   const extractedImages = extractImages(email.body.html);
   
   // Extract order ID from subject or email body
@@ -235,7 +238,8 @@ async function extractZaraItems(email: EmailMessage): Promise<ExtractedWardrobeI
       productLink: product.productLink,
       retailer: 'Zara',
       emailId: email.id,
-      orderId
+      orderId,
+      reference: product.reference
     };
   });
 }
