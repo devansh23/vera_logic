@@ -7,8 +7,7 @@
  */
 
 import { JSDOM } from 'jsdom';
-import { EmailMessage } from './gmail-service';
-import { MyntraOrderItem } from './email-processor';
+import { EmailMessage, MyntraOrderItem } from './types';
 import { log } from './logger';
 
 /**
@@ -58,6 +57,7 @@ export interface ExtractedProduct {
   images?: string[];
   productLink?: string;
   description?: string;
+  reference?: string; // Add reference field for Zara product codes
 }
 
 /**
@@ -241,7 +241,7 @@ export function extractProductsFromTables(html: string): ExtractedProduct[] {
       if (row.every(cell => !cell.trim())) return; // Skip empty rows
       
       // Extract product info from cells
-      let product: ExtractedProduct = { name: '' };
+      const product: ExtractedProduct = { name: '' };
       
       if (headerMap.name !== undefined && row[headerMap.name]) {
         product.name = row[headerMap.name];
@@ -514,6 +514,99 @@ export function parseMyntraEmail(email: EmailMessage) {
 }
 
 /**
+ * Extract products from Zara emails using the specific HTML structure
+ */
+export function extractZaraProductsFromHtml(html: string): ExtractedProduct[] {
+  const products: ExtractedProduct[] = [];
+  const doc = parseHtml(html);
+  if (!doc) return [];
+
+  // Find all product tables directly instead of going through rows
+  const productTables = doc.querySelectorAll('table.rd-product');
+  
+  if (!productTables || productTables.length === 0) {
+    // Fallback to general extraction if we can't find the specific Zara structure
+    return products;
+  }
+  
+  productTables.forEach(table => {
+    const product: ExtractedProduct = { name: '' };
+    
+    // Extract product image URL
+    const productImg = table.querySelector('img.rd-product-img');
+    if (productImg && productImg.getAttribute('src')) {
+      const imageUrl = productImg.getAttribute('src') || '';
+      product.images = [imageUrl];
+    }
+    
+    // Find all divs in the product container that contain product information
+    const productDivs = table.querySelectorAll('div');
+    if (!productDivs || productDivs.length === 0) return;
+
+    // Process each div in sequence
+    productDivs.forEach((div, index) => {
+      const textContent = cleanText(div.textContent || '');
+      if (!textContent) return;
+
+      const style = div.getAttribute('style') || '';
+
+      // First non-empty div after image is the product name (in uppercase)
+      if (!product.name && textContent === textContent.toUpperCase()) {
+        product.name = textContent;
+        return;
+      }
+
+      // Color and reference code div has color #666666
+      if (style.includes('#666666') || style.includes('color: #666666')) {
+        const colorRefParts = textContent.split(/\s+(?=\d+\/)/);
+        if (colorRefParts.length >= 2) {
+          product.color = colorRefParts[0].trim();
+          product.reference = colorRefParts[1].trim();
+        } else if (textContent.includes('/')) {
+          // If we can't split cleanly, try to extract reference code by pattern
+          const refMatch = textContent.match(/(\d+\/\d+\/\d+\/\d+(?:\/\d+)?)/);
+          if (refMatch) {
+            product.reference = refMatch[1];
+            // Try to extract color by removing the reference
+            product.color = textContent.replace(refMatch[1], '').trim();
+          }
+        }
+        return;
+      }
+
+      // Price information is in a div containing "unit"
+      if (textContent.toLowerCase().includes('unit')) {
+        const priceMatch = textContent.match(/₹\s*([\d,]+\.?\d*)/);
+        if (priceMatch) {
+          product.price = `₹ ${priceMatch[1]}`;
+        }
+        
+        // Extract quantity if present
+        const quantityMatch = textContent.match(/(\d+)\s*unit/i);
+        if (quantityMatch) {
+          product.quantity = parseInt(quantityMatch[1], 10);
+        }
+        return;
+      }
+
+      // Size can be longer than 3 characters (e.g. "EU 42 (UK 32)")
+      if (!product.size && textContent.length <= 20) {
+        product.size = textContent;
+      }
+    });
+
+    // Only add product if we have at least a name
+    if (product.name) {
+      // Set brand as Zara
+      product.brand = 'Zara';
+      products.push(product);
+    }
+  });
+
+  return products;
+}
+
+/**
  * Main function to extract structured information from any retailer email HTML
  */
 export function extractInfoFromEmailHtml(email: EmailMessage): {
@@ -549,7 +642,15 @@ export function extractInfoFromEmailHtml(email: EmailMessage): {
   
   // Extract structured information
   const orderInfo = extractOrderInfoFromHtml(emailHtml);
-  const products = extractProductsFromHtml(emailHtml);
+  
+  // Use retailer-specific product extraction if available
+  let products: ExtractedProduct[] = [];
+  if (retailer === 'zara') {
+    products = extractZaraProductsFromHtml(emailHtml);
+  } else {
+    products = extractProductsFromHtml(emailHtml);
+  }
+  
   const links = extractLinks(emailHtml);
   const images = extractImages(emailHtml);
   const tables = extractTables(emailHtml);
