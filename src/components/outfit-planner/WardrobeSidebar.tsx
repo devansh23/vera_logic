@@ -77,23 +77,25 @@ export const WardrobeSidebar = () => {
             </div>
           </div>
         ) : (
-          // Show categories
-          <div>
+          // Show categorized items
+          <div className="p-4">
             {categories.map(category => (
-              <div key={category} className="border-b border-gray-100">
+              <div key={category} className="mb-4">
                 <button
-                  className="flex items-center justify-between w-full p-3 text-left hover:bg-gray-50"
                   onClick={() => toggleCategory(category)}
+                  className="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 hover:text-gray-900"
                 >
-                  <span className="font-medium">{category}</span>
-                  <span className="text-gray-400">
-                    {expandedCategories[category] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </span>
+                  <span>{category}</span>
+                  {expandedCategories[category] ? (
+                    <ChevronDown size={16} />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
                 </button>
                 
                 {expandedCategories[category] && (
-                  <div className="p-2 grid grid-cols-2 gap-2">
-                    {categorizedItems[category]?.map(item => (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {categorizedItems[category].map(item => (
                       <div
                         key={item.id}
                         className="bg-white border border-gray-200 rounded-md p-2 cursor-move hover:border-blue-400 transition-colors"
@@ -119,4 +121,4 @@ export const WardrobeSidebar = () => {
       </ScrollArea>
     </div>
   );
-}; 
+};

@@ -57,6 +57,8 @@ model User {
   gmailTokenExpiry   DateTime?
   gmailConnected     Boolean    @default(false)
   gmailLastSynced    DateTime?
+  outfits        Outfit[]
+  calendarEvents CalendarEvent[]
 }
 
 model VerificationToken {
@@ -126,4 +128,27 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt
   outfit    Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Outfit {
+  id          String   @id @default(cuid())
+  name        String
+  items       Json     // Array of wardrobe item IDs and their positions
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      CalendarEvent[]
+}
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  outfitId    String
+  outfit      Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
