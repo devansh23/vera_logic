@@ -284,10 +284,10 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'extended sizes', 'men plus size'],
     
     // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'everyday shoe', 'everyday shoes', 'lifestyle shoe', 'lifestyle shoes', 'men casual shoe', 'men casual shoes', 'espadrille', 'espadrilles', 'canvas shoe', 'canvas shoes'],
-    'Mens Sports Shoes': ['sports shoe', 'sports shoes', 'running shoe', 'running shoes', 'training shoe', 'training shoes', 'athletic shoe', 'athletic shoes', 'gym shoe', 'gym shoes', 'men sports shoe', 'men sports shoes'],
-    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues', 'derby', 'derbies', 'loafer', 'loafers', 'monk shoe', 'monk shoes', 'dress shoe', 'dress shoes', 'men formal shoe', 'men formal shoes'],
-    'Sneakers': ['sneaker', 'sneakers', 'casual sneaker', 'casual sneakers', 'fashion sneaker', 'fashion sneakers', 'high-top', 'high-tops', 'low-top', 'low-tops', 'men sneaker', 'men sneakers'],
+    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'sneaker', 'sneakers', 'espadrille', 'canvas shoe'],
+    'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers'],
+    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues'],
+    'Sneakers': ['sneaker', 'sneakers', 'running shoe', 'running shoes', 'training shoe', 'training shoes'],
     'Sandals & Floaters': ['sandal', 'sandals', 'floater', 'floaters', 'slider', 'sliders', 'open toe', 'open toes', 'men sandal', 'men sandals'],
     'Flip Flops': ['flip flop', 'flip flops', 'thong', 'thongs', 'beach sandal', 'beach sandals', 'slipper', 'slippers', 'men flip flop', 'men flip flops'],
     'Mens Socks': ['sock', 'socks', 'ankle sock', 'ankle socks', 'crew sock', 'crew socks', 'no-show sock', 'no-show socks', 'low cut sock', 'low cut socks', 'men sock', 'men socks'],
