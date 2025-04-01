@@ -1,11 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-
-const logFile = path.join(process.cwd(), 'app.log');
-
-export function log(message: string, data?: any) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `${timestamp} - ${message}${data ? ' - ' + JSON.stringify(data) : ''}\n`;
-  
-  fs.appendFileSync(logFile, logMessage);
+/**
+ * Simple logger utility
+ */
+export function log(message: string, data?: any): void {
+  console.log(`[${new Date().toISOString()}] ${message}`, data || '');
 } 

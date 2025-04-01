@@ -4,6 +4,11 @@ import { Inter } from 'next/font/google'
 import Image from 'next/image'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { prisma } from '@/lib/prisma'
+import Link from 'next/link'
+import { useWardrobe } from '@/contexts/WardrobeContext'
+import { useWardrobeNotification } from '@/contexts/WardrobeNotificationContext'
+import { toast } from 'react-toastify'
+import { categorizeItem } from '@/lib/categorize-items'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -284,10 +289,10 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'extended sizes', 'men plus size'],
     
     // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'everyday shoe', 'everyday shoes', 'lifestyle shoe', 'lifestyle shoes', 'men casual shoe', 'men casual shoes', 'espadrille', 'espadrilles', 'canvas shoe', 'canvas shoes'],
-    'Mens Sports Shoes': ['sports shoe', 'sports shoes', 'running shoe', 'running shoes', 'training shoe', 'training shoes', 'athletic shoe', 'athletic shoes', 'gym shoe', 'gym shoes', 'men sports shoe', 'men sports shoes'],
-    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues', 'derby', 'derbies', 'loafer', 'loafers', 'monk shoe', 'monk shoes', 'dress shoe', 'dress shoes', 'men formal shoe', 'men formal shoes'],
-    'Sneakers': ['sneaker', 'sneakers', 'casual sneaker', 'casual sneakers', 'fashion sneaker', 'fashion sneakers', 'high-top', 'high-tops', 'low-top', 'low-tops', 'men sneaker', 'men sneakers'],
+    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'sneaker', 'sneakers', 'espadrille', 'canvas shoe'],
+    'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers'],
+    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues'],
+    'Sneakers': ['sneaker', 'sneakers', 'running shoe', 'running shoes', 'training shoe', 'training shoes'],
     'Sandals & Floaters': ['sandal', 'sandals', 'floater', 'floaters', 'slider', 'sliders', 'open toe', 'open toes', 'men sandal', 'men sandals'],
     'Flip Flops': ['flip flop', 'flip flops', 'thong', 'thongs', 'beach sandal', 'beach sandals', 'slipper', 'slippers', 'men flip flop', 'men flip flops'],
     'Mens Socks': ['sock', 'socks', 'ankle sock', 'ankle socks', 'crew sock', 'crew socks', 'no-show sock', 'no-show socks', 'low cut sock', 'low cut socks', 'men sock', 'men socks'],
@@ -557,27 +562,36 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
 };
 
 export default function Home() {
-  const { data: session, status } = useSession()
-  const [inputValue, setInputValue] = useState('')
-  const [products, setProducts] = useState<MyntraProduct[]>([])
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isProcessingImage, setIsProcessingImage] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
-  const [showProductOverlay, setShowProductOverlay] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
-  const [pdfText, setPdfText] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const { 
+    items: products, 
+    isLoading, 
+    error: wardrobeError, 
+    refreshItems: loadUserWardrobe, 
+    addItem, 
+    saveWardrobe,
+    categorizedItems,
+    removeItem,
+    clearWardrobe
+  } = useWardrobe();
+  
+  const { showNotification } = useWardrobeNotification();
+  const { data: session, status } = useSession();
+  const [inputValue, setInputValue] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [showProductOverlay, setShowProductOverlay] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [pdfText, setPdfText] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   // Add state for expanded categories
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   // Add state for wardrobe search/filter
-  const [wardrobeFilter, setWardrobeFilter] = useState('')
+  const [wardrobeFilter, setWardrobeFilter] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>({ type: 'date', direction: 'desc' });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     categories: [],
@@ -590,18 +604,13 @@ export default function Home() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
 
-  // Load user's wardrobe on session change
-  useEffect(() => {
-    if (session?.user?.id) {
-      loadUserWardrobe();
-    }
-  }, [session]);
+  // Display combined error from both sources
+  const error = localError || wardrobeError;
 
   // Expand the first category automatically when products load
   useEffect(() => {
     if (products.length > 0) {
-      const categories = categorizeItems(products);
-      const firstCategory = Object.keys(categories)[0];
+      const firstCategory = Object.keys(categorizedItems)[0];
       if (firstCategory) {
         setExpandedCategories(prev => ({
           ...prev,
@@ -609,97 +618,12 @@ export default function Home() {
         }));
       }
     }
-  }, [products]);
-
-  // Autosave effect - triggers save whenever products change
-  useEffect(() => {
-    // Don't save if there are no products or no session
-    if (!products.length || !session?.user?.id) return;
-    
-    // Clear any existing timeout to prevent multiple saves
-    if (autoSaveTimeout) {
-      clearTimeout(autoSaveTimeout);
-    }
-    
-    // Set a new timeout to save after a short delay (debounce)
-    const timeout = setTimeout(() => {
-      saveWardrobe(false); // false means don't show success message for routine autosaves
-    }, 1500); // 1.5 second delay
-    
-    setAutoSaveTimeout(timeout);
-    
-    // Cleanup function to clear timeout if component unmounts
-    return () => {
-      if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
-      }
-    };
-  }, [products]);
-
-  const loadUserWardrobe = async () => {
-    try {
-      const response = await fetch('/api/wardrobe');
-      if (!response.ok) {
-        throw new Error('Failed to load wardrobe');
-      }
-      const data = await response.json();
-      setProducts(data);
-    } catch (error) {
-      console.error('Error loading wardrobe:', error);
-      setError('Failed to load your wardrobe');
-    }
-  };
-
-  // Save the entire wardrobe state
-  const saveWardrobe = async (showMessage = true) => {
-    if (!session) {
-      setError('Please sign in to save your wardrobe');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      if (showMessage) {
-        setSaveSuccess(null);
-      }
-      setError(null);
-      
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: products }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save wardrobe');
-      }
-      
-      const data = await response.json();
-      
-      if (showMessage) {
-        setSaveSuccess(`Wardrobe saved successfully! (${data.count} items)`);
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setSaveSuccess(null);
-        }, 3000);
-      }
-    } catch (error) {
-      console.error('Error saving wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save wardrobe');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  }, [products, categorizedItems]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!inputValue) return
 
-    setIsLoading(true)
-    setError(null)
     setSearchResults([])
 
     try {
@@ -717,22 +641,15 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error:', error)
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const addProductToWardrobe = async (url: string) => {
     if (!session) {
-      setError('Please sign in to add items to your wardrobe');
       return;
     }
 
     try {
-      setIsLoading(true);
-      setError(null);
-      
       let productUrl = url;
       if (!url.startsWith('http')) {
         productUrl = url.startsWith('/') 
@@ -740,28 +657,11 @@ export default function Home() {
           : `https://www.myntra.com/${url}`;
       }
       
-      const response = await fetch('/api/wardrobe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: productUrl }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add product');
-      }
-      
-      const data = await response.json();
-      setProducts(prevProducts => [...prevProducts, data]);
+      await addItem({ productLink: productUrl } as any);
       setInputValue('');
       setSearchResults([]);
-      // Autosave will be triggered by the useEffect
     } catch (error) {
       console.error('Error adding product:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add product to wardrobe');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -777,7 +677,7 @@ export default function Home() {
   const handleImageUpload = async (file: File) => {
     try {
       setIsProcessingImage(true)
-      setError(null)
+      setLocalError(null)
       setSearchResults([])
 
       // Create preview
@@ -810,7 +710,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error processing image:', error)
-      setError(error instanceof Error ? error.message : 'Failed to process image')
+      setLocalError(error instanceof Error ? error.message : 'Failed to process image')
     } finally {
       setIsProcessingImage(false)
     }
@@ -818,7 +718,7 @@ export default function Home() {
 
   const handlePdfUpload = async (file: File) => {
     try {
-      setError(null);
+      setLocalError(null);
       setPdfText(null);
       console.log('Processing PDF:', file.name);
 
@@ -859,15 +759,18 @@ export default function Home() {
           id: item.id || '',
         }));
 
-        setProducts(prevProducts => [...prevProducts, ...newProducts]);
-        // Autosave will be triggered by the useEffect
-        setError(`Successfully added ${newProducts.length} items to your wardrobe.`);
+        // Add each item to the wardrobe context
+        for (const product of newProducts) {
+          await addItem(product);
+        }
+        
+        setLocalError(`Successfully added ${newProducts.length} items to your wardrobe.`);
       } else {
-        setError('No items found in the PDF.');
+        setLocalError('No items found in the PDF.');
       }
     } catch (error) {
       console.error('Error processing PDF:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process PDF');
+      setLocalError(error instanceof Error ? error.message : 'Failed to process PDF');
     }
   }
 
@@ -893,49 +796,38 @@ export default function Home() {
   }
 
   const handleDeleteProduct = (index: number) => {
-    setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
-    setShowDeleteConfirm(null);
-    // Autosave will be triggered by the useEffect
+    // Get the product from the index
+    const product = products[index];
+    if (product?.id) {
+      removeItem(product.id)
+        .then(() => {
+          setShowDeleteConfirm(null);
+          showNotification({
+            type: 'success',
+            message: 'Item removed from your wardrobe',
+          });
+        })
+        .catch(error => {
+          setLocalError(error instanceof Error ? error.message : 'Failed to remove item');
+        });
+    }
   }
 
   const handleDeleteAllItems = async () => {
-    if (!session) {
-      setError('Please sign in to manage your wardrobe');
-      return;
-    }
-
     try {
-      setIsSaving(true);
-      setError(null);
-      
-      // Empty the products array and save the empty state
-      setProducts([]);
-      
-      // Save the empty state to the database
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: [] }),
+      await clearWardrobe();
+      showNotification({
+        type: 'success',
+        message: 'All items successfully removed from your wardrobe'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to clear wardrobe');
-      }
-      
-      setSaveSuccess('All items successfully removed from your wardrobe');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSaveSuccess(null);
-      }, 3000);
-    } catch (error) {
-      console.error('Error clearing wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to clear wardrobe');
-    } finally {
-      setIsSaving(false);
+      // Close the confirmation dialog
       setShowDeleteAllConfirm(false);
+    } catch (error) {
+      console.error('Error deleting all items:', error);
+      showNotification({
+        type: 'error',
+        message: 'Failed to delete all items'
+      });
     }
   };
 
@@ -1043,9 +935,23 @@ export default function Home() {
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return;
     
-    const updatedProducts = products.filter(product => !selectedItems.has(product.id));
-    setProducts(updatedProducts);
-    setSelectedItems(new Set());
+    try {
+      // Use Promise.all to delete all selected items in parallel
+      await Promise.all(
+        Array.from(selectedItems).map(id => removeItem(id))
+      );
+      
+      // Clear selected items
+      setSelectedItems(new Set());
+      
+      // Show success message
+      showNotification({
+        type: 'success',
+        message: `${selectedItems.size} items removed from your wardrobe`,
+      });
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : 'Failed to remove selected items');
+    }
   };
 
   return (
@@ -1080,6 +986,17 @@ export default function Home() {
                 </svg>
                 Import Items from Your Email
               </a>
+
+              <a 
+                href="/outfit-planner" 
+                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Create & Plan Outfits
+              </a>
+              
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-grow">
                   <input
@@ -1221,13 +1138,34 @@ export default function Home() {
           </div>
         )}
 
+        {/* Outfit Planner Banner */}
+        {session && products.length > 0 && (
+          <div className="mb-8 bg-gradient-to-r from-purple-600 to-pink-500 rounded-lg shadow-lg overflow-hidden">
+            <div className="px-6 py-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between">
+              <div className="text-white mb-4 sm:mb-0">
+                <h3 className="text-xl font-bold mb-2">Mix & Match Your Wardrobe</h3>
+                <p className="opacity-90">Create stylish outfits with items from your collection using our outfit planner.</p>
+              </div>
+              <Link 
+                href="/outfit-planner" 
+                className="inline-flex items-center px-5 py-2.5 text-sm font-medium text-center text-purple-700 bg-white rounded-md hover:bg-purple-50 focus:ring-4 focus:outline-none focus:ring-purple-300 shadow-sm"
+              >
+                Try Outfit Planner
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Your Wardrobe Section */}
         {products.length > 0 && (
           <div>
             <div className="flex flex-col md:flex-row items-center justify-between mb-6">
               <div className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</div>
               <div className="flex items-center gap-2">
-                {isSaving && (
+                {isLoading && (
                   <span className="text-gray-500 flex items-center">
                     <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1236,7 +1174,7 @@ export default function Home() {
                     Saving...
                   </span>
                 )}
-                {saveSuccess && !isSaving && (
+                {saveSuccess && !isLoading && (
                   <span className="text-green-600 flex items-center">
                     <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1647,9 +1585,9 @@ export default function Home() {
               <button
                 onClick={handleDeleteAllItems}
                 className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                disabled={isSaving}
+                disabled={isLoading}
               >
-                {isSaving ? 'Deleting...' : 'Delete All'}
+                {isLoading ? 'Deleting...' : 'Delete All'}
               </button>
             </div>
           </div>

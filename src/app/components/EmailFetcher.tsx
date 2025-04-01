@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import GmailConnectButton from '@/components/GmailConnectButton';
 import Link from 'next/link';
 import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { useWardrobe } from '@/contexts/WardrobeContext';
 
 // Define TypeScript interfaces for better type safety
 interface EmailMessage {
@@ -37,6 +38,7 @@ export default function EmailFetcher() {
   const [isAuthError, setIsAuthError] = useState(false);
   const [useDirectHtml, setUseDirectHtml] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const { refreshItems } = useWardrobe();
 
   const fetchEmails = async () => {
     setLoading(true);
@@ -140,6 +142,9 @@ export default function EmailFetcher() {
       
       // Show the result for this specific email
       setSelectedEmail(emailId);
+
+      // Refresh wardrobe items after successful addition
+      await refreshItems();
     } catch (err) {
       console.error('Error processing email:', err);
       setError(err instanceof Error ? err.message : 'Failed to process email');
@@ -177,6 +182,9 @@ export default function EmailFetcher() {
       
       const result = await response.json();
       setExtractionResult(result);
+
+      // Refresh wardrobe items after successful addition
+      await refreshItems();
     } catch (err) {
       console.error('Error processing emails:', err);
       setError(err instanceof Error ? err.message : 'Failed to process emails');

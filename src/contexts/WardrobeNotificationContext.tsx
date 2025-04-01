@@ -6,6 +6,8 @@ import WardrobeNotification from '@/components/WardrobeNotification';
 interface NotificationData {
   itemCount: number;
   orderId?: string;
+  message?: string;
+  type?: string;
 }
 
 interface WardrobeNotificationContextType {
@@ -31,10 +33,8 @@ export function WardrobeNotificationProvider({ children }: WardrobeNotificationP
   const [notification, setNotification] = useState<NotificationData | null>(null);
 
   const showNotification = (data: NotificationData) => {
-    // Only show notification if there are items
-    if (data.itemCount > 0) {
-      setNotification(data);
-    }
+    // Show notification regardless of itemCount for general notifications
+    setNotification(data);
   };
 
   const hideNotification = () => {
@@ -48,6 +48,8 @@ export function WardrobeNotificationProvider({ children }: WardrobeNotificationP
         <WardrobeNotification
           itemCount={notification.itemCount}
           orderId={notification.orderId}
+          message={notification.message}
+          type={notification.type}
           onDismiss={hideNotification}
         />
       )}

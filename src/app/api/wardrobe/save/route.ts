@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
+import { categorizeItem } from '@/lib/categorize-items';
 
 // POST /api/wardrobe/save - Save the entire wardrobe state
 export async function POST(request: Request) {
@@ -30,6 +31,16 @@ export async function POST(request: Request) {
     // Then create all the new items
     const savedItems = await Promise.all(
       items.map(async (item: any) => {
+        // Determine category for the item if not already set
+        const category = item.category || categorizeItem({
+          id: item.id || '',
+          name: item.name || 'Unknown Product',
+          brand: item.brand || 'Unknown Brand',
+          price: item.price || '',
+          color: item.color || '',
+          sourceRetailer: item.sourceRetailer || 'Unknown'
+        });
+
         return prisma.wardrobe.create({
           data: {
             userId: session.user.id,
@@ -41,7 +52,8 @@ export async function POST(request: Request) {
             image: item.image || '',
             productLink: item.productLink || item.myntraLink || '',
             size: item.size || '',
-            color: item.color || ''
+            color: item.color || '',
+            category: category
           }
         });
       })

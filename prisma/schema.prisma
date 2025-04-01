@@ -49,6 +49,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   wardrobe      Wardrobe[]
+  outfits       Outfit[]
+  calendarEvents CalendarEvent[]
   // Gmail OAuth fields
   gmailAccessToken   String?    @db.Text
   gmailRefreshToken  String?    @db.Text
@@ -78,6 +80,7 @@ model Wardrobe {
   myntraLink    String?
   size          String?
   color         String?
+  category      String?  @default("Uncategorized")
   dateAdded     DateTime @default(now())
   // Source tracking for items added from emails
   source        String?  // 'email', 'manual', etc.
@@ -85,4 +88,42 @@ model Wardrobe {
   sourceOrderId String?  // Order ID from the email
   sourceRetailer String? // Retailer name (Myntra, H&M, etc.)
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfitItems   OutfitItem[]
+}
+
+model Outfit {
+  id        String      @id @default(cuid())
+  name      String
+  userId    String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     OutfitItem[]
+  calendarEvents CalendarEvent[]
+}
+
+model OutfitItem {
+  id            String   @id @default(cuid())
+  outfitId      String
+  wardrobeItemId String
+  left          Float
+  top           Float
+  zIndex        Int
+  width         Float    @default(150)
+  height        Float    @default(150)
+  isPinned      Boolean  @default(false)
+  outfit        Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  wardrobeItem  Wardrobe @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+}
+
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  title     String
+  date      DateTime
+  outfitId  String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  outfit    Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

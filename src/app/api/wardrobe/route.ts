@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
+import { categorizeItem } from '@/lib/categorize-items';
 
 // GET /api/wardrobe - Get user's wardrobe
 export async function GET() {
@@ -66,6 +67,15 @@ export async function POST(request: Request) {
     const productData = await productResponse.json();
     log('POST /api/wardrobe - Product data', { productData });
 
+    // Determine category for the item
+    const itemToCategorizee = {
+      name: productData.name || 'Unknown Product',
+      brand: productData.brand || 'Unknown Brand',
+      color: productData.color || '',
+      sourceRetailer: new URL(url).hostname.includes('myntra.com') ? 'Myntra' : 'Other'
+    };
+    const category = categorizeItem(itemToCategorizee);
+
     // Save to database
     const item = await prisma.wardrobe.create({
       data: {
@@ -78,7 +88,8 @@ export async function POST(request: Request) {
         image: productData.image || '',
         productLink: url,
         size: productData.size || '',
-        color: productData.color || ''
+        color: productData.color || '',
+        category: category
       }
     });
 
@@ -87,7 +98,7 @@ export async function POST(request: Request) {
   } catch (error) {
     log('Error adding item to wardrobe', { error });
     return NextResponse.json(
-      { error: 'Failed to add item to wardrobe', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to add item to wardrobe' },
       { status: 500 }
     );
   }
@@ -135,17 +146,21 @@ export async function DELETE(request: Request) {
     });
 
     log('DELETE /api/wardrobe - Successfully deleted item', { deletedItem });
-    return NextResponse.json({ message: 'Item deleted successfully', deletedItem });
+    return NextResponse.json({ 
+      message: 'Item deleted successfully', 
+      deletedItem,
+      success: true 
+    });
   } catch (error: any) {
     log('Error deleting item', { error });
     if (error.code === 'P2025') {
       return NextResponse.json(
-        { error: 'Item not found' },
+        { error: 'Item not found', success: false },
         { status: 404 }
       );
     }
     return NextResponse.json(
-      { error: 'Failed to delete item' },
+      { error: 'Failed to delete item', success: false },
       { status: 500 }
     );
   }
