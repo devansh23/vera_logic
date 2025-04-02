@@ -315,7 +315,7 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
       {positionedItems.map(item => (
         <div 
           key={item.id}
-          className={`absolute cursor-grab ${item.isPinned ? "border-2 border-primary" : "border border-gray-200"} ${activeItemId === item.id ? "ring-2 ring-primary ring-opacity-50" : ""} rounded-md overflow-hidden bg-white shadow-sm transition-shadow`}
+          className={`absolute group cursor-grab ${item.isPinned ? "border-2 border-primary" : "border border-gray-200"} ${activeItemId === item.id ? "ring-2 ring-primary ring-opacity-50" : ""} rounded-md overflow-visible bg-white shadow-sm transition-shadow`}
           style={{
             left: `${item.left}px`,
             top: `${item.top}px`,
@@ -341,8 +341,15 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
             )}
           </div>
           
-          {/* Controls overlay */}
-          <div className="absolute top-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-bl-md">
+          {/* Item name label attached at the bottom - shown on hover */}
+          <div 
+            className="absolute bottom-0 left-0 right-0 translate-y-full mt-1 bg-gray-800 py-1 px-2 text-center rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50"
+          >
+            <p className="text-white text-xs truncate">{item.name}</p>
+          </div>
+          
+          {/* Controls overlay - completely hidden until hover */}
+          <div className="absolute top-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-bl-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
             <button 
               onClick={(e) => {e.stopPropagation(); handleTogglePin(item.id)}}
               className={`p-1 rounded-sm ${item.isPinned ? "text-primary bg-primary-foreground" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
@@ -366,8 +373,8 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
             </button>
           </div>
           
-          {/* Size controls */}
-          <div className="absolute bottom-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-tl-md">
+          {/* Size controls - completely hidden until hover */}
+          <div className="absolute bottom-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-tl-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
             <button 
               onClick={(e) => handleIncreaseSize(item.id, e)}
               className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
@@ -384,8 +391,8 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
             </button>
           </div>
           
-          {/* Remove button */}
-          <div className="absolute bottom-0 left-0 p-1">
+          {/* Remove button - completely hidden until hover */}
+          <div className="absolute bottom-0 left-0 p-1 bg-white bg-opacity-80 rounded-tr-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
             <button 
               onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.id)}}
               className="p-1 rounded-sm text-red-400 hover:text-red-600 hover:bg-red-50"
