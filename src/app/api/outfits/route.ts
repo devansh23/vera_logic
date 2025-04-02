@@ -4,32 +4,38 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // GET /api/outfits - Get all outfits for the current user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
-    
+
     const outfits = await prisma.outfit.findMany({
-      where: { 
-        user: {
-          email: session.user.email
-        }
+      where: {
+        userId: session.user.id
       },
       include: {
         items: {
           include: {
-            wardrobeItem: true
+            wardrobeItem: {
+              select: {
+                name: true,
+                image: true
+              }
+            }
           }
         }
       },
       orderBy: {
-        updatedAt: 'desc'
+        createdAt: 'desc'
       }
     });
-    
+
     return NextResponse.json(outfits);
   } catch (error) {
     console.error('Error fetching outfits:', error);
@@ -41,105 +47,60 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/outfits - Create a new outfit
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('Session data:', session?.user);
     
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const data = await request.json();
-    console.log('Request data:', data);
-    const { name, items } = data;
-    
-    if (!name || !items || !Array.isArray(items)) {
-      console.log('Invalid data format:', { name, items });
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'Invalid data format. Name and items array are required.' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { name, items } = body;
+
+    if (!name || !items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
         { status: 400 }
       );
     }
-    
-    // Get the user ID
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true }
-    });
-    
-    console.log('User lookup result:', user);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    // Extract all wardrobeItemIds to check if they exist
-    const wardrobeItemIds = items.map((item: any) => item.wardrobeItemId);
-    console.log('Outfit items to create:', wardrobeItemIds);
-    
-    // Verify all wardrobe items exist before creating the outfit
-    const existingItems = await prisma.wardrobe.findMany({
-      where: {
-        id: { in: wardrobeItemIds },
-        userId: user.id
-      },
-      select: { id: true }
-    });
-    
-    const existingItemIds = existingItems.map(item => item.id);
-    const missingItemIds = wardrobeItemIds.filter(id => !existingItemIds.includes(id));
-    
-    if (missingItemIds.length > 0) {
-      console.log('Missing wardrobe items:', missingItemIds);
-      return NextResponse.json(
-        { 
-          error: 'One or more wardrobe items do not exist',
-          missingItems: missingItemIds
-        },
-        { status: 400 }
-      );
-    }
-    
-    try {
-      // Create the outfit with items
-      const outfit = await prisma.outfit.create({
-        data: {
-          name,
-          userId: user.id,
-          items: {
-            create: items.map((item: any) => ({
-              wardrobeItemId: item.wardrobeItemId,
-              left: item.left,
-              top: item.top,
-              zIndex: 1, // Default z-index
-              width: item.width || 150, // Default width
-              height: item.height || 150, // Default height
-            }))
-          }
-        },
-        include: {
-          items: true
+
+    const outfit = await prisma.outfit.create({
+      data: {
+        name,
+        userId: session.user.id,
+        items: {
+          create: items.map(item => ({
+            wardrobeItemId: item.wardrobeItemId,
+            left: item.left,
+            top: item.top,
+            width: item.width || 150,
+            height: item.height || 150,
+            zIndex: item.zIndex || 1,
+            isPinned: item.isPinned || false
+          }))
         }
-      });
-      
-      console.log('Outfit created successfully:', outfit.id);
-      return NextResponse.json(outfit);
-    } catch (prismaError) {
-      const err = prismaError as Error;
-      console.error('Prisma error creating outfit:', err.message, err.stack);
-      // Check if it's a foreign key constraint error
-      if (err.message.includes('Foreign key constraint failed')) {
-        return NextResponse.json(
-          { error: 'One or more wardrobe items do not exist' },
-          { status: 400 }
-        );
+      },
+      include: {
+        items: {
+          include: {
+            wardrobeItem: {
+              select: {
+                name: true,
+                image: true
+              }
+            }
+          }
+        }
       }
-      throw prismaError; // Re-throw to be caught by the outer try/catch
-    }
+    });
+
+    return NextResponse.json(outfit);
   } catch (error) {
-    const err = error as Error;
-    console.error('Error creating outfit:', err.message, err.stack);
+    console.error('Error creating outfit:', error);
     return NextResponse.json(
       { error: 'Failed to create outfit' },
       { status: 500 }

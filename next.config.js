@@ -10,9 +10,21 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com'
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.zara.net'
+      },
+      {
+        protocol: 'https',
+        hostname: '*.zara.com'
+      },
+      {
+        protocol: 'https',
+        hostname: '*.zara.net'
       }
     ]
   }
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig

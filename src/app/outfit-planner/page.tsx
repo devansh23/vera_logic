@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import OutfitPlanner from '@/components/OutfitPlanner';
+import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 
 export default function OutfitPlannerPage() {
   const { data: session, status } = useSession();
+  const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
   // Show loading state
   if (status === "loading") {
@@ -26,8 +28,37 @@ export default function OutfitPlannerPage() {
   
   return (
     <div className="container mx-auto py-6 h-[calc(100vh-64px)]">
-      <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
-      <OutfitPlanner />
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Outfit Planner</h1>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setActiveTab('create')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'create'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Create Outfit
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'saved'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Saved Outfits
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'create' ? (
+        <OutfitPlanner />
+      ) : (
+        <SavedOutfits />
+      )}
     </div>
   );
 } 
