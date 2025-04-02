@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { log } from '@/lib/logger';
+import { categorizeItem } from './categorize-items';
 
 /**
  * Add items from an order to the user's wardrobe
@@ -24,6 +25,13 @@ export async function addOrderItemsToWardrobe(
   
   for (const item of items) {
     try {
+      // Determine category for the item
+      const category = categorizeItem({
+        name: item.productName || 'Unknown Product',
+        brand: item.brand || 'Unknown',
+        color: item.color || '',
+      });
+
       const wardrobeItem = await prisma.wardrobe.create({
         data: {
           userId: userId,
@@ -36,13 +44,15 @@ export async function addOrderItemsToWardrobe(
           productLink: orderId, // Use the order ID as reference
           size: item.size || '',
           color: item.color || '',
+          category: category, // Add the determined category
         }
       });
       
       log('Added order item to wardrobe', { 
         itemId: wardrobeItem.id, 
         orderId: orderId,
-        productName: item.productName
+        productName: item.productName,
+        category: category
       });
       
       wardrobeItemIds.push(wardrobeItem.id);

@@ -3,10 +3,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { WardrobeItem } from '@/types/outfit';
 import { useSession } from 'next-auth/react';
+import { categorizeItems } from '@/lib/categorize-items';
 
 // Define the context type
 interface WardrobeContextType {
   items: WardrobeItem[];
+  categorizedItems: Record<string, WardrobeItem[]>;
   isLoading: boolean;
   error: string | null;
   refreshItems: () => Promise<void>;
@@ -14,74 +16,33 @@ interface WardrobeContextType {
   removeItem: (id: string) => Promise<void>;
   saveWardrobe: (showMessage?: boolean) => Promise<void>;
   clearWardrobe: () => Promise<void>;
-  categorizedItems: Record<string, WardrobeItem[]>;
 }
 
-// Create the context with a default value
+// Create the context
 const WardrobeContext = createContext<WardrobeContextType | undefined>(undefined);
 
-// Hook to use the context
-export function useWardrobe() {
-  const context = useContext(WardrobeContext);
-  if (context === undefined) {
-    throw new Error('useWardrobe must be used within a WardrobeProvider');
-  }
-  return context;
-}
-
+// Provider props type
 interface WardrobeProviderProps {
   children: ReactNode;
 }
 
+// Provider component
 export function WardrobeProvider({ children }: WardrobeProviderProps) {
   const { data: session } = useSession();
   const [items, setItems] = useState<WardrobeItem[]>([]);
+  const [categorizedItems, setCategorizedItems] = useState<Record<string, WardrobeItem[]>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [categorizedItems, setCategorizedItems] = useState<Record<string, WardrobeItem[]>>({});
 
-  // Load wardrobe items when session changes
-  useEffect(() => {
-    if (session?.user?.id) {
-      refreshItems();
-    }
-  }, [session?.user?.id]);
-
-  // Categorize items whenever they change
+  // Update categorizedItems whenever items change
   useEffect(() => {
     setCategorizedItems(categorizeItems(items));
-  }, [items]);
-
-  // Autosave effect - triggers save whenever items change
-  useEffect(() => {
-    // Don't save if there are no items or no session
-    if (!items.length || !session?.user?.id) return;
-    
-    // Clear any existing timeout to prevent multiple saves
-    if (autoSaveTimeout) {
-      clearTimeout(autoSaveTimeout);
-    }
-    
-    // Set a new timeout to save after a short delay (debounce)
-    const timeout = setTimeout(() => {
-      saveWardrobe(false); // false means don't show success message for routine autosaves
-    }, 1500); // 1.5 second delay
-    
-    setAutoSaveTimeout(timeout);
-    
-    // Cleanup function to clear timeout if component unmounts
-    return () => {
-      if (autoSaveTimeout) {
-        clearTimeout(autoSaveTimeout);
-      }
-    };
   }, [items]);
 
   // Function to load all wardrobe items
   const refreshItems = async () => {
     if (!session?.user?.id) {
-      setError('You must be signed in to access your wardrobe');
+      setError('You must be signed in to view your wardrobe');
       return;
     }
 
@@ -91,22 +52,31 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     try {
       const response = await fetch('/api/wardrobe');
       if (!response.ok) {
-        throw new Error('Failed to load wardrobe');
+        throw new Error('Failed to fetch wardrobe items');
       }
+      
       const data = await response.json();
       setItems(data);
     } catch (error) {
       console.error('Error loading wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load your wardrobe');
+      setError(error instanceof Error ? error.message : 'Failed to load wardrobe');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Load items when session changes
+  useEffect(() => {
+    if (session?.user?.id) {
+      refreshItems();
+    }
+  }, [session?.user?.id]);
+
   // Function to add a new item to the wardrobe
   const addItem = async (item: WardrobeItem): Promise<WardrobeItem> => {
     if (!session?.user?.id) {
-      throw new Error('You must be signed in to add items to your wardrobe');
+      setError('You must be signed in to add items');
+      throw new Error('Not signed in');
     }
 
     setIsLoading(true);
@@ -133,8 +103,6 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         return data;
       } else {
         // Otherwise, directly add the item to the items array
-        // This would normally make an API call to add the item to the database
-        // For now, just add it locally
         const newItem = {
           ...item,
           id: item.id || `temp-${Date.now()}`, // Use provided ID or generate a temporary one
@@ -152,9 +120,10 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   };
 
   // Function to remove an item from the wardrobe
-  const removeItem = async (id: string): Promise<void> => {
+  const removeItem = async (id: string) => {
     if (!session?.user?.id) {
-      throw new Error('You must be signed in to remove items from your wardrobe');
+      setError('You must be signed in to remove items');
+      return;
     }
 
     setIsLoading(true);
@@ -165,23 +134,15 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         method: 'DELETE',
       });
 
-      // Even if the item is not found (404), we should still remove it from local state
-      // since it means it's already not in the database
-      if (!response.ok && response.status !== 404) {
+      if (!response.ok) {
         throw new Error('Failed to remove item');
       }
 
-      // Update local state immediately after successful deletion
+      await response.json();
       setItems(prev => prev.filter(item => item.id !== id));
-      
-      // Only trigger a save if the delete was successful (not 404)
-      if (response.ok) {
-        await saveWardrobe(false);
-      }
     } catch (error) {
       console.error('Error removing item from wardrobe:', error);
       setError(error instanceof Error ? error.message : 'Failed to remove item from wardrobe');
-      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -209,11 +170,15 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       if (!response.ok) {
         throw new Error('Failed to save wardrobe');
       }
-      
+
       await response.json();
+      if (showMessage) {
+        // You can add a toast or notification here if needed
+        console.log('Wardrobe saved successfully');
+      }
     } catch (error) {
       console.error('Error saving wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save your wardrobe');
+      setError(error instanceof Error ? error.message : 'Failed to save wardrobe');
     } finally {
       setIsLoading(false);
     }
@@ -249,33 +214,28 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       await response.json();
     } catch (error) {
       console.error('Error clearing wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to clear your wardrobe');
-      // Restore items if save failed
-      await refreshItems();
+      setError(error instanceof Error ? error.message : 'Failed to clear wardrobe');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Helper function to categorize items by their category field
-  const categorizeItems = (items: WardrobeItem[]): Record<string, WardrobeItem[]> => {
-    const categorized: Record<string, WardrobeItem[]> = {};
-    
-    items.forEach(item => {
-      const category = item.category || 'Uncategorized';
-      if (!categorized[category]) {
-        categorized[category] = [];
-      }
-      categorized[category].push(item);
-    });
-    
-    return categorized;
-  };
+  // Autosave wardrobe when items change
+  useEffect(() => {
+    if (items.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveWardrobe(false);
+      }, 2000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [items]);
 
   return (
     <WardrobeContext.Provider
       value={{
         items,
+        categorizedItems,
         isLoading,
         error,
         refreshItems,
@@ -283,10 +243,18 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         removeItem,
         saveWardrobe,
         clearWardrobe,
-        categorizedItems,
       }}
     >
       {children}
     </WardrobeContext.Provider>
   );
+}
+
+// Custom hook to use the wardrobe context
+export function useWardrobe() {
+  const context = useContext(WardrobeContext);
+  if (context === undefined) {
+    throw new Error('useWardrobe must be used within a WardrobeProvider');
+  }
+  return context;
 } 

@@ -1,6 +1,7 @@
 import { ExtractedWardrobeItem } from './email-item-extractor';
 import { prisma } from './prisma';
 import { log } from './logger';
+import { categorizeItem } from './categorize-items';
 
 /**
  * Results of adding items to wardrobe
@@ -53,7 +54,7 @@ export async function addItemsToWardrobe(
       log('Skipping duplicate item', { 
         userId, 
         itemName: item.name, 
-        brand: item.brand,
+        brand: item.brand || 'Unknown Brand',
         imageUrl: item.imageUrl 
       });
       
@@ -62,12 +63,20 @@ export async function addItemsToWardrobe(
       continue;
     }
     
+    // Determine category for the item
+    const category = categorizeItem({
+      name: item.name,
+      brand: item.brand || 'Unknown Brand',
+      color: item.color || '',
+      sourceRetailer: item.retailer || 'Unknown'
+    });
+    
     // Add new item to wardrobe
     try {
       const newWardrobeItem = await prisma.wardrobe.create({
         data: {
           userId,
-          brand: item.brand,
+          brand: item.brand || 'Unknown Brand',
           name: item.name,
           price: item.price || '',
           originalPrice: item.originalPrice || '',
@@ -78,12 +87,18 @@ export async function addItemsToWardrobe(
           color: item.color || '',
           source: 'email',
           sourceEmailId: item.emailId,
-          sourceOrderId: item.orderId,
-          sourceRetailer: item.retailer
+          sourceOrderId: item.orderId || '',
+          sourceRetailer: item.retailer || 'Unknown',
+          category: category
         }
       });
       
-      log('Added item to wardrobe', { userId, itemId: newWardrobeItem.id, itemName: item.name });
+      log('Added item to wardrobe', { 
+        userId, 
+        itemId: newWardrobeItem.id, 
+        itemName: item.name,
+        category: category
+      });
       
       result.addedItems++;
       result.addedWardrobeItems.push(newWardrobeItem);
@@ -106,52 +121,16 @@ export async function addItemsToWardrobe(
 }
 
 /**
- * Check if an item is a duplicate based on multiple criteria
+ * Check if an item already exists in the wardrobe
  */
 function checkForDuplicate(newItem: ExtractedWardrobeItem, existingItems: any[]): boolean {
-  // First check for exact matches
-  const exactMatch = existingItems.some(existingItem => 
-    existingItem.sourceEmailId === newItem.emailId &&
-    existingItem.sourceOrderId === newItem.orderId
-  );
-  
-  if (exactMatch) {
-    return true; // Definite duplicate - from the same email and order
-  }
-  
-  // Then check for image URL matches
-  if (newItem.normalizedImageUrl) {
-    const imageMatch = existingItems.some(existingItem => {
-      // Normalize the existing image URL if present
-      if (!existingItem.image) return false;
-      
-      const normalizedExistingImage = normalizeImageUrl(existingItem.image);
-      return normalizedExistingImage === newItem.normalizedImageUrl;
-    });
-    
-    if (imageMatch) {
-      return true; // Images are the same, likely the same product
-    }
-  }
-  
-  // Finally check for brand + name similarity
   return existingItems.some(existingItem => {
-    // Brand is required to be the same
-    const brandMatch = existingItem.brand.toLowerCase() === newItem.brand.toLowerCase();
-    if (!brandMatch) return false;
+    // Check if brand and name match
+    const brandMatch = (existingItem.brand === (newItem.brand || 'Unknown Brand'));
+    const nameMatch = existingItem.name === newItem.name;
     
-    // Check name similarity
-    const nameSimilarity = calculateNameSimilarity(
-      existingItem.name.toLowerCase(), 
-      newItem.name.toLowerCase()
-    );
-    
-    // Consider similar if similarity is above threshold AND size matches if available
-    const isSimilar = nameSimilarity > 0.7;
-    const sizeMatch = !existingItem.size || !newItem.size || 
-                      existingItem.size.toLowerCase() === newItem.size.toLowerCase();
-    
-    return isSimilar && sizeMatch;
+    // If both brand and name match, consider it a duplicate
+    return brandMatch && nameMatch;
   });
 }
 

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WardrobeItem } from "@/types/outfit";
-import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 
 interface CanvasItem extends WardrobeItem {
   left: number;
@@ -274,24 +274,6 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     onUpdateItems(updatedItems);
   };
 
-  const handleResetSize = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const itemIndex = positionedItems.findIndex(i => i.id === id);
-    if (itemIndex === -1) return;
-    
-    const item = positionedItems[itemIndex];
-    const updatedItems = [...positionedItems];
-    
-    updatedItems[itemIndex] = {
-      ...item,
-      width: 150,
-      height: 150
-    };
-    
-    setPositionedItems(updatedItems);
-    onUpdateItems(updatedItems);
-  };
-
   // Group items by category
   const itemsByCategory = positionedItems.reduce<{[key: string]: CanvasItem[]}>((acc, item) => {
     const category = item.category || 'Uncategorized';
@@ -303,145 +285,136 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
   }, {});
 
   return (
-    <div className="flex flex-col h-full">
-      <div 
-        ref={canvasRef}
-        className="flex-1 border-2 border-dashed border-gray-300 rounded-lg bg-white relative overflow-hidden canvas-container"
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        {positionedItems.map((item) => (
-          <div
-            key={item.id}
-            className="absolute cursor-move"
-            style={{
-              left: `${item.left}px`,
-              top: `${item.top}px`,
-              zIndex: item.zIndex,
-              width: `${item.width}px`,
-              height: `${item.height}px`,
-            }}
-            onMouseDown={(e) => !item.isPinned && handleMouseDown(e, item.id)}
-          >
-            <div className="relative group h-full">
-              <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-white shadow-lg rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTogglePin(item.id);
-                  }}
-                  className={`p-1.5 rounded-md hover:bg-gray-100 ${item.isPinned ? 'text-blue-500' : 'text-gray-500'}`}
-                  title={item.isPinned ? "Unpin" : "Pin"}
-                >
-                  <Pin size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleMoveUp(item.id);
-                  }}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                  title="Move Up"
-                >
-                  <ArrowUp size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleMoveDown(item.id);
-                  }}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                  title="Move Down"
-                >
-                  <ArrowDown size={14} />
-                </button>
-                <button
-                  onClick={(e) => handleIncreaseSize(item.id, e)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                  title="Increase Size"
-                >
-                  <ZoomIn size={14} />
-                </button>
-                <button
-                  onClick={(e) => handleDecreaseSize(item.id, e)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                  title="Decrease Size"
-                >
-                  <ZoomOut size={14} />
-                </button>
-                <button
-                  onClick={(e) => handleResetSize(item.id, e)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
-                  title="Reset Size"
-                >
-                  <RotateCcw size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemoveItem(item.id);
-                  }}
-                  className="p-1.5 rounded-md hover:bg-gray-100 text-red-500"
-                  title="Delete"
-                >
-                  <Trash2 size={14} />
-                </button>
+    <div 
+      ref={canvasRef}
+      className="h-full w-full bg-white rounded-md shadow-sm border border-gray-100 relative overflow-hidden"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Canvas background */}
+      <div className="bg-[url('/grid-pattern.svg')] bg-center h-full w-full absolute opacity-5"></div>
+      
+      {/* Canvas items */}
+      {positionedItems.map(item => (
+        <div 
+          key={item.id}
+          className={`absolute cursor-grab ${item.isPinned ? "border-2 border-primary" : "border border-gray-200"} ${activeItemId === item.id ? "ring-2 ring-primary ring-opacity-50" : ""} rounded-md overflow-hidden bg-white shadow-sm transition-shadow`}
+          style={{
+            left: `${item.left}px`,
+            top: `${item.top}px`,
+            zIndex: item.zIndex,
+            width: `${item.width}px`,
+            height: `${item.height}px`,
+          }}
+          onMouseDown={(e) => handleMouseDown(e, item.id)}
+        >
+          {/* Item image */}
+          <div className="relative h-full w-full overflow-hidden bg-white">
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={item.name}
+                className="h-full w-full object-contain"
+                draggable={false}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                {item.name}
               </div>
-              <div className="relative h-full">
-                <img
-                  src={item.image || item.imageUrl}
-                  alt={item.name}
-                  className="w-full h-full object-contain bg-white rounded-lg shadow-sm"
-                  draggable={false}
-                />
-                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                  <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                    {item.name}
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
-        ))}
-        {positionedItems.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-            Drag and drop items here to create your outfit
+          
+          {/* Controls overlay */}
+          <div className="absolute top-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-bl-md">
+            <button 
+              onClick={(e) => {e.stopPropagation(); handleTogglePin(item.id)}}
+              className={`p-1 rounded-sm ${item.isPinned ? "text-primary bg-primary-foreground" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+              title={item.isPinned ? "Unpin" : "Pin"}
+            >
+              <Pin size={12} />
+            </button>
+            <button 
+              onClick={(e) => {e.stopPropagation(); handleMoveUp(item.id)}}
+              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Bring forward"
+            >
+              <ArrowUp size={12} />
+            </button>
+            <button 
+              onClick={(e) => {e.stopPropagation(); handleMoveDown(item.id)}}
+              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Send backward"
+            >
+              <ArrowDown size={12} />
+            </button>
           </div>
-        )}
-      </div>
-
-      <div className="mt-4 flex justify-between items-center">
-        <div className="flex gap-2">
-          {Object.entries(itemsByCategory).map(([category, items]) => (
-            <div key={category} className="text-sm">
-              <span className="font-medium">{category}:</span> {items.length}
-            </div>
-          ))}
+          
+          {/* Size controls */}
+          <div className="absolute bottom-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-tl-md">
+            <button 
+              onClick={(e) => handleIncreaseSize(item.id, e)}
+              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Increase size"
+            >
+              <ZoomIn size={12} />
+            </button>
+            <button 
+              onClick={(e) => handleDecreaseSize(item.id, e)}
+              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Decrease size"
+            >
+              <ZoomOut size={12} />
+            </button>
+          </div>
+          
+          {/* Remove button */}
+          <div className="absolute bottom-0 left-0 p-1">
+            <button 
+              onClick={(e) => {e.stopPropagation(); handleRemoveItem(item.id)}}
+              className="p-1 rounded-sm text-red-400 hover:text-red-600 hover:bg-red-50"
+              title="Remove"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
+      ))}
+      
+      {/* Save button */}
+      <div className="absolute bottom-4 right-4">
         <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
           <DialogTrigger asChild>
-            <Button>Save Outfit</Button>
+            <Button variant="default" size="sm">Save Outfit</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Save Outfit</DialogTitle>
+              <DialogTitle>Save Your Outfit</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Input
-                  id="name"
-                  placeholder="Enter outfit name"
-                  value={outfitName}
-                  onChange={(e) => setOutfitName(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={handleSave}>Save</Button>
+            <div className="space-y-4 pt-4">
+              <Input 
+                placeholder="Outfit name" 
+                value={outfitName} 
+                onChange={(e) => setOutfitName(e.target.value)}
+              />
+              <Button onClick={handleSave} disabled={!outfitName.trim()}>
+                Save
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+      
+      {/* Placeholder for empty state */}
+      {positionedItems.length === 0 && (
+        <div className="flex items-center justify-center h-full text-center p-8">
+          <div className="max-w-sm">
+            <h3 className="text-lg font-medium text-gray-400 mb-2">Design Your Outfit</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Drag items from your wardrobe to create an outfit. Position each piece by dragging it on the canvas.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

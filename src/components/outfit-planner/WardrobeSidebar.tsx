@@ -3,16 +3,19 @@
 import React, { useState } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronRight, ChevronDown } from "lucide-react";
+import { Search } from "lucide-react";
 import { useWardrobe } from '@/contexts/WardrobeContext';
+import { WardrobeItem } from '@/types/outfit';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 export const WardrobeSidebar = () => {
   const { items, categorizedItems } = useWardrobe();
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-
-  // Get categories in sorted order
-  const categories = Object.keys(categorizedItems).sort((a, b) => a.localeCompare(b));
 
   // Filter items based on search query
   const filteredItems = searchQuery.trim() 
@@ -23,100 +26,97 @@ export const WardrobeSidebar = () => {
       )
     : [];
 
-  const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
-  };
+  // Get categories in sorted order
+  const categories = Object.keys(categorizedItems).sort((a, b) => {
+    // Put Uncategorized at the end
+    if (a === 'Uncategorized') return 1;
+    if (b === 'Uncategorized') return -1;
+    return a.localeCompare(b);
+  });
 
-  const handleDragStart = (e: React.DragEvent, item: any) => {
+  const handleDragStart = (e: React.DragEvent, item: WardrobeItem) => {
     e.dataTransfer.setData('application/json', JSON.stringify(item));
   };
 
   return (
-    <div className="w-72 border-r border-gray-200 flex flex-col h-full overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold mb-2">Wardrobe Items</h2>
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-          <Input
-            placeholder="Search items..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
-        </div>
+    <div className="w-64 h-full flex flex-col gap-2 p-3">
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 text-sm"
+        />
       </div>
-      
+
+      {/* Wardrobe items */}
       <ScrollArea className="flex-1">
         {searchQuery.trim() ? (
           // Show search results
-          <div className="p-4">
-            <div className="text-sm font-medium text-gray-500 mb-2">
-              Search Results ({filteredItems.length})
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {filteredItems.map(item => (
+          <div className="space-y-2">
+            <h3 className="font-medium px-2 text-sm">Search Results ({filteredItems.length})</h3>
+            <div className="grid grid-cols-2 gap-1 px-1">
+              {filteredItems.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white border border-gray-200 rounded-md p-2 cursor-move hover:border-blue-400 transition-colors"
                   draggable
-                  onDragStart={e => handleDragStart(e, item)}
+                  onDragStart={(e) => handleDragStart(e, item)}
+                  className="relative cursor-move rounded-md overflow-hidden border bg-popover hover:bg-accent hover:text-accent-foreground"
+                  style={{ aspectRatio: '1/1' }}
                 >
-                  <div className="relative pb-[100%]">
+                  {item.image ? (
                     <img
-                      src={item.image || item.imageUrl}
+                      src={item.image}
                       alt={item.name}
-                      className="absolute inset-0 w-full h-full object-contain"
+                      className="h-full w-full object-cover"
                     />
-                  </div>
-                  <div className="text-xs mt-1 truncate">{item.name}</div>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground p-1">
+                      {item.name}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         ) : (
           // Show categorized items
-          <div className="p-4">
-            {categories.map(category => (
-              <div key={category} className="mb-4">
-                <button
-                  onClick={() => toggleCategory(category)}
-                  className="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  <span>{category}</span>
-                  {expandedCategories[category] ? (
-                    <ChevronDown size={16} />
-                  ) : (
-                    <ChevronRight size={16} />
-                  )}
-                </button>
-                
-                {expandedCategories[category] && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {categorizedItems[category].map(item => (
+          <Accordion type="multiple" defaultValue={categories} className="space-y-1">
+            {categories.map((category) => (
+              <AccordionItem key={category} value={category} className="border-b-0">
+                <AccordionTrigger className="text-sm hover:no-underline py-2 px-2">
+                  {category} ({categorizedItems[category].length})
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid grid-cols-2 gap-1 p-1">
+                    {categorizedItems[category].map((item) => (
                       <div
                         key={item.id}
-                        className="bg-white border border-gray-200 rounded-md p-2 cursor-move hover:border-blue-400 transition-colors"
                         draggable
-                        onDragStart={e => handleDragStart(e, item)}
+                        onDragStart={(e) => handleDragStart(e, item)}
+                        className="relative cursor-move rounded-md overflow-hidden border bg-popover hover:bg-accent hover:text-accent-foreground"
+                        style={{ aspectRatio: '1/1' }}
                       >
-                        <div className="relative pb-[100%]">
+                        {item.image ? (
                           <img
-                            src={item.image || item.imageUrl}
+                            src={item.image}
                             alt={item.name}
-                            className="absolute inset-0 w-full h-full object-contain"
+                            className="h-full w-full object-cover"
                           />
-                        </div>
-                        <div className="text-xs mt-1 truncate">{item.name}</div>
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground p-1">
+                            {item.name}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         )}
       </ScrollArea>
     </div>

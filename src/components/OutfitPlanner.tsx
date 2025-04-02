@@ -83,7 +83,9 @@ export default function OutfitPlanner({ initialItems = [] }: OutfitPlannerProps)
       )}
       
       <div className="flex flex-1 overflow-hidden border border-gray-200 rounded-lg">
-        <WardrobeSidebar />
+        <div className="flex-shrink-0 border-r border-gray-200">
+          <WardrobeSidebar />
+        </div>
         <div className="flex-1 overflow-hidden p-4 bg-gray-50">
           <OutfitCanvas
             items={canvasItems}
