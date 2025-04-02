@@ -962,19 +962,12 @@ export default function Home() {
   return (
     <main className="min-h-screen p-4 sm:p-8 lg:p-12">
       <div className="flex flex-col items-center">
-        {session && (
-          <div className="self-end flex items-center gap-2 mb-4">
-            {session?.user?.image && (
-              <Image src={session.user.image} width={32} height={32} alt="User" className="rounded-full" />
-            )}
-            <span className="text-sm">{session.user.name}</span>
-            <button className="text-sm text-purple-600 hover:underline" onClick={() => signOut()}>Sign Out</button>
-          </div>
-        )}
+        {/* User profile section removed since it's already in the navigation bar */}
         
         <h1 className="text-4xl font-bold text-center text-purple-600 mb-2">
-          Organize Your Wardrobe, <br />Elevate Your Style
+        Organize Your Wardrobe, <br />Elevate Your Style
         </h1>
+        
         <p className="text-center text-gray-600 mb-8 max-w-xl mx-auto">
           Your personal wardrobe assistant that helps you manage, style, and optimize your clothing collection.
         </p>
@@ -992,16 +985,6 @@ export default function Home() {
                 Import Items from Your Email
               </a>
 
-              <a 
-                href="/outfit-planner" 
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Create & Plan Outfits
-              </a>
-              
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-grow">
                   <input
@@ -1143,26 +1126,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Outfit Planner Banner */}
-        {session && products.length > 0 && (
-          <div className="mb-8 bg-gradient-to-r from-purple-600 to-pink-500 rounded-lg shadow-lg overflow-hidden">
-            <div className="px-6 py-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between">
-              <div className="text-white mb-4 sm:mb-0">
-                <h3 className="text-xl font-bold mb-2">Mix & Match Your Wardrobe</h3>
-                <p className="opacity-90">Create stylish outfits with items from your collection using our outfit planner.</p>
-              </div>
-              <Link 
-                href="/outfit-planner" 
-                className="inline-flex items-center px-5 py-2.5 text-sm font-medium text-center text-purple-700 bg-white rounded-md hover:bg-purple-50 focus:ring-4 focus:outline-none focus:ring-purple-300 shadow-sm"
-              >
-                Try Outfit Planner
-                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </Link>
-            </div>
-          </div>
-        )}
+        {/* Removed redundant Outfit Planner Banner */}
 
         {/* Your Wardrobe Section */}
         {products.length > 0 && (

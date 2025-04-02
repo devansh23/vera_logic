@@ -46,15 +46,6 @@ export default function Navigation() {
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {session && (
-              <Link
-                href="/outfit-planner"
-                className="mr-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
-                Create Outfits
-              </Link>
-            )}
-            
             {session ? (
               <div className="flex items-center">
                 {session.user?.image && (
