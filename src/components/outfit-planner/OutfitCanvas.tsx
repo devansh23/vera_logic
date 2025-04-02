@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WardrobeItem } from "@/types/outfit";
@@ -157,19 +157,36 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     const canvasRect = e.currentTarget.getBoundingClientRect();
     const data = e.dataTransfer.getData('application/json');
     if (data) {
-      const item: WardrobeItem = JSON.parse(data);
-      const left = e.clientX - canvasRect.left;
-      const top = e.clientY - canvasRect.top;
-      
-      onUpdateItems([...positionedItems, { 
-        ...item, 
-        left, 
-        top, 
-        zIndex: maxZIndex,
-        width: 128, // Initial width
-        height: 128 // Initial height
-      }]);
-      setMaxZIndex(prev => prev + 1);
+      try {
+        const item: WardrobeItem = JSON.parse(data);
+        // Make sure the item has an ID
+        if (!item.id) {
+          console.error('Dropped item is missing an ID:', item);
+          return;
+        }
+
+        // Check if the item is already on the canvas
+        const existingItem = positionedItems.find(pi => pi.id === item.id);
+        if (existingItem) {
+          console.log('Item is already on the canvas:', item.id);
+          return;
+        }
+
+        const left = e.clientX - canvasRect.left;
+        const top = e.clientY - canvasRect.top;
+        
+        onUpdateItems([...positionedItems, { 
+          ...item, 
+          left, 
+          top, 
+          zIndex: maxZIndex,
+          width: 128, // Initial width
+          height: 128 // Initial height
+        }]);
+        setMaxZIndex(prev => prev + 1);
+      } catch (error) {
+        console.error('Error parsing dropped item:', error);
+      }
     }
   };
 
@@ -386,9 +403,12 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
           <DialogTrigger asChild>
             <Button variant="default" size="sm">Save Outfit</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent aria-describedby="outfit-save-description">
             <DialogHeader>
               <DialogTitle>Save Your Outfit</DialogTitle>
+              <DialogDescription id="outfit-save-description">
+                Give your outfit a name to save it to your collection.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <Input 

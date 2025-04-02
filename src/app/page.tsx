@@ -52,6 +52,7 @@ interface WardrobeItem {
   preview?: LinkPreview;
   myntraData?: MyntraProduct;
   loading?: boolean;
+  dateAdded?: string; // Make sure dateAdded is a string to match MyntraProduct
 }
 
 interface SearchResult {
@@ -356,9 +357,9 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses', 'H&M dress', 'H&M dresses'],
     'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'H&M top', 'H&M tops'],
     'Tshirts': ['women t-shirt', 'women t-shirts', 'ladies tee', 'ladies tees', 'graphic tee', 'graphic tees', 'printed t-shirt', 'printed t-shirts', 'basic tee', 'basic tees', 'women tshirt', 'women tshirts'],
-    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim', 'H&M jeans'],
-    'Trousers & Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants', 'H&M trousers'],
-    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts', 'H&M shorts'],
+    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim', 'H&M jeans for women'],
+    'Trousers & Capris': ['women trouser', 'women trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'ladies pant', 'ladies pants', 'H&M trousers for women'],
+    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts', 'H&M shorts for women'],
     'Co-ords': ['co-ord', 'co-ords', 'matching set', 'matching sets', 'twin set', 'twin sets', 'two piece set', 'two piece sets', 'coordinate set', 'coordinate sets'],
     'Playsuits': ['playsuit', 'playsuits', 'romper', 'rompers', 'short jumpsuit', 'short jumpsuits', 'beach playsuit', 'beach playsuits'],
     'Jumpsuits': ['jumpsuit', 'jumpsuits', 'overall', 'overalls', 'dungaree', 'dungarees', 'women jumpsuit', 'women jumpsuits', 'ladies jumpsuit', 'ladies jumpsuits'],
@@ -805,6 +806,7 @@ export default function Home() {
           showNotification({
             type: 'success',
             message: 'Item removed from your wardrobe',
+            itemCount: 1  // Specifying that 1 item was affected
           });
         })
         .catch(error => {
@@ -818,7 +820,8 @@ export default function Home() {
       await clearWardrobe();
       showNotification({
         type: 'success',
-        message: 'All items successfully removed from your wardrobe'
+        message: 'All items successfully removed from your wardrobe',
+        itemCount: products.length  // Specifying the number of items removed
       });
       // Close the confirmation dialog
       setShowDeleteAllConfirm(false);
@@ -826,7 +829,8 @@ export default function Home() {
       console.error('Error deleting all items:', error);
       showNotification({
         type: 'error',
-        message: 'Failed to delete all items'
+        message: 'Failed to delete all items',
+        itemCount: 0  // No items affected in case of error
       });
     }
   };
@@ -948,6 +952,7 @@ export default function Home() {
       showNotification({
         type: 'success',
         message: `${selectedItems.size} items removed from your wardrobe`,
+        itemCount: selectedItems.size  // Use the actual count of selected items
       });
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Failed to remove selected items');
@@ -1132,7 +1137,7 @@ export default function Home() {
               onClick={() => signIn('google')}
               className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
             >
-              <Image src="/google.svg" alt="Google" width={18} height={18} />
+              <Image src="/google.svg" alt="Google" width={18} height={18} style={{ width: 'auto', height: 'auto' }} />
               Sign in with Google
             </button>
           </div>

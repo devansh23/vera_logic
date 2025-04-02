@@ -8,10 +8,23 @@ import {
   Calendar as CalendarIcon, 
   Trash2 
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ClothingItem, OutfitItem } from "@/pages/OutfitPlanner";
-import OutfitCalendar from "./OutfitCalendar";
+
+// Define these types locally since they can't be imported from @/pages/OutfitPlanner
+interface ClothingItem {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+}
+
+interface OutfitItem {
+  id: string;
+  items: ClothingItem[];
+  name: string;
+  date?: Date;
+}
 
 interface Outfit {
   id: string;
@@ -98,9 +111,12 @@ export const OutfitControls = ({ outfits, onSchedule }: OutfitControlsProps) => 
       </Tabs>
 
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent>
+        <DialogContent aria-describedby="schedule-outfit-description">
           <DialogHeader>
             <DialogTitle>Schedule Outfit</DialogTitle>
+            <DialogDescription id="schedule-outfit-description">
+              Choose a date and title to add this outfit to your calendar.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>

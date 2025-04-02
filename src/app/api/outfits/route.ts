@@ -44,15 +44,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session data:', session?.user);
     
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const data = await request.json();
+    console.log('Request data:', data);
     const { name, items } = data;
     
     if (!name || !items || !Array.isArray(items)) {
+      console.log('Invalid data format:', { name, items });
       return NextResponse.json(
         { error: 'Invalid data format. Name and items array are required.' },
         { status: 400 }
@@ -65,34 +68,78 @@ export async function POST(request: NextRequest) {
       select: { id: true }
     });
     
+    console.log('User lookup result:', user);
+    
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    // Create the outfit with items
-    const outfit = await prisma.outfit.create({
-      data: {
-        name,
-        userId: user.id,
-        items: {
-          create: items.map((item: any) => ({
-            wardrobeItemId: item.wardrobeItemId,
-            left: item.left,
-            top: item.top,
-            zIndex: 1, // Default z-index
-            width: item.width || 150, // Default width
-            height: item.height || 150, // Default height
-          }))
-        }
+    // Extract all wardrobeItemIds to check if they exist
+    const wardrobeItemIds = items.map((item: any) => item.wardrobeItemId);
+    console.log('Outfit items to create:', wardrobeItemIds);
+    
+    // Verify all wardrobe items exist before creating the outfit
+    const existingItems = await prisma.wardrobe.findMany({
+      where: {
+        id: { in: wardrobeItemIds },
+        userId: user.id
       },
-      include: {
-        items: true
-      }
+      select: { id: true }
     });
     
-    return NextResponse.json(outfit);
+    const existingItemIds = existingItems.map(item => item.id);
+    const missingItemIds = wardrobeItemIds.filter(id => !existingItemIds.includes(id));
+    
+    if (missingItemIds.length > 0) {
+      console.log('Missing wardrobe items:', missingItemIds);
+      return NextResponse.json(
+        { 
+          error: 'One or more wardrobe items do not exist',
+          missingItems: missingItemIds
+        },
+        { status: 400 }
+      );
+    }
+    
+    try {
+      // Create the outfit with items
+      const outfit = await prisma.outfit.create({
+        data: {
+          name,
+          userId: user.id,
+          items: {
+            create: items.map((item: any) => ({
+              wardrobeItemId: item.wardrobeItemId,
+              left: item.left,
+              top: item.top,
+              zIndex: 1, // Default z-index
+              width: item.width || 150, // Default width
+              height: item.height || 150, // Default height
+            }))
+          }
+        },
+        include: {
+          items: true
+        }
+      });
+      
+      console.log('Outfit created successfully:', outfit.id);
+      return NextResponse.json(outfit);
+    } catch (prismaError) {
+      const err = prismaError as Error;
+      console.error('Prisma error creating outfit:', err.message, err.stack);
+      // Check if it's a foreign key constraint error
+      if (err.message.includes('Foreign key constraint failed')) {
+        return NextResponse.json(
+          { error: 'One or more wardrobe items do not exist' },
+          { status: 400 }
+        );
+      }
+      throw prismaError; // Re-throw to be caught by the outer try/catch
+    }
   } catch (error) {
-    console.error('Error creating outfit:', error);
+    const err = error as Error;
+    console.error('Error creating outfit:', err.message, err.stack);
     return NextResponse.json(
       { error: 'Failed to create outfit' },
       { status: 500 }
@@ -124,7 +171,7 @@ export async function PUT(request: Request) {
 
     return NextResponse.json(outfit);
   } catch (error) {
-    log('Error updating outfit', { error });
+    console.error('Error updating outfit', error);
     return NextResponse.json(
       { error: 'Failed to update outfit' },
       { status: 500 }
@@ -159,7 +206,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log('Error deleting outfit', { error });
+    console.error('Error deleting outfit', error);
     return NextResponse.json(
       { error: 'Failed to delete outfit' },
       { status: 500 }

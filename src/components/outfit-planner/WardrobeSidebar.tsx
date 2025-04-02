@@ -35,6 +35,7 @@ export const WardrobeSidebar = () => {
   });
 
   const handleDragStart = (e: React.DragEvent, item: WardrobeItem) => {
+    console.log('Dragging item with ID:', item.id);
     e.dataTransfer.setData('application/json', JSON.stringify(item));
   };
 

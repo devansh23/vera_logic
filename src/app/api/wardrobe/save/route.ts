@@ -19,50 +19,98 @@ export async function POST(request: Request) {
     const { items } = await request.json();
     log('POST /api/wardrobe/save - Saving wardrobe', { itemCount: items.length });
 
-    // First, delete all existing items for this user
-    await prisma.wardrobe.deleteMany({
-      where: {
-        userId: session.user.id
-      }
-    });
-    
-    log('POST /api/wardrobe/save - Deleted existing items');
-
-    // Then create all the new items
-    const savedItems = await Promise.all(
-      items.map(async (item: any) => {
-        // Determine category for the item if not already set
-        const category = item.category || categorizeItem({
-          id: item.id || '',
-          name: item.name || 'Unknown Product',
-          brand: item.brand || 'Unknown Brand',
-          price: item.price || '',
-          color: item.color || '',
-          sourceRetailer: item.sourceRetailer || 'Unknown'
-        });
-
-        return prisma.wardrobe.create({
-          data: {
-            userId: session.user.id,
-            brand: item.brand || 'Unknown Brand',
-            name: item.name || 'Unknown Product',
-            price: item.price || '',
-            originalPrice: item.originalPrice || '',
-            discount: item.discount || '',
-            image: item.image || '',
-            productLink: item.productLink || item.myntraLink || '',
-            size: item.size || '',
-            color: item.color || '',
-            category: category
+    // Use transaction to ensure atomicity and avoid connection leaks
+    const result = await prisma.$transaction(async (tx) => {
+      // Get existing IDs from the database to know what items to keep
+      const existingItems = await tx.wardrobe.findMany({
+        where: { userId: session.user.id },
+        select: { id: true }
+      });
+      const existingIds = new Set(existingItems.map(item => item.id));
+      
+      // Get IDs from the incoming items - these are the items we want to keep
+      const incomingIds = new Set(items.map((item: any) => item.id).filter(Boolean));
+      
+      // Items to delete are those that exist in the DB but not in incoming items
+      const idsToDelete = Array.from(existingIds).filter(id => !incomingIds.has(id));
+      
+      // Delete items that are no longer in the wardrobe
+      if (idsToDelete.length > 0) {
+        await tx.wardrobe.deleteMany({
+          where: {
+            id: { in: idsToDelete },
+            userId: session.user.id
           }
         });
-      })
-    );
+        log('POST /api/wardrobe/save - Deleted items no longer in wardrobe', { count: idsToDelete.length });
+      }
+      
+      // Process items in batches to avoid too many parallel operations
+      const batchSize = 10; // Adjust based on your DB performance
+      const savedItems = [];
+      
+      // Process in batches
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (item: any) => {
+            // Make sure we have an ID we can work with
+            const hasValidId = item.id && typeof item.id === 'string' && item.id.length > 0;
+            
+            // Determine category for the item if not already set
+            const category = item.category || categorizeItem({
+              id: item.id || '',
+              name: item.name || 'Unknown Product',
+              brand: item.brand || 'Unknown Brand',
+              price: item.price || '',
+              color: item.color || '',
+              sourceRetailer: item.sourceRetailer || 'Unknown'
+            });
+            
+            const itemData = {
+              userId: session.user.id,
+              brand: item.brand || 'Unknown Brand',
+              name: item.name || 'Unknown Product',
+              price: item.price || '',
+              originalPrice: item.originalPrice || '',
+              discount: item.discount || '',
+              image: item.image || '',
+              productLink: item.productLink || item.myntraLink || '',
+              size: item.size || '',
+              color: item.color || '',
+              category: category
+            };
+            
+            // If the item has a valid ID and it exists in the database, update it
+            if (hasValidId && existingIds.has(item.id)) {
+              return tx.wardrobe.update({
+                where: { id: item.id },
+                data: itemData
+              });
+            } 
+            // Otherwise create a new item
+            else {
+              return tx.wardrobe.create({
+                data: itemData
+              });
+            }
+          })
+        );
+        
+        savedItems.push(...batchResults);
+      }
+      
+      return savedItems;
+    }, {
+      // Set a reasonable timeout for the transaction
+      timeout: 30000 // 30 seconds
+    });
 
-    log('POST /api/wardrobe/save - Created new items', { count: savedItems.length });
+    log('POST /api/wardrobe/save - Updated/created items', { count: result.length });
     return NextResponse.json({ 
       message: 'Wardrobe saved successfully',
-      count: savedItems.length
+      count: result.length,
+      updatedItems: result
     });
   } catch (error: any) {
     log('Error saving wardrobe', { error });

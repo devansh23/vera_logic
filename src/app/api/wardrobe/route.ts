@@ -6,16 +6,24 @@ import { log } from '@/lib/logger';
 import { categorizeItem } from '@/lib/categorize-items';
 
 // GET /api/wardrobe - Get user's wardrobe
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [${requestId}] GET /api/wardrobe - Request received`);
+  
   const session = await getServerSession(authOptions);
   log('GET /api/wardrobe - Session', { userId: session?.user?.id });
   
   if (!session?.user?.id) {
     log('GET /api/wardrobe - Unauthorized: No user ID in session');
+    console.log(`[${timestamp}] [${requestId}] GET /api/wardrobe - Unauthorized, no user ID`);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    console.log(`[${timestamp}] [${requestId}] GET /api/wardrobe - Fetching items for user ${session.user.id}`);
+    const startTime = performance.now();
+    
     const items = await prisma.wardrobe.findMany({
       where: {
         userId: session.user.id
@@ -25,9 +33,13 @@ export async function GET() {
       }
     });
 
+    const duration = Math.round(performance.now() - startTime);
+    console.log(`[${timestamp}] [${requestId}] GET /api/wardrobe - Fetch completed in ${duration}ms, found ${items.length} items`);
+    
     log(`GET /api/wardrobe - Found items for user`, { userId: session.user.id, count: items.length });
     return NextResponse.json(items);
   } catch (error) {
+    console.log(`[${timestamp}] [${requestId}] GET /api/wardrobe - Error: ${error}`);
     log('Error fetching wardrobe', { error });
     return NextResponse.json(
       { error: 'Failed to fetch wardrobe' },

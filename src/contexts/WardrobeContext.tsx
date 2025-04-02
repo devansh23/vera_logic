@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import { WardrobeItem } from '@/types/outfit';
 import { useSession } from 'next-auth/react';
 import { categorizeItems } from '@/lib/categorize-items';
@@ -33,6 +33,8 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   const [categorizedItems, setCategorizedItems] = useState<Record<string, WardrobeItem[]>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialLoadComplete = useRef(false);
+  const loadingRef = useRef(false);
 
   // Update categorizedItems whenever items change
   useEffect(() => {
@@ -46,7 +48,14 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       return;
     }
 
+    // Prevent concurrent API calls
+    if (loadingRef.current) {
+      console.log('Skipping duplicate wardrobe load - already in progress');
+      return;
+    }
+
     setIsLoading(true);
+    loadingRef.current = true;
     setError(null);
 
     try {
@@ -57,17 +66,19 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       
       const data = await response.json();
       setItems(data);
+      initialLoadComplete.current = true;
     } catch (error) {
       console.error('Error loading wardrobe:', error);
       setError(error instanceof Error ? error.message : 'Failed to load wardrobe');
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   };
 
-  // Load items when session changes
+  // Load items when session changes, but only if not already loaded
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && !initialLoadComplete.current && !loadingRef.current) {
       refreshItems();
     }
   }, [session?.user?.id]);
@@ -103,9 +114,10 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         return data;
       } else {
         // Otherwise, directly add the item to the items array
+        // Make sure we preserve any existing ID rather than generating a temp one
         const newItem = {
           ...item,
-          id: item.id || `temp-${Date.now()}`, // Use provided ID or generate a temporary one
+          id: item.id && item.id.length > 0 ? item.id : `temp-${Date.now()}`, // Use provided ID if it exists
         };
         setItems(prev => [...prev, newItem]);
         return newItem;
@@ -148,7 +160,7 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     }
   };
 
-  // Function to save the entire wardrobe state
+  // Function to save the entire wardrobe state with retry logic
   const saveWardrobe = async (showMessage = true) => {
     if (!session?.user?.id) {
       setError('You must be signed in to save your wardrobe');
@@ -158,30 +170,66 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     setIsLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items }),
-      });
+    const maxRetries = 3;
+    let retryCount = 0;
+    let success = false;
 
-      if (!response.ok) {
-        throw new Error('Failed to save wardrobe');
-      }
+    while (retryCount < maxRetries && !success) {
+      try {
+        // Make sure all items have IDs before sending to API
+        const itemsToSave = items.map(item => {
+          if (!item.id || item.id.startsWith('temp-')) {
+            // Only regenerate ID if it's a temp ID or missing
+            return { ...item, id: item.id || `temp-${Date.now()}` };
+          }
+          return item;
+        });
 
-      await response.json();
-      if (showMessage) {
-        // You can add a toast or notification here if needed
-        console.log('Wardrobe saved successfully');
+        // If this is a retry, add a small delay to allow connections to be released
+        if (retryCount > 0) {
+          console.log(`Retrying save (attempt ${retryCount+1}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+
+        const response = await fetch('/api/wardrobe/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ items: itemsToSave }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || errorData.details || 'Failed to save wardrobe');
+        }
+
+        const result = await response.json();
+        
+        // If we got updated items back from the server, refresh our state
+        if (result.updatedItems) {
+          setItems(result.updatedItems);
+        }
+        
+        if (showMessage) {
+          // You can add a toast or notification here if needed
+          console.log('Wardrobe saved successfully');
+        }
+        
+        success = true;
+        break;
+      } catch (error) {
+        retryCount++;
+        console.error(`Error saving wardrobe (attempt ${retryCount}/${maxRetries}):`, error);
+        
+        // Only set error if all retries failed
+        if (retryCount >= maxRetries) {
+          setError(error instanceof Error ? error.message : 'Failed to save wardrobe after multiple attempts');
+        }
       }
-    } catch (error) {
-      console.error('Error saving wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save wardrobe');
-    } finally {
-      setIsLoading(false);
     }
+
+    setIsLoading(false);
   };
 
   // Function to clear the entire wardrobe
@@ -220,9 +268,9 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     }
   };
 
-  // Autosave wardrobe when items change
+  // Autosave wardrobe when items change, but only after initial load
   useEffect(() => {
-    if (items.length > 0) {
+    if (items.length > 0 && initialLoadComplete.current) {
       const timeoutId = setTimeout(() => {
         saveWardrobe(false);
       }, 2000);
@@ -250,11 +298,25 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   );
 }
 
-// Custom hook to use the wardrobe context
+// Hook to use the context
 export function useWardrobe() {
   const context = useContext(WardrobeContext);
-  if (context === undefined) {
+  
+  if (!context) {
     throw new Error('useWardrobe must be used within a WardrobeProvider');
   }
-  return context;
+  
+  // Memoize the refreshItems function to prevent unnecessary re-renders
+  const memoizedRefreshItems = useCallback(() => {
+    if (context.isLoading) {
+      console.log('Refresh skipped - already loading');
+      return;
+    }
+    return context.refreshItems();
+  }, [context.refreshItems, context.isLoading]);
+  
+  return { 
+    ...context,
+    refreshItems: memoizedRefreshItems
+  };
 } 
