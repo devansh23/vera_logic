@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -24,7 +26,10 @@ const nextConfig = {
         hostname: '*.zara.net'
       }
     ]
-  }
+  },
+  env: {
+    ROBOFLOW_API_KEY: process.env.NEXT_PUBLIC_ROBOFLOW_API_KEY,
+  },
 }
 
 module.exports = nextConfig
