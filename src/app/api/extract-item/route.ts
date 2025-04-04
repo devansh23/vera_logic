@@ -3,14 +3,7 @@ import sharp from 'sharp';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 
-// Debug: Log environment variable status
 const ROBOFLOW_API_KEY = process.env.NEXT_PUBLIC_ROBOFLOW_API_KEY;
-console.log('ROBOFLOW_API_KEY status:', {
-  isDefined: typeof ROBOFLOW_API_KEY !== 'undefined',
-  isEmpty: ROBOFLOW_API_KEY === '',
-  length: ROBOFLOW_API_KEY?.length,
-  value: ROBOFLOW_API_KEY // Safe to log as it's public
-});
 
 interface RoboflowPrediction {
   class: string;
@@ -38,20 +31,11 @@ const labelMap: Record<string, string[]> = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Log content type for debugging
-    console.log('Content-Type:', request.headers.get('content-type'));
-    
     const formData = await request.formData();
-    console.log('Form data entries:', Array.from(formData.entries()));
-    
     const image = formData.get('image');
     const itemName = formData.get('itemName');
 
-    console.log('Received image:', image ? 'yes' : 'no', typeof image);
-    console.log('Received itemName:', itemName);
-
     if (!ROBOFLOW_API_KEY) {
-      console.error('ROBOFLOW_API_KEY is not set in environment variables');
       return NextResponse.json(
         { error: 'Server configuration error - API key not found' },
         { status: 500 }
@@ -103,28 +87,15 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Log the response for debugging
-    const responseText = await roboflowResponse.text();
-    console.log('Roboflow Response:', responseText);
-
     if (!roboflowResponse.ok) {
-      console.error('Roboflow API error:', responseText);
+      const errorText = await roboflowResponse.text();
       return NextResponse.json(
-        { error: 'Error calling Roboflow API', details: responseText },
+        { error: 'Error calling Roboflow API', details: errorText },
         { status: 500 }
       );
     }
 
-    let predictions;
-    try {
-      predictions = JSON.parse(responseText) as RoboflowResponse;
-    } catch (e) {
-      console.error('Error parsing Roboflow response:', e);
-      return NextResponse.json(
-        { error: 'Invalid response from Roboflow API' },
-        { status: 500 }
-      );
-    }
+    const predictions = await roboflowResponse.json() as RoboflowResponse;
 
     if (!predictions.predictions || predictions.predictions.length === 0) {
       return NextResponse.json(
@@ -176,7 +147,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error processing request:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
