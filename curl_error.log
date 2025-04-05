@@ -1,0 +1,28 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:3000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:3000...
+* Connected to localhost (::1) port 3000
+> POST /api/extract-item HTTP/1.1
+> Host: localhost:3000
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Length: 350407
+> Content-Type: multipart/form-data; boundary=------------------------XYS85ZHbYx1GwefSsFEMWY
+> 
+} [65326 bytes data]
+* upload completely sent off: 350407 bytes
+100  342k    0     0  100  342k      0  1668k --:--:-- --:--:-- --:--:-- 1661k100  342k    0     0  100  342k      0   283k  0:00:01  0:00:01 --:--:--  283k< HTTP/1.1 500 Internal Server Error
+< vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch
+< content-type: application/json
+< Date: Sat, 05 Apr 2025 10:21:56 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< Transfer-Encoding: chunked
+< 
+{ [69 bytes data]
+100  342k    0    58  100  342k     40   238k  0:00:01  0:00:01 --:--:--  238k
+* Connection #0 to host localhost left intact
