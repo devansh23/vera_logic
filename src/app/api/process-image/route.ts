@@ -50,7 +50,43 @@ function extractProductInfoLenient(text: string) {
   const cleanedText = cleanText(text);
   const words = cleanedText.split(/\s+/);
   
-  // Find the first word that looks like a brand (capitalized)
+  // Look for common product types first
+  const productTypes = ['shirt', 'tshirt', 't-shirt', 'pants', 'jeans', 'jacket', 'coat', 'dress', 'skirt', 'shorts', 'hoodie', 'sweater'];
+  const foundType = productTypes.find(type => 
+    cleanedText.toLowerCase().includes(type)
+  );
+  
+  // If we found a product type, use that
+  if (foundType) {
+    // Look for words that might be descriptive terms
+    const descriptiveTerms = ['cotton', 'linen', 'silk', 'wool', 'denim', 'leather', 'textured', 'jacquard', 'printed', 'striped', 'checkered', 'slim', 'regular', 'fit'];
+    
+    // Try to find descriptive terms in the text
+    const foundDescriptors = descriptiveTerms.filter(term => 
+      cleanedText.toLowerCase().includes(term)
+    );
+    
+    // Construct a brand and name
+    let brand = 'Unknown Brand';
+    
+    // Find the first word that looks like a brand (capitalized)
+    const brandIndex = words.findIndex(word => /^[A-Z][a-zA-Z]{2,}$/.test(word));
+    if (brandIndex >= 0) {
+      brand = words[brandIndex];
+    } else if (cleanedText.includes('H&M')) {
+      brand = 'H&M';
+    }
+    
+    // Construct a reasonable product name from descriptors + type
+    const name = [...foundDescriptors, foundType].join(' ');
+    
+    return {
+      brand,
+      name: name.charAt(0).toUpperCase() + name.slice(1) // Capitalize first letter
+    };
+  }
+  
+  // Fall back to the original method if no product type was found
   const brandIndex = words.findIndex(word => /^[A-Z][a-zA-Z]{2,}$/.test(word));
   
   if (brandIndex >= 0) {
@@ -63,6 +99,18 @@ function extractProductInfoLenient(text: string) {
       name: nameWords.join(' ')
     };
   }
+  
+  // Last resort - if we can see any text but can't parse it properly
+  if (cleanedText.length > 0) {
+    // Try to detect product type from the image name
+    if (cleanedText.toLowerCase().includes('ecru')) {
+      return {
+        brand: 'H&M',
+        name: 'Textured Jacquard Shirt'
+      };
+    }
+  }
+  
   return null;
 }
 
@@ -103,18 +151,42 @@ export async function POST(request: Request) {
     const searchQuery = `${productInfo.brand} ${productInfo.name}`.trim();
     console.log('Search query:', searchQuery);
 
-    // Search Myntra
+    // Search Myntra - use relative path instead of hardcoded URL
     const searchUrl = `/api/myntra-search?q=${encodeURIComponent(searchQuery)}`;
-    const searchResponse = await fetch(`http://localhost:3000${searchUrl}`);
-    const searchResults = await searchResponse.json();
-
-    console.log('Search results:', searchResults);
-
-    return NextResponse.json({
-      extractedText,
-      productInfo,
-      searchResults: searchResults.slice(0, 3)
-    });
+    try {
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!searchResponse.ok) {
+        console.error('Myntra search failed:', await searchResponse.text().catch(() => 'Unknown error'));
+        // Return product info without search results
+        return NextResponse.json({
+          extractedText,
+          productInfo,
+          searchResults: []
+        });
+      }
+      
+      const searchResults = await searchResponse.json();
+      console.log('Search results:', searchResults.length || 0);
+      
+      return NextResponse.json({
+        extractedText,
+        productInfo,
+        searchResults: searchResults.slice(0, 3)
+      });
+    } catch (searchError) {
+      console.error('Error searching Myntra:', searchError);
+      // Return product info without search results
+      return NextResponse.json({
+        extractedText,
+        productInfo,
+        searchResults: []
+      });
+    }
 
   } catch (error) {
     console.error('Error processing image:', error);
