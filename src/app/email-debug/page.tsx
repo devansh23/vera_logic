@@ -77,6 +77,7 @@ export default function EmailDebugPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFetchingEmails, setIsFetchingEmails] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [debugJson, setDebugJson] = useState<string>('');
   const [availableEmails, setAvailableEmails] = useState<GmailEmail[]>([]);
   const [showEmailSelector, setShowEmailSelector] = useState<boolean>(false);
   const [lastSaveTimestamp, setLastSaveTimestamp] = useState<number>(0);
@@ -189,8 +190,8 @@ export default function EmailDebugPage() {
     setErrorMessage('');
     
     try {
-      // Use the regular API endpoint instead of the debug one
-      const response = await fetch('/api/wardrobe/add-from-emails-html', {
+      // Use the debug API endpoint instead of the regular one
+      const response = await fetch('/api/wardrobe/add-from-emails-html-debug', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,6 +207,9 @@ export default function EmailDebugPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to extract items from email');
       }
+      
+      // Create a structured debug JSON for inspection
+      setDebugJson(JSON.stringify(data, null, 2));
       
       if (data.items && Array.isArray(data.items)) {
         // Get the items with initial status - but don't modify the image URLs yet
@@ -305,7 +309,9 @@ export default function EmailDebugPage() {
         formData.append('image', new Blob([imageData]), 'image.jpg');
         formData.append('itemName', item.name);
         
-        // Call extract-item API
+        console.log(`Sending cropping request for item: ${item.name}`);
+        
+        // Call extract-item API explicitly
         const cropResponse = await fetch('/api/extract-item', {
           method: 'POST',
           body: formData,
@@ -313,13 +319,14 @@ export default function EmailDebugPage() {
         
         if (!cropResponse.ok) {
           const errorData = await cropResponse.json().catch(() => ({}));
+          console.error('Cropping API error response:', errorData);
           throw new Error(`Cropping failed with status: ${cropResponse.status}${errorData.error ? ` - ${errorData.error}` : ''}`);
         }
         
         // Convert the cropped image to base64
         const croppedImageBuffer = await cropResponse.arrayBuffer();
         
-        // Check if the response is valid
+        // Check if the response is valid and different from the original
         if (!croppedImageBuffer || croppedImageBuffer.byteLength === 0) {
           throw new Error('Received empty response from cropping API');
         }
@@ -333,16 +340,72 @@ export default function EmailDebugPage() {
         );
         const croppedImageDataUrl = `data:image/png;base64,${base64String}`;
         
-        // Determine cropping status from headers
+        // Log information about the difference
+        console.log(`Item ${item.name} - Original image length: ${imageData.byteLength}, Cropped image length: ${croppedImageBuffer.byteLength}`);
+        
+        // Compare sizes to detect if cropping actually occurred
+        const sizeDifference = Math.abs(imageData.byteLength - croppedImageBuffer.byteLength);
+        const percentDifference = (sizeDifference / imageData.byteLength) * 100;
+        
+        // Check the content length to see if this might be a mock image
+        // Mock images are usually very small (less than 1KB for a white rectangle)
+        const isMockImage = croppedImageBuffer.byteLength < 1024;
+        
+        // Check if the cropped image is suspiciously similar to the original
+        const isSameAsOriginal = percentDifference < 5;
+        
+        // Determine the actual cropStatus based on our analysis
         let actualCropStatus = 'success' as const;
         let cropMessage = '';
         
-        // Check if manual fallback was used
+        // Check headers for information about fallback cropping
         const cropMethod = cropResponse.headers.get('X-Crop-Method');
+        const baseItemType = cropResponse.headers.get('X-Base-Item-Type');
+        const detectedClass = cropResponse.headers.get('X-Detection-Class');
+        const availablePredictions = cropResponse.headers.get('X-Available-Predictions');
+        
+        // Create a detailed diagnostic message
+        let diagInfo = [];
+        
+        if (baseItemType) {
+          diagInfo.push(`Base type: ${baseItemType}`);
+        }
+        
+        if (detectedClass) {
+          diagInfo.push(`Detected: ${detectedClass}`);
+        }
+        
+        if (availablePredictions) {
+          try {
+            const predictions = JSON.parse(availablePredictions);
+            if (predictions && predictions.length > 0) {
+              diagInfo.push(`Available classes: ${predictions.join(', ')}`);
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
         
         if (cropMethod && cropMethod.includes('manual-fallback')) {
-          cropMessage = 'Using manual fallback cropping';
+          console.warn(`Using fallback cropping for ${item.name} - Roboflow did not detect objects`);
+          cropMessage = 'Using manual fallback cropping (Roboflow did not detect objects)';
+          if (diagInfo.length > 0) {
+            cropMessage += ` [${diagInfo.join(' | ')}]`;
+          }
           actualCropStatus = 'warning' as any;
+        } else if (isMockImage) {
+          console.warn(`Warning: Cropped image for ${item.name} appears to be a mock response`);
+          cropMessage = 'Received mock image (API key missing?)';
+          actualCropStatus = 'warning' as any;
+        } else if (isSameAsOriginal) {
+          console.warn(`Warning: Cropped image for ${item.name} is very similar to original (${percentDifference.toFixed(2)}% difference)`);
+          cropMessage = `No meaningful cropping detected (${percentDifference.toFixed(0)}% diff)`;
+          if (diagInfo.length > 0) {
+            cropMessage += ` [${diagInfo.join(' | ')}]`;
+          }
+          actualCropStatus = 'partial' as any;
+        } else if (diagInfo.length > 0) {
+          cropMessage = diagInfo.join(' | ');
         }
         
         // Update the item with the cropped image while preserving the original
@@ -508,6 +571,15 @@ export default function EmailDebugPage() {
     }
   };
   
+  // Handle copying debug JSON
+  const handleCopyDebugJson = () => {
+    navigator.clipboard.writeText(debugJson);
+    toast({
+      title: "Debug JSON Copied",
+      description: "Debug JSON has been copied to clipboard.",
+    });
+  };
+  
   // Status badge component
   const StatusBadge = ({ status }: { status: 'pending' | 'success' | 'error' | 'warning' | 'partial' | undefined }) => {
     if (!status) return null;
@@ -529,6 +601,116 @@ export default function EmailDebugPage() {
     );
   };
   
+  // Update debug JSON on any significant state change
+  useEffect(() => {
+    if (extractedItems.length > 0) {
+      const debug = {
+        sessionUser: session?.user,
+        selectedEmail: emailSelection,
+        selectedRetailer,
+        extractedItems: extractedItems.map(item => ({
+          ...item,
+          image: item.image ? '[IMAGE URL]' : null,
+          croppedImage: item.croppedImage ? '[CROPPED IMAGE URL]' : null
+        })),
+        processingSteps: {
+          emailSelection: !!emailSelection,
+          itemsExtracted: extractedItems.length > 0,
+          croppingRun: extractedItems.some(item => item.cropStatus !== 'pending'),
+          wardrobe: extractedItems.some(item => item.saveStatus === 'success'),
+          currentStep
+        }
+      };
+      setDebugJson(JSON.stringify(debug, null, 2));
+    }
+  }, [extractedItems, emailSelection, selectedRetailer, currentStep, session?.user]);
+  
+  // Check API Key
+  const handleCheckApiKey = async () => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/extract-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ checkApiKey: true }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.apiKeyPresent) {
+        toast({
+          title: "API Key Check",
+          description: "Roboflow API key is correctly configured.",
+        });
+      } else {
+        toast({
+          title: "API Key Missing",
+          description: "Roboflow API key is not configured. Cropping will use mock responses.",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      console.error('API key check failed:', error);
+      toast({
+        title: "API Key Check Failed",
+        description: error instanceof Error ? error.message : 'Failed to check API key',
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Test Roboflow connection with a sample image
+  const handleTestRoboflow = async () => {
+    try {
+      setIsLoading(true);
+      
+      toast({
+        title: "Testing Roboflow",
+        description: "Sending test request to Roboflow API...",
+      });
+      
+      const response = await fetch('/api/extract-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ testRoboflow: true }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: "Roboflow Test Successful",
+          description: "Successfully connected to Roboflow API and received predictions.",
+        });
+        
+        // Show predictions in debug JSON
+        setDebugJson(JSON.stringify(data, null, 2));
+      } else {
+        toast({
+          title: "Roboflow Test Failed",
+          description: data.error || "Failed to get valid response from Roboflow",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      console.error('Roboflow test failed:', error);
+      toast({
+        title: "Roboflow Test Failed",
+        description: error instanceof Error ? error.message : 'Failed to test Roboflow',
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   if (!session) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -540,9 +722,9 @@ export default function EmailDebugPage() {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Email Item Extractor</h1>
+      <h1 className="text-2xl font-bold mb-4">Email Debug Tool</h1>
       <p className="mb-6 text-gray-600">
-        Extract items from your emails and add them to your wardrobe.
+        This tool helps debug the Gmail-based item upload flow by breaking the process into clear, controlled steps.
       </p>
       
       {errorMessage && (
@@ -625,13 +807,33 @@ export default function EmailDebugPage() {
               {extractedItems.length} items extracted. Click below to run the cropping process on each item.
             </p>
             
-            <Button
-              onClick={handleRunCropping}
-              disabled={isLoading || !extractedItems.length}
-              className="bg-sky-600 hover:bg-sky-700"
-            >
-              {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleRunCropping}
+                disabled={isLoading || !extractedItems.length}
+                className="bg-sky-600 hover:bg-sky-700"
+              >
+                {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={handleCheckApiKey}
+                disabled={isLoading}
+                size="sm"
+              >
+                🔑 Check API Key
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={handleTestRoboflow}
+                disabled={isLoading}
+                size="sm"
+              >
+                🚀 Test Roboflow API
+              </Button>
+            </div>
             
             <div className="mt-4">
               <ScrollArea className="h-[600px] border rounded-md bg-white p-4">
@@ -889,8 +1091,61 @@ export default function EmailDebugPage() {
               </div>
             </div>
           </div>
+          
+          {debugJson && (
+            <div className="mb-8 bg-gray-100 p-4 rounded-md">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-xl font-semibold">Debug Information</h2>
+                <Button variant="outline" size="sm" onClick={handleCopyDebugJson}>
+                  Copy JSON
+                </Button>
+              </div>
+              <ScrollArea className="h-[200px] border rounded-md bg-white p-2">
+                <pre className="text-xs overflow-x-auto">
+                  {debugJson}
+                </pre>
+              </ScrollArea>
+            </div>
+          )}
         </>
       )}
+      
+      {/* Debug Information Section */}
+      <section className="mt-8 border-t pt-4">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold mb-2">Debug Information</h3>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setDebugJson(JSON.stringify({
+                sessionUser: session?.user,
+                selectedEmail: emailSelection,
+                selectedRetailer,
+                extractedItems,
+                processingSteps: {
+                  emailSelection: !!emailSelection,
+                  itemsExtracted: extractedItems.length > 0,
+                  croppingRun: extractedItems.some(item => item.cropStatus !== 'pending'),
+                  wardrobe: extractedItems.some(item => item.saveStatus === 'success'),
+                  currentStep
+                }
+              }, null, 2))}
+            >
+              📊 Generate Debug JSON
+            </Button>
+          </div>
+        </div>
+        
+        {debugJson && (
+          <div className="bg-gray-100 p-4 rounded-md">
+            <h4 className="text-sm font-semibold mb-2">Debug JSON</h4>
+            <pre className="text-xs overflow-auto max-h-[400px] p-2 bg-gray-900 text-gray-100 rounded">
+              {debugJson}
+            </pre>
+          </div>
+        )}
+      </section>
     </div>
   );
 } 
