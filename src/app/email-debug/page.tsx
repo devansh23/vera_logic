@@ -189,7 +189,7 @@ export default function EmailDebugPage() {
     setErrorMessage('');
     
     try {
-      // Use the regular API endpoint instead of the debug one
+      // Use the production API endpoint
       const response = await fetch('/api/wardrobe/add-from-emails-html', {
         method: 'POST',
         headers: {
@@ -305,7 +305,9 @@ export default function EmailDebugPage() {
         formData.append('image', new Blob([imageData]), 'image.jpg');
         formData.append('itemName', item.name);
         
-        // Call extract-item API
+        console.log(`Sending cropping request for item: ${item.name}`);
+        
+        // Call extract-item API explicitly
         const cropResponse = await fetch('/api/extract-item', {
           method: 'POST',
           body: formData,
@@ -313,13 +315,14 @@ export default function EmailDebugPage() {
         
         if (!cropResponse.ok) {
           const errorData = await cropResponse.json().catch(() => ({}));
+          console.error('Cropping API error response:', errorData);
           throw new Error(`Cropping failed with status: ${cropResponse.status}${errorData.error ? ` - ${errorData.error}` : ''}`);
         }
         
         // Convert the cropped image to base64
         const croppedImageBuffer = await cropResponse.arrayBuffer();
         
-        // Check if the response is valid
+        // Check if the response is valid and different from the original
         if (!croppedImageBuffer || croppedImageBuffer.byteLength === 0) {
           throw new Error('Received empty response from cropping API');
         }
@@ -333,16 +336,72 @@ export default function EmailDebugPage() {
         );
         const croppedImageDataUrl = `data:image/png;base64,${base64String}`;
         
-        // Determine cropping status from headers
+        // Log information about the difference
+        console.log(`Item ${item.name} - Original image length: ${imageData.byteLength}, Cropped image length: ${croppedImageBuffer.byteLength}`);
+        
+        // Compare sizes to detect if cropping actually occurred
+        const sizeDifference = Math.abs(imageData.byteLength - croppedImageBuffer.byteLength);
+        const percentDifference = (sizeDifference / imageData.byteLength) * 100;
+        
+        // Check the content length to see if this might be a mock image
+        // Mock images are usually very small (less than 1KB for a white rectangle)
+        const isMockImage = croppedImageBuffer.byteLength < 1024;
+        
+        // Check if the cropped image is suspiciously similar to the original
+        const isSameAsOriginal = percentDifference < 5;
+        
+        // Determine the actual cropStatus based on our analysis
         let actualCropStatus = 'success' as const;
         let cropMessage = '';
         
-        // Check if manual fallback was used
+        // Check headers for information about fallback cropping
         const cropMethod = cropResponse.headers.get('X-Crop-Method');
+        const baseItemType = cropResponse.headers.get('X-Base-Item-Type');
+        const detectedClass = cropResponse.headers.get('X-Detection-Class');
+        const availablePredictions = cropResponse.headers.get('X-Available-Predictions');
+        
+        // Create a detailed diagnostic message
+        let diagInfo = [];
+        
+        if (baseItemType) {
+          diagInfo.push(`Base type: ${baseItemType}`);
+        }
+        
+        if (detectedClass) {
+          diagInfo.push(`Detected: ${detectedClass}`);
+        }
+        
+        if (availablePredictions) {
+          try {
+            const predictions = JSON.parse(availablePredictions);
+            if (predictions && predictions.length > 0) {
+              diagInfo.push(`Available classes: ${predictions.join(', ')}`);
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
         
         if (cropMethod && cropMethod.includes('manual-fallback')) {
-          cropMessage = 'Using manual fallback cropping';
+          console.warn(`Using fallback cropping for ${item.name} - Roboflow did not detect objects`);
+          cropMessage = 'Using manual fallback cropping (Roboflow did not detect objects)';
+          if (diagInfo.length > 0) {
+            cropMessage += ` [${diagInfo.join(' | ')}]`;
+          }
           actualCropStatus = 'warning' as any;
+        } else if (isMockImage) {
+          console.warn(`Warning: Cropped image for ${item.name} appears to be a mock response`);
+          cropMessage = 'Received mock image (API key missing?)';
+          actualCropStatus = 'warning' as any;
+        } else if (isSameAsOriginal) {
+          console.warn(`Warning: Cropped image for ${item.name} is very similar to original (${percentDifference.toFixed(2)}% difference)`);
+          cropMessage = `No meaningful cropping detected (${percentDifference.toFixed(0)}% diff)`;
+          if (diagInfo.length > 0) {
+            cropMessage += ` [${diagInfo.join(' | ')}]`;
+          }
+          actualCropStatus = 'partial' as any;
+        } else if (diagInfo.length > 0) {
+          cropMessage = diagInfo.join(' | ');
         }
         
         // Update the item with the cropped image while preserving the original
@@ -540,9 +599,9 @@ export default function EmailDebugPage() {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Email Item Extractor</h1>
+      <h1 className="text-2xl font-bold mb-4">Email Debug Tool</h1>
       <p className="mb-6 text-gray-600">
-        Extract items from your emails and add them to your wardrobe.
+        This tool helps debug the Gmail-based item upload flow by breaking the process into clear, controlled steps.
       </p>
       
       {errorMessage && (
@@ -625,13 +684,15 @@ export default function EmailDebugPage() {
               {extractedItems.length} items extracted. Click below to run the cropping process on each item.
             </p>
             
-            <Button
-              onClick={handleRunCropping}
-              disabled={isLoading || !extractedItems.length}
-              className="bg-sky-600 hover:bg-sky-700"
-            >
-              {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleRunCropping}
+                disabled={isLoading || !extractedItems.length}
+                className="bg-sky-600 hover:bg-sky-700"
+              >
+                {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
+              </Button>
+            </div>
             
             <div className="mt-4">
               <ScrollArea className="h-[600px] border rounded-md bg-white p-4">
