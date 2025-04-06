@@ -77,7 +77,6 @@ export default function EmailDebugPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFetchingEmails, setIsFetchingEmails] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [debugJson, setDebugJson] = useState<string>('');
   const [availableEmails, setAvailableEmails] = useState<GmailEmail[]>([]);
   const [showEmailSelector, setShowEmailSelector] = useState<boolean>(false);
   const [lastSaveTimestamp, setLastSaveTimestamp] = useState<number>(0);
@@ -190,8 +189,8 @@ export default function EmailDebugPage() {
     setErrorMessage('');
     
     try {
-      // Use the debug API endpoint instead of the regular one
-      const response = await fetch('/api/wardrobe/add-from-emails-html-debug', {
+      // Use the production API endpoint
+      const response = await fetch('/api/wardrobe/add-from-emails-html', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -207,9 +206,6 @@ export default function EmailDebugPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to extract items from email');
       }
-      
-      // Create a structured debug JSON for inspection
-      setDebugJson(JSON.stringify(data, null, 2));
       
       if (data.items && Array.isArray(data.items)) {
         // Get the items with initial status - but don't modify the image URLs yet
@@ -571,15 +567,6 @@ export default function EmailDebugPage() {
     }
   };
   
-  // Handle copying debug JSON
-  const handleCopyDebugJson = () => {
-    navigator.clipboard.writeText(debugJson);
-    toast({
-      title: "Debug JSON Copied",
-      description: "Debug JSON has been copied to clipboard.",
-    });
-  };
-  
   // Status badge component
   const StatusBadge = ({ status }: { status: 'pending' | 'success' | 'error' | 'warning' | 'partial' | undefined }) => {
     if (!status) return null;
@@ -599,116 +586,6 @@ export default function EmailDebugPage() {
         {text}
       </span>
     );
-  };
-  
-  // Update debug JSON on any significant state change
-  useEffect(() => {
-    if (extractedItems.length > 0) {
-      const debug = {
-        sessionUser: session?.user,
-        selectedEmail: emailSelection,
-        selectedRetailer,
-        extractedItems: extractedItems.map(item => ({
-          ...item,
-          image: item.image ? '[IMAGE URL]' : null,
-          croppedImage: item.croppedImage ? '[CROPPED IMAGE URL]' : null
-        })),
-        processingSteps: {
-          emailSelection: !!emailSelection,
-          itemsExtracted: extractedItems.length > 0,
-          croppingRun: extractedItems.some(item => item.cropStatus !== 'pending'),
-          wardrobe: extractedItems.some(item => item.saveStatus === 'success'),
-          currentStep
-        }
-      };
-      setDebugJson(JSON.stringify(debug, null, 2));
-    }
-  }, [extractedItems, emailSelection, selectedRetailer, currentStep, session?.user]);
-  
-  // Check API Key
-  const handleCheckApiKey = async () => {
-    try {
-      setIsLoading(true);
-      
-      const response = await fetch('/api/extract-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ checkApiKey: true }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.apiKeyPresent) {
-        toast({
-          title: "API Key Check",
-          description: "Roboflow API key is correctly configured.",
-        });
-      } else {
-        toast({
-          title: "API Key Missing",
-          description: "Roboflow API key is not configured. Cropping will use mock responses.",
-          variant: "warning"
-        });
-      }
-    } catch (error) {
-      console.error('API key check failed:', error);
-      toast({
-        title: "API Key Check Failed",
-        description: error instanceof Error ? error.message : 'Failed to check API key',
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Test Roboflow connection with a sample image
-  const handleTestRoboflow = async () => {
-    try {
-      setIsLoading(true);
-      
-      toast({
-        title: "Testing Roboflow",
-        description: "Sending test request to Roboflow API...",
-      });
-      
-      const response = await fetch('/api/extract-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ testRoboflow: true }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        toast({
-          title: "Roboflow Test Successful",
-          description: "Successfully connected to Roboflow API and received predictions.",
-        });
-        
-        // Show predictions in debug JSON
-        setDebugJson(JSON.stringify(data, null, 2));
-      } else {
-        toast({
-          title: "Roboflow Test Failed",
-          description: data.error || "Failed to get valid response from Roboflow",
-          variant: "warning"
-        });
-      }
-    } catch (error) {
-      console.error('Roboflow test failed:', error);
-      toast({
-        title: "Roboflow Test Failed",
-        description: error instanceof Error ? error.message : 'Failed to test Roboflow',
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
   
   if (!session) {
@@ -814,24 +691,6 @@ export default function EmailDebugPage() {
                 className="bg-sky-600 hover:bg-sky-700"
               >
                 {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleCheckApiKey}
-                disabled={isLoading}
-                size="sm"
-              >
-                🔑 Check API Key
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleTestRoboflow}
-                disabled={isLoading}
-                size="sm"
-              >
-                🚀 Test Roboflow API
               </Button>
             </div>
             
@@ -1091,61 +950,8 @@ export default function EmailDebugPage() {
               </div>
             </div>
           </div>
-          
-          {debugJson && (
-            <div className="mb-8 bg-gray-100 p-4 rounded-md">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-semibold">Debug Information</h2>
-                <Button variant="outline" size="sm" onClick={handleCopyDebugJson}>
-                  Copy JSON
-                </Button>
-              </div>
-              <ScrollArea className="h-[200px] border rounded-md bg-white p-2">
-                <pre className="text-xs overflow-x-auto">
-                  {debugJson}
-                </pre>
-              </ScrollArea>
-            </div>
-          )}
         </>
       )}
-      
-      {/* Debug Information Section */}
-      <section className="mt-8 border-t pt-4">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold mb-2">Debug Information</h3>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDebugJson(JSON.stringify({
-                sessionUser: session?.user,
-                selectedEmail: emailSelection,
-                selectedRetailer,
-                extractedItems,
-                processingSteps: {
-                  emailSelection: !!emailSelection,
-                  itemsExtracted: extractedItems.length > 0,
-                  croppingRun: extractedItems.some(item => item.cropStatus !== 'pending'),
-                  wardrobe: extractedItems.some(item => item.saveStatus === 'success'),
-                  currentStep
-                }
-              }, null, 2))}
-            >
-              📊 Generate Debug JSON
-            </Button>
-          </div>
-        </div>
-        
-        {debugJson && (
-          <div className="bg-gray-100 p-4 rounded-md">
-            <h4 className="text-sm font-semibold mb-2">Debug JSON</h4>
-            <pre className="text-xs overflow-auto max-h-[400px] p-2 bg-gray-900 text-gray-100 rounded">
-              {debugJson}
-            </pre>
-          </div>
-        )}
-      </section>
     </div>
   );
 } 
