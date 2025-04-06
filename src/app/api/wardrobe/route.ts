@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
 import { categorizeItem } from '@/lib/categorize-items';
+import { processItemImage } from '@/lib/image-utils';
 
 // GET /api/wardrobe - Get user's wardrobe
 export async function GET(request: Request) {
@@ -78,6 +79,42 @@ export async function POST(request: Request) {
 
     const productData = await productResponse.json();
     log('POST /api/wardrobe - Product data', { productData });
+    
+    let imageUrl = productData.image || '';
+    let finalImageUrl = imageUrl;
+
+    // Apply image cropping if image URL exists
+    if (imageUrl) {
+      try {
+        log('POST /api/wardrobe - Fetching image for cropping', { imageUrl });
+        
+        // Fetch the image
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+        }
+        
+        // Convert image to buffer
+        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+        
+        // Process the image using the same function used for email items
+        const itemName = productData.name || 'Unknown Product';
+        log('POST /api/wardrobe - Processing image', { itemName });
+        
+        // Run image through the processItemImage function
+        const processedBuffer = await processItemImage(imageBuffer, itemName);
+        
+        // Convert processed buffer to base64 for storage
+        finalImageUrl = `data:image/jpeg;base64,${processedBuffer.toString('base64')}`;
+        
+        log('POST /api/wardrobe - Image processing successful');
+      } catch (imageError) {
+        // In case of failure, use the original image
+        log('Error processing product image', { error: imageError, fallback: 'Using original image' });
+        // Keep using the original image URL
+        finalImageUrl = imageUrl;
+      }
+    }
 
     // Determine category for the item
     const itemToCategorizee = {
@@ -88,7 +125,7 @@ export async function POST(request: Request) {
     };
     const category = categorizeItem(itemToCategorizee);
 
-    // Save to database
+    // Save to database with the processed image
     const item = await prisma.wardrobe.create({
       data: {
         userId: session.user.id,
@@ -97,7 +134,7 @@ export async function POST(request: Request) {
         price: productData.price || '',
         originalPrice: productData.originalPrice || '',
         discount: productData.discount || '',
-        image: productData.image || '',
+        image: finalImageUrl, // Use the cropped image or fallback to original
         productLink: url,
         size: productData.size || '',
         color: productData.color || '',
