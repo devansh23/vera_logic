@@ -604,8 +604,6 @@ export default function Home() {
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
-  // Add a state to keep track of our processed image blob
-  const [processedImageBlob, setProcessedImageBlob] = useState<Blob | null>(null);
 
   // Display combined error from both sources
   const error = localError || wardrobeError;
@@ -627,14 +625,18 @@ export default function Home() {
     e.preventDefault()
     if (!inputValue) return
 
+    // Clear any previous search results
     setSearchResults([])
 
     try {
-      // Check if input is a Myntra URL
-      if (inputValue.includes('myntra.com')) {
+      // Check if input is a valid URL using a regex pattern
+      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(inputValue)
+      
+      if (isUrl) {
+        // Directly add to wardrobe if it's a URL
         await addProductToWardrobe(inputValue)
       } else {
-        // Handle as search query
+        // Handle as search query if not a URL
         const response = await fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
         if (!response.ok) {
           throw new Error('Failed to search products')
@@ -670,182 +672,52 @@ export default function Home() {
 
   const handleProductSelect = async (url: string) => {
     try {
-      // If we have a processed image blob, we should convert it to base64 and add it to the item
-      if (processedImageBlob) {
-        // Convert blob to base64
-        const reader = new FileReader();
-        const imageBase64Promise = new Promise<string>((resolve) => {
-          reader.onloadend = () => {
-            const base64data = reader.result as string;
-            resolve(base64data);
-          };
-          reader.readAsDataURL(processedImageBlob);
-        });
-        
-        const imageBase64 = await imageBase64Promise;
-        
-        // Add the item with the processed image
-        await addItem({
-          productLink: url,
-          image: imageBase64
-        } as any);
-        
-        // Reset the processed image blob
-        setProcessedImageBlob(null);
-      } else {
-        // Use original behavior if we don't have a processed image
-        await addProductToWardrobe(url);
-      }
-      
-      handleOverlayClose();
+      await addProductToWardrobe(url)
+      handleOverlayClose()
     } catch (error) {
-      console.error('Error in product selection:', error);
+      console.error('Error in product selection:', error)
     }
   }
 
   const handleImageUpload = async (file: File) => {
     try {
-      setIsProcessingImage(true);
-      setLocalError(null);
-      setSearchResults([]);
-      setProcessedImageBlob(null); // Reset the processed image blob
+      setIsProcessingImage(true)
+      setLocalError(null)
+      setSearchResults([])
 
       // Create preview
-      const reader = new FileReader();
+      const reader = new FileReader()
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
 
-      // Process image with text extraction
-      const formData = new FormData();
-      formData.append('image', file);
+      // Process image
+      const formData = new FormData()
+      formData.append('image', file)
 
-      // Use relative path instead of hardcoded URL to avoid port mismatches
       const response = await fetch('/api/process-image', {
         method: 'POST',
         body: formData
-      });
+      })
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Failed to process image' }));
-        throw new Error(error.error || 'Failed to process image');
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to process image')
       }
 
-      const data = await response.json();
-      
-      // If product info was successfully extracted, process the image through our item extraction API
-      if (data.productInfo && data.productInfo.name) {
-        // Extract product name and full extracted text
-        const productName = data.productInfo.name.toLowerCase();
-        const extractedText = data.extractedText ? data.extractedText.toLowerCase() : '';
-        
-        console.log('Extracted text:', extractedText);
-        console.log('Product name:', productName);
-        
-        // Function to detect clothing type from text
-        function detectClothingType(text: string): string | null {
-          // Define clothing type patterns directly within this function
-          // to avoid any issues with duplicate object properties
-          if (text.includes('shirt') || text.includes('button-up') || text.includes('button-down') || text.includes('jacquard')) {
-            return 'shirt';
-          }
-          if (text.includes('trouser') || text.includes('pant') || text.includes('jean') || text.includes('slack') || text.includes('chino')) {
-            return 'trousers';
-          }
-          if (text.includes('hoodie') || text.includes('sweatshirt') || text.includes('sweater') || text.includes('jumper') || text.includes('pullover')) {
-            return 'hoodie';
-          }
-          if (text.includes('t-shirt') || text.includes('tshirt') || text.includes('tee')) {
-            return 'tshirt';
-          }
-          if (text.includes('jacket') || text.includes('coat') || text.includes('blazer')) {
-            return 'jacket';
-          }
-          if (text.includes('dress') || text.includes('gown') || text.includes('frock')) {
-            return 'dress';
-          }
-          if (text.includes('skirt')) {
-            return 'skirt';
-          }
-          if (text.includes('short') || text.includes('bermuda')) {
-            return 'shorts';
-          }
-          if (text.includes('top') || text.includes('blouse') || text.includes('tank') || text.includes('camisole')) {
-            return 'top';
-          }
-          
-          // Special case detection
-          if (text.includes('ecru') || text.includes('jacquard') || /textured/i.test(text)) {
-            console.log(`Detected special case 'shirt' from keywords: ecru, jacquard, textured`);
-            return 'shirt';
-          }
-          
-          return null;
-        }
-        
-        // First try to find clothing type in the full extracted text (higher priority)
-        let itemType = detectClothingType(extractedText);
-        console.log(`Detection result from extracted text: ${itemType || 'No match'}`);
-        
-        // If not found in extracted text, try the product name as fallback
-        if (!itemType) {
-          itemType = detectClothingType(productName);
-          console.log(`Detection result from product name: ${itemType || 'No match'}`);
-        }
-        
-        // If we found a clothing type, try to extract it
-        if (itemType) {
-          // Create a separate FormData for the extract-item API
-          const extractFormData = new FormData();
-          extractFormData.append('image', file);
-          extractFormData.append('itemName', itemType);
-          
-          try {
-            console.log(`Attempting to extract ${itemType} from image`);
-            
-            // Call our extract-item API directly to get a cropped image
-            const extractResponse = await fetch('/api/extract-item', {
-              method: 'POST',
-              body: extractFormData
-            });
-            
-            if (extractResponse.ok) {
-              // If extraction succeeded, create a new blob from the response
-              const blob = await extractResponse.blob();
-              // Save the processed image blob for later use
-              setProcessedImageBlob(blob);
-              // Update the preview with the cropped image
-              setImagePreview(URL.createObjectURL(blob));
-              console.log(`Successfully extracted ${itemType} from image`);
-            } else {
-              const errorText = await extractResponse.text().catch(() => 'Unknown error');
-              console.error('Item extraction failed:', errorText);
-            }
-          } catch (extractError) {
-            console.error('Item extraction error:', extractError);
-            // We continue with the original image
-          }
-        } else {
-          console.log('No matching clothing type found in extracted text or product name');
-        }
-      }
-      
-      // Continue with the search results processing
+      const data = await response.json()
       if (data.searchResults && data.searchResults.length > 0) {
-        setSearchResults(data.searchResults);
-        setShowProductOverlay(true);  // Show overlay when results are available
-      } else if (data.productInfo) {
-        // If we have product info but no search results, don't throw an error
-        console.log('No search results found, but product was detected. Using product info only.');
+        setSearchResults(data.searchResults)
+        setShowProductOverlay(true)  // Show overlay when results are available
       } else {
-        throw new Error('No matching products found');
+        throw new Error('No matching products found')
       }
     } catch (error) {
-      console.error('Error processing image:', error);
-      setLocalError(error instanceof Error ? error.message : 'Failed to process image');
+      console.error('Error processing image:', error)
+      setLocalError(error instanceof Error ? error.message : 'Failed to process image')
     } finally {
-      setIsProcessingImage(false);
+      setIsProcessingImage(false)
     }
   }
 
@@ -876,34 +748,21 @@ export default function Home() {
 
       // Add extracted items to wardrobe
       if (data.items && data.items.length > 0) {
-        const newProducts = data.items.map((item: any) => {
-          // Create a base product with all required fields from the MyntraProduct interface
-          const product: MyntraProduct = {
-            brand: item.brand || 'Unknown Brand',
-            name: item.name || 'Unknown Product',
-            price: item.price || '',
-            image: item.image || '',
-            dateAdded: new Date().toISOString(),
-            id: item.id || ''
-          };
-          
-          // Add optional fields if they exist
-          if (item.originalPrice) product.originalPrice = item.originalPrice;
-          if (item.discount) product.discount = item.discount;
-          if (item.size) product.size = item.size;
-          if (item.quantity) product.quantity = item.quantity;
-          if (item.seller) product.seller = item.seller;
-          
-          // Handle links - prioritize productLink, fallback to myntraLink
-          if (item.productLink) {
-            product.productLink = item.productLink;
-          } else if (item.myntraLink) {
-            product.productLink = item.myntraLink;
-            product.myntraLink = item.myntraLink;
-          }
-          
-          return product;
-        });
+        const newProducts = data.items.map((item: any) => ({
+          brand: item.brand || 'Unknown Brand',
+          name: item.name || 'Unknown Product',
+          price: item.price || '',
+          originalPrice: item.originalPrice || '',
+          discount: item.discount || '',
+          image: item.image || '',
+          size: item.size || '',
+          quantity: item.quantity || '',
+          seller: item.seller || '',
+          productLink: item.productLink || item.myntraLink || '', // Handle both types of links
+          myntraLink: item.myntraLink || '', // Keep for backward compatibility
+          dateAdded: new Date().toISOString(),
+          id: item.id || '',
+        }));
 
         // Add each item to the wardrobe context
         for (const product of newProducts) {
@@ -951,7 +810,7 @@ export default function Home() {
           showNotification({
             type: 'success',
             message: 'Item removed from your wardrobe',
-            itemCount: 1
+            itemCount: 1  // Specifying that 1 item was affected
           });
         })
         .catch(error => {
@@ -966,7 +825,7 @@ export default function Home() {
       showNotification({
         type: 'success',
         message: 'All items successfully removed from your wardrobe',
-        itemCount: products.length
+        itemCount: products.length  // Specifying the number of items removed
       });
       // Close the confirmation dialog
       setShowDeleteAllConfirm(false);
@@ -975,7 +834,7 @@ export default function Home() {
       showNotification({
         type: 'error',
         message: 'Failed to delete all items',
-        itemCount: 0
+        itemCount: 0  // No items affected in case of error
       });
     }
   };
@@ -1097,7 +956,7 @@ export default function Home() {
       showNotification({
         type: 'success',
         message: `${selectedItems.size} items removed from your wardrobe`,
-        itemCount: selectedItems.size
+        itemCount: selectedItems.size  // Use the actual count of selected items
       });
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'Failed to remove selected items');
