@@ -629,12 +629,15 @@ export default function Home() {
     setSearchResults([])
 
     try {
-      // Check if input is a valid URL using a regex pattern
-      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(inputValue)
+      // Clean up input value - remove leading special characters like @ or #
+      const cleanInputValue = inputValue.replace(/^[@#]+/, '');
+      
+      // Check if the cleaned input is a valid URL using a regex pattern
+      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(cleanInputValue)
       
       if (isUrl) {
         // Directly add to wardrobe if it's a URL
-        await addProductToWardrobe(inputValue)
+        await addProductToWardrobe(cleanInputValue)
       } else {
         // Handle as search query if not a URL
         const response = await fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
