@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,6 +33,15 @@ interface EmailSelection {
   retailer: string;
 }
 
+interface GmailEmail {
+  id: string;
+  from: string;
+  to: string;
+  subject: string;
+  date?: Date;
+  snippet: string;
+}
+
 // Response item type for API responses
 interface ApiResponseItem {
   id: string;
@@ -58,12 +67,93 @@ export default function EmailDebugPage() {
   const [extractedItems, setExtractedItems] = useState<ExtractedItem[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFetchingEmails, setIsFetchingEmails] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [debugJson, setDebugJson] = useState<string>('');
+  const [availableEmails, setAvailableEmails] = useState<GmailEmail[]>([]);
+  const [showEmailSelector, setShowEmailSelector] = useState<boolean>(false);
   
   // Handle retailer selection
   const handleRetailerChange = (retailer: string) => {
     setSelectedRetailer(retailer);
+    setEmailSelection(null);
+    setAvailableEmails([]);
+    setShowEmailSelector(false);
+  };
+
+  // Format date for display
+  const formatDate = (dateString?: string | Date): string => {
+    if (!dateString) return 'Unknown date';
+    const date = dateString instanceof Date ? dateString : new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  // Fetch emails from Gmail
+  const fetchEmails = async () => {
+    if (!session?.user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be signed in to use this feature.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsFetchingEmails(true);
+    setErrorMessage('');
+    
+    try {
+      const response = await fetch(`/api/gmail/fetch-emails?retailer=${selectedRetailer}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to fetch emails: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+        setAvailableEmails(data.messages);
+        setShowEmailSelector(true);
+        
+        toast({
+          title: "Emails Fetched",
+          description: `Found ${data.messages.length} emails from ${selectedRetailer}.`,
+        });
+      } else {
+        toast({
+          title: "No Emails Found",
+          description: `No emails found from ${selectedRetailer}.`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching emails:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred');
+      toast({
+        title: "Failed to Fetch Emails",
+        description: error instanceof Error ? error.message : 'Failed to fetch emails',
+        variant: "destructive"
+      });
+    } finally {
+      setIsFetchingEmails(false);
+    }
+  };
+  
+  // Select an email
+  const handleSelectEmail = (email: GmailEmail) => {
+    setEmailSelection({
+      id: email.id,
+      subject: email.subject || 'No Subject',
+      retailer: selectedRetailer
+    });
+    setShowEmailSelector(false);
   };
   
   // Step 1: Extract items from email
@@ -340,17 +430,6 @@ export default function EmailDebugPage() {
     }
   };
   
-  // Mock email selection for the prototype
-  const handleSelectEmail = () => {
-    // In a real implementation, this would fetch emails from the API
-    // For now, just set a mock email
-    setEmailSelection({
-      id: 'mock-email-id',
-      subject: 'Your recent purchase from ' + selectedRetailer.charAt(0).toUpperCase() + selectedRetailer.slice(1),
-      retailer: selectedRetailer
-    });
-  };
-  
   // Handle copying debug JSON
   const handleCopyDebugJson = () => {
     navigator.clipboard.writeText(debugJson);
@@ -423,17 +502,37 @@ export default function EmailDebugPage() {
         
         <div className="mb-4">
           <Button 
-            onClick={handleSelectEmail}
-            disabled={isLoading}
+            onClick={fetchEmails}
+            disabled={isLoading || isFetchingEmails}
             variant="outline"
           >
-            Select Email
+            {isFetchingEmails ? 'Fetching Emails...' : 'Fetch Emails'}
           </Button>
           
           {emailSelection && (
             <div className="mt-2 p-2 border rounded-md bg-white">
               <p className="font-medium">{emailSelection.subject}</p>
               <p className="text-sm text-gray-500">ID: {emailSelection.id}</p>
+            </div>
+          )}
+          
+          {showEmailSelector && availableEmails.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium mb-2">Select an email to extract items from:</h3>
+              <ScrollArea className="h-[250px] border rounded-md bg-white p-2">
+                {availableEmails.map((email) => (
+                  <div 
+                    key={email.id}
+                    className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-0"
+                    onClick={() => handleSelectEmail(email)}
+                  >
+                    <p className="font-medium">{email.subject || 'No Subject'}</p>
+                    <p className="text-sm text-gray-600">{email.from || 'Unknown Sender'}</p>
+                    <p className="text-xs text-gray-500">{formatDate(email.date)}</p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{email.snippet}</p>
+                  </div>
+                ))}
+              </ScrollArea>
             </div>
           )}
         </div>
