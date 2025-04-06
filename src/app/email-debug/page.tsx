@@ -8,23 +8,31 @@ import { useToast } from '@/hooks/use-toast';
 
 // Types for extracted items and processing states
 interface ExtractedItem {
-  brand: string;
+  id?: string;
   name: string;
-  price: string;
-  originalPrice: string;
-  discount: string;
-  size: string;
-  color: string;
-  image: string;
-  productLink: string;
-  myntraLink?: string;
-  sourceRetailer?: string;
-  reference?: string;
-  status?: 'pending' | 'success' | 'error';
+  brand?: string;
+  price?: string;
+  image?: string;
   croppedImage?: string;
-  cropStatus?: 'pending' | 'success' | 'error';
+  size?: string;
+  color?: string;
+  status: 'pending' | 'success' | 'error';
+  cropStatus?: 'pending' | 'success' | 'error' | 'warning' | 'partial';
+  cropMessage?: string;
   saveStatus?: 'pending' | 'success' | 'error';
   error?: string;
+  originalImage?: string;
+  retailer?: string;
+  category?: string;
+  itemUrl?: string;
+  // Additional fields used in the API call
+  originalPrice?: string;
+  discount?: string;
+  productLink?: string;
+  myntraLink?: string;
+  emailId?: string;
+  sourceRetailer?: string;
+  reference?: string;
 }
 
 interface EmailSelection {
@@ -69,9 +77,10 @@ export default function EmailDebugPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFetchingEmails, setIsFetchingEmails] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [debugJson, setDebugJson] = useState<string>('');
   const [availableEmails, setAvailableEmails] = useState<GmailEmail[]>([]);
   const [showEmailSelector, setShowEmailSelector] = useState<boolean>(false);
+  const [lastSaveTimestamp, setLastSaveTimestamp] = useState<number>(0);
+  const SAVE_DEBOUNCE_TIME = 3000; // 3 seconds between allowed save attempts
   
   // Handle retailer selection
   const handleRetailerChange = (retailer: string) => {
@@ -180,6 +189,7 @@ export default function EmailDebugPage() {
     setErrorMessage('');
     
     try {
+      // Use the regular API endpoint instead of the debug one
       const response = await fetch('/api/wardrobe/add-from-emails-html', {
         method: 'POST',
         headers: {
@@ -197,16 +207,14 @@ export default function EmailDebugPage() {
         throw new Error(data.error || 'Failed to extract items from email');
       }
       
-      // Create a structured debug JSON for inspection
-      setDebugJson(JSON.stringify(data, null, 2));
-      
       if (data.items && Array.isArray(data.items)) {
-        // Get the items with initial status
+        // Get the items with initial status - but don't modify the image URLs yet
         const updatedItems = data.items.map((item: ApiResponseItem) => ({
           ...item,
           status: 'success' as const,
           cropStatus: 'pending' as const,
           saveStatus: 'pending' as const,
+          originalImage: item.image, // Keep a copy of the original image URL
         }));
         setExtractedItems(updatedItems);
         
@@ -272,16 +280,24 @@ export default function EmailDebugPage() {
           continue;
         }
         
-        // Get the image data from the data URL or fetch from URL
+        // Get the image data from the URL
         let imageData;
-        if (item.image.startsWith('data:')) {
-          // Extract the base64 part of the data URL
-          const base64Data = item.image.split(',')[1];
-          imageData = Buffer.from(base64Data, 'base64');
-        } else {
-          // Fetch the image if it's a URL
+        try {
+          // Fetch the original image URL
           const response = await fetch(item.image);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
           imageData = await response.arrayBuffer();
+        } catch (fetchError) {
+          console.error(`Error fetching image for ${item.name}:`, fetchError);
+          updatedItems[i] = { 
+            ...item, 
+            cropStatus: 'error', 
+            error: `Failed to fetch image: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`
+          };
+          errorCount++;
+          continue;
         }
         
         // Create form data with image and item name
@@ -296,22 +312,45 @@ export default function EmailDebugPage() {
         });
         
         if (!cropResponse.ok) {
-          throw new Error(`Cropping failed with status: ${cropResponse.status}`);
+          const errorData = await cropResponse.json().catch(() => ({}));
+          throw new Error(`Cropping failed with status: ${cropResponse.status}${errorData.error ? ` - ${errorData.error}` : ''}`);
         }
         
         // Convert the cropped image to base64
         const croppedImageBuffer = await cropResponse.arrayBuffer();
+        
+        // Check if the response is valid
+        if (!croppedImageBuffer || croppedImageBuffer.byteLength === 0) {
+          throw new Error('Received empty response from cropping API');
+        }
+        
+        // Generate a unique identifier for this cropped image to prevent caching issues
+        const timestamp = new Date().getTime();
+        
         const base64String = btoa(
           new Uint8Array(croppedImageBuffer)
             .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
         const croppedImageDataUrl = `data:image/png;base64,${base64String}`;
         
-        // Update the item with the cropped image
+        // Determine cropping status from headers
+        let actualCropStatus = 'success' as const;
+        let cropMessage = '';
+        
+        // Check if manual fallback was used
+        const cropMethod = cropResponse.headers.get('X-Crop-Method');
+        
+        if (cropMethod && cropMethod.includes('manual-fallback')) {
+          cropMessage = 'Using manual fallback cropping';
+          actualCropStatus = 'warning' as any;
+        }
+        
+        // Update the item with the cropped image while preserving the original
         updatedItems[i] = {
           ...item,
-          croppedImage: croppedImageDataUrl,
-          cropStatus: 'success',
+          croppedImage: `${croppedImageDataUrl}#t=${timestamp}`,
+          cropStatus: actualCropStatus,
+          cropMessage: cropMessage
         };
         successCount++;
       } catch (error) {
@@ -352,6 +391,27 @@ export default function EmailDebugPage() {
       return;
     }
     
+    // Check if we're already in the process of saving or if any items have already been saved
+    // This prevents multiple rapid save operations
+    if (isLoading || extractedItems.some(item => item.saveStatus === 'success')) {
+      toast({
+        title: "Save In Progress",
+        description: "Please wait for the current save operation to complete.",
+      });
+      return;
+    }
+    
+    // Debounce save operations
+    const now = Date.now();
+    if (now - lastSaveTimestamp < SAVE_DEBOUNCE_TIME) {
+      toast({
+        title: "Please Wait",
+        description: `Please wait a moment before trying to save again.`,
+      });
+      return;
+    }
+    
+    setLastSaveTimestamp(now);
     setIsLoading(true);
     
     // Filter for items that were successfully cropped or have original images
@@ -369,6 +429,12 @@ export default function EmailDebugPage() {
       return;
     }
     
+    // Mark all items as pending save before making the API call
+    setExtractedItems(prev => prev.map(item => ({
+      ...item,
+      saveStatus: 'pending' as const
+    })));
+    
     // Convert items to the format expected by the API
     const wardrobeItems = itemsToAdd.map(item => ({
       brand: item.brand,
@@ -378,7 +444,11 @@ export default function EmailDebugPage() {
       discount: item.discount || '',
       size: item.size || '',
       color: item.color || '',
-      imageUrl: item.croppedImage || item.image, // Use cropped image if available
+      // Use the cropped image if available and cropping was successful,
+      // otherwise use the original image
+      imageUrl: (item.cropStatus === 'success' && item.croppedImage) 
+        ? item.croppedImage 
+        : item.image,
       productLink: item.productLink || '',
       emailId: emailSelection?.id || '',
       retailer: selectedRetailer
@@ -402,7 +472,7 @@ export default function EmailDebugPage() {
       
       // Update the save status for each item
       const updatedItems = extractedItems.map(item => {
-        const matchingItem = data.items.find(
+        const matchingItem = data.updatedItems?.find(
           (addedItem: ApiResponseItem) => addedItem.name === item.name && addedItem.brand === item.brand
         );
         
@@ -416,7 +486,7 @@ export default function EmailDebugPage() {
       
       toast({
         title: "Items Added to Wardrobe",
-        description: `Successfully added ${data.items.length} items to your wardrobe.`,
+        description: `Successfully added ${data.count} items to your wardrobe.`,
       });
     } catch (error) {
       console.error('Error adding items to wardrobe:', error);
@@ -425,28 +495,29 @@ export default function EmailDebugPage() {
         description: error instanceof Error ? error.message : 'Failed to add items to wardrobe',
         variant: "destructive"
       });
+      
+      // Reset save status for failed items
+      setExtractedItems(prev => prev.map(item => ({
+        ...item,
+        saveStatus: item.saveStatus === 'pending' ? undefined : item.saveStatus
+      })));
     } finally {
       setIsLoading(false);
+      // Update the save timestamp to prevent multiple quick saves
+      setLastSaveTimestamp(Date.now());
     }
   };
   
-  // Handle copying debug JSON
-  const handleCopyDebugJson = () => {
-    navigator.clipboard.writeText(debugJson);
-    toast({
-      title: "Debug JSON Copied",
-      description: "Debug JSON has been copied to clipboard.",
-    });
-  };
-  
   // Status badge component
-  const StatusBadge = ({ status }: { status: 'pending' | 'success' | 'error' | undefined }) => {
+  const StatusBadge = ({ status }: { status: 'pending' | 'success' | 'error' | 'warning' | 'partial' | undefined }) => {
     if (!status) return null;
     
     const statusMap = {
       pending: { text: '⏳ Pending', color: 'bg-yellow-100 text-yellow-800' },
       success: { text: '✅ Success', color: 'bg-green-100 text-green-800' },
       error: { text: '❌ Failed', color: 'bg-red-100 text-red-800' },
+      warning: { text: '⚠️ Warning', color: 'bg-orange-100 text-orange-800' },
+      partial: { text: '🔍 Partial', color: 'bg-blue-100 text-blue-800' },
     };
     
     const { text, color } = statusMap[status];
@@ -469,9 +540,9 @@ export default function EmailDebugPage() {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-4">Email Debug Tool</h1>
+      <h1 className="text-2xl font-bold mb-4">Email Item Extractor</h1>
       <p className="mb-6 text-gray-600">
-        This tool helps debug the Gmail-based item upload flow by breaking the process into clear, controlled steps.
+        Extract items from your emails and add them to your wardrobe.
       </p>
       
       {errorMessage && (
@@ -556,27 +627,83 @@ export default function EmailDebugPage() {
             
             <Button
               onClick={handleRunCropping}
-              disabled={currentStep < 2 || isLoading}
+              disabled={isLoading || !extractedItems.length}
+              className="bg-sky-600 hover:bg-sky-700"
             >
-              ✂️ Run Cropping on Extracted Items
+              {isLoading ? 'Running...' : '🔍 Run Cropping on Extracted Items'}
             </Button>
             
             <div className="mt-4">
-              <ScrollArea className="h-[400px] border rounded-md bg-white p-4">
+              <ScrollArea className="h-[600px] border rounded-md bg-white p-4">
                 {extractedItems.map((item, index) => (
                   <div key={index} className="mb-8 border-b pb-4">
                     <div className="flex flex-col sm:flex-row">
                       <div className="sm:w-1/2 p-2">
                         <h3 className="font-bold">{item.name}</h3>
-                        <p>Brand: {item.brand}</p>
-                        <p>Price: {item.price}</p>
-                        {item.size && <p>Size: {item.size}</p>}
-                        {item.color && <p>Color: {item.color}</p>}
+                        <div className="mt-2 text-sm">
+                          <p className="mb-1"><span className="font-medium">Brand:</span> {item.brand || 'Unknown'}</p>
+                          <p className="mb-1"><span className="font-medium">Price:</span> {item.price || 'Unknown'}</p>
+                          {item.size && <p className="mb-1"><span className="font-medium">Size:</span> {item.size}</p>}
+                          {item.color && <p className="mb-1"><span className="font-medium">Color:</span> {item.color}</p>}
+                          {item.retailer && <p className="mb-1"><span className="font-medium">Retailer:</span> {item.retailer}</p>}
+                          {item.category && <p className="mb-1"><span className="font-medium">Category:</span> {item.category}</p>}
+                          {item.itemUrl && (
+                            <p className="mb-1">
+                              <span className="font-medium">URL:</span>{" "}
+                              <a href={item.itemUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline truncate inline-block max-w-xs">
+                                {item.itemUrl.substring(0, 30)}...
+                              </a>
+                            </p>
+                          )}
+                        </div>
                         
-                        <div className="mt-2">
-                          <p>Extraction: <StatusBadge status={item.status} /></p>
-                          <p>Cropping: <StatusBadge status={item.cropStatus} /></p>
-                          {item.error && <p className="text-red-500 text-sm mt-1">{item.error}</p>}
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center">
+                            <span className="font-medium text-sm min-w-20">Extraction:</span>
+                            <StatusBadge status={item.status} />
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <span className="font-medium text-sm min-w-20">Cropping:</span>
+                            <StatusBadge status={item.cropStatus} />
+                          </div>
+                          
+                          <div className="flex items-center">
+                            <span className="font-medium text-sm min-w-20">Save Status:</span>
+                            {item.saveStatus === 'pending' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-yellow-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Saving...
+                              </span>
+                            ) : item.saveStatus === 'success' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <svg className="-ml-0.5 mr-1.5 h-3 w-3 text-green-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Saved to Wardrobe
+                              </span>
+                            ) : item.saveStatus === 'error' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <svg className="-ml-0.5 mr-1.5 h-3 w-3 text-red-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                Failed to Save
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                Not Saved
+                              </span>
+                            )}
+                          </div>
+                          
+                          {item.error && (
+                            <p className="text-red-500 text-xs mt-1 bg-red-50 p-2 rounded">
+                              Error: {item.error}
+                            </p>
+                          )}
                         </div>
                       </div>
                       
@@ -585,12 +712,36 @@ export default function EmailDebugPage() {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <div className="border p-1 relative">
                             <p className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1">Original</p>
-                            <img 
-                              src={item.image} 
-                              alt={item.name} 
-                              className="w-full max-h-48 object-contain"
-                            />
+                            {item.image ? (
+                              <img 
+                                src={item.image} 
+                                alt={item.name} 
+                                className="w-full max-h-48 object-contain"
+                              />
+                            ) : (
+                              <div className="w-full h-48 flex items-center justify-center bg-gray-100 text-gray-500">
+                                No image available
+                              </div>
+                            )}
                           </div>
+                          
+                          {item.cropStatus === 'pending' && (
+                            <div className="border p-1 relative">
+                              <p className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1">Cropping...</p>
+                              <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {item.cropStatus === 'error' && (
+                            <div className="border p-1 relative">
+                              <p className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1">Cropping Failed</p>
+                              <div className="w-full h-48 flex items-center justify-center bg-red-50 text-red-500">
+                                <p className="text-xs px-2 text-center">Error: {item.error || 'Unknown error'}</p>
+                              </div>
+                            </div>
+                          )}
                           
                           {item.croppedImage && (
                             <div className="border p-1 relative">
@@ -600,6 +751,47 @@ export default function EmailDebugPage() {
                                 alt={`${item.name} (cropped)`} 
                                 className="w-full max-h-48 object-contain"
                               />
+                            </div>
+                          )}
+                          
+                          {item.cropStatus === 'warning' && (
+                            <div className="border p-1 relative">
+                              <p className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1">Warning</p>
+                              <div className="w-full h-48 flex items-center justify-center bg-orange-50 text-orange-700">
+                                <div className="flex flex-col items-center">
+                                  <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                  </svg>
+                                  <p className="text-xs px-2 text-center mt-2">{item.cropMessage || 'Cropping warning'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {item.cropStatus === 'partial' && (
+                            <div className="border p-1 relative">
+                              <p className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-xs p-1">Partial Result</p>
+                              <div className="w-full h-48 flex items-center justify-center">
+                                {item.croppedImage ? (
+                                  <>
+                                    <img 
+                                      src={item.croppedImage} 
+                                      alt={`${item.name} (partially cropped)`} 
+                                      className="w-full max-h-48 object-contain"
+                                    />
+                                    <p className="absolute bottom-0 w-full bg-blue-500 bg-opacity-70 text-white text-xs p-1 text-center">
+                                      {item.cropMessage || 'Minimal cropping detected'}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <div className="flex flex-col items-center text-blue-700">
+                                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16l2.879-2.879m0 0a3 3 0 104.243-4.242 3 3 0 00-4.243 4.242zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p className="text-xs px-2 text-center mt-2">{item.cropMessage || 'Minimal cropping detected'}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -619,43 +811,84 @@ export default function EmailDebugPage() {
             
             <Button
               onClick={handleAddToWardrobe}
-              disabled={currentStep < 3 || isLoading}
+              disabled={
+                currentStep < 3 || 
+                isLoading || 
+                extractedItems.length === 0 ||
+                extractedItems.some(item => item.saveStatus === 'success')
+              }
             >
-              ✅ Confirm & Add to Wardrobe
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving to Wardrobe...
+                </>
+              ) : extractedItems.some(item => item.saveStatus === 'success') ? (
+                <>✓ Added to Wardrobe</>
+              ) : (
+                <>✅ Confirm & Add to Wardrobe</>
+              )}
             </Button>
             
             <div className="mt-4">
               <h3 className="font-medium mb-2">Items Ready to Add:</h3>
-              <ul className="list-disc pl-5">
-                {extractedItems
-                  .filter(item => item.cropStatus === 'success' || item.status === 'success')
-                  .map((item, index) => (
-                    <li key={index} className="mb-1">
-                      {item.name} ({item.brand}) - 
-                      {item.saveStatus ? (
-                        <StatusBadge status={item.saveStatus} />
-                      ) : 'Pending'}
-                    </li>
-                  ))}
-              </ul>
+              <div className="max-h-[200px] overflow-y-auto border rounded p-2 bg-white">
+                {extractedItems.length === 0 ? (
+                  <p className="text-gray-500 text-sm p-2">No items extracted yet.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {extractedItems.map((item, index) => (
+                      <li key={index} className="py-2 flex items-center justify-between">
+                        <div className="flex items-center">
+                          {item.croppedImage ? (
+                            <img 
+                              src={item.croppedImage} 
+                              alt={item.name} 
+                              className="h-10 w-10 object-cover mr-2 border"
+                            />
+                          ) : item.image ? (
+                            <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="h-10 w-10 object-cover mr-2 border"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 bg-gray-100 flex items-center justify-center mr-2 border">
+                              <span className="text-xs text-gray-400">No img</span>
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-sm">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.brand} {item.color ? `• ${item.color}` : ''}</p>
+                          </div>
+                        </div>
+                        <div>
+                          {item.saveStatus ? (
+                            <StatusBadge status={item.saveStatus} />
+                          ) : item.cropStatus === 'success' ? (
+                            <span className="inline-block px-2 py-1 text-xs bg-green-50 text-green-700 rounded-full">
+                              Ready
+                            </span>
+                          ) : item.cropStatus === 'error' ? (
+                            <span className="inline-block px-2 py-1 text-xs bg-red-50 text-red-700 rounded-full">
+                              Crop Failed
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-full">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
-          
-          {debugJson && (
-            <div className="mb-8 bg-gray-100 p-4 rounded-md">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-semibold">Debug Information</h2>
-                <Button variant="outline" size="sm" onClick={handleCopyDebugJson}>
-                  Copy JSON
-                </Button>
-              </div>
-              <ScrollArea className="h-[200px] border rounded-md bg-white p-2">
-                <pre className="text-xs overflow-x-auto">
-                  {debugJson}
-                </pre>
-              </ScrollArea>
-            </div>
-          )}
         </>
       )}
     </div>

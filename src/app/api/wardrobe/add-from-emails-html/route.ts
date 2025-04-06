@@ -8,6 +8,8 @@ import { createHMPrompt, createMyntraPrompt } from '@/lib/email-extraction-promp
 import { addItemsToWardrobe } from '@/lib/wardrobe-integration';
 import { ExtractedItem } from '@/types/email-extraction';
 import { extractZaraProductsFromHtml } from '@/lib/email-content-parser';
+import { processItemImage } from '@/lib/image-utils';
+import fetch from 'node-fetch';
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,12 +80,29 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
       retailer
     );
     
-    // Add items to the user's wardrobe
-    if (items.length > 0) {
-      log('Adding items to wardrobe', { count: items.length, emailId });
-      
-      // Convert ExtractedItem to ExtractedWardrobeItem
-      const wardrobeItems = items.map(item => ({
+    // Process each item to handle image extraction
+    const processedItems = await Promise.all(items.map(async (item) => {
+      if (!item.image) {
+        console.warn('No image URL found for item:', item.name);
+        return item; // Skip processing if no image URL
+      }
+      try {
+        const response = await fetch(item.image);
+        const imageBuffer = await response.buffer();
+        const processedImageBuffer = await processItemImage(imageBuffer, item.name);
+        // Add the data URL prefix for proper rendering
+        const processedImage = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
+        return { ...item, image: processedImage };
+      } catch (error) {
+        console.error('Error processing image:', error);
+        return item; // Use original item if processing fails
+      }
+    }));
+    
+    // Add processed items to the user's wardrobe
+    if (processedItems.length > 0) {
+      log('Adding items to wardrobe', { count: processedItems.length, emailId });
+      const wardrobeItems = processedItems.map(item => ({
         brand: item.brand,
         name: item.name,
         price: item.price || '',
@@ -96,16 +115,14 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
         emailId,
         retailer
       }));
-      
       const result = await addItemsToWardrobe(
         userId,
         wardrobeItems
       );
-      
       return NextResponse.json({
         success: true,
         message: `${result.addedItems} items added to wardrobe`,
-        totalItemsFound: items.length,
+        totalItemsFound: processedItems.length,
         itemsAdded: result.addedItems,
         items: result.addedWardrobeItems
       });
@@ -191,7 +208,24 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
       totalItemsFound += items.length;
       
       if (items.length > 0) {
-        const wardrobeItems = items.map(item => ({
+        const processedItems = await Promise.all(items.map(async (item) => {
+          if (!item.image) {
+            console.warn('No image URL found for item:', item.name);
+            return item; // Skip processing if no image URL
+          }
+          try {
+            const response = await fetch(item.image);
+            const imageBuffer = await response.buffer();
+            const processedImageBuffer = await processItemImage(imageBuffer, item.name);
+            // Add the data URL prefix for proper rendering
+            const processedImage = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
+            return { ...item, image: processedImage };
+          } catch (error) {
+            console.error('Error processing image:', error);
+            return item;
+          }
+        }));
+        const wardrobeItems = processedItems.map(item => ({
           brand: item.brand,
           name: item.name,
           price: item.price || '',
@@ -204,7 +238,6 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
           emailId: emailMessage.id,
           retailer
         }));
-        
         const result = await addItemsToWardrobe(userId, wardrobeItems);
         totalItemsAdded += result.addedItems;
         addedItems.push(...result.addedWardrobeItems);
