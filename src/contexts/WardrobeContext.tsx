@@ -5,6 +5,27 @@ import { WardrobeItem } from '@/types/outfit';
 import { useSession } from 'next-auth/react';
 import { categorizeItems } from '@/lib/categorize-items';
 
+// Function to perform deep comparison of arrays
+function areItemsEqual(items1: WardrobeItem[], items2: WardrobeItem[]): boolean {
+  if (items1.length !== items2.length) return false;
+  
+  // Create map of items by ID for faster lookup
+  const itemMap = new Map();
+  items1.forEach(item => itemMap.set(item.id, item));
+  
+  // Check if all items in items2 match corresponding items in items1
+  return items2.every(item2 => {
+    const item1 = itemMap.get(item2.id);
+    if (!item1) return false;
+    
+    // Compare all properties
+    return Object.keys(item2).every(key => {
+      // @ts-ignore - Dynamic property access
+      return JSON.stringify(item1[key]) === JSON.stringify(item2[key]);
+    });
+  });
+}
+
 // Define the context type
 interface WardrobeContextType {
   items: WardrobeItem[];
@@ -206,9 +227,15 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
 
         const result = await response.json();
         
-        // If we got updated items back from the server, refresh our state
+        // If we got updated items back from the server, only refresh our state if they've actually changed
         if (result.updatedItems) {
-          setItems(result.updatedItems);
+          // Only update state if the items have actually changed
+          if (!areItemsEqual(items, result.updatedItems)) {
+            console.log('Items changed, updating state');
+            setItems(result.updatedItems);
+          } else {
+            console.log('Items unchanged, skipping state update');
+          }
         }
         
         if (showMessage) {
