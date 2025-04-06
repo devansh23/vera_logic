@@ -11,7 +11,24 @@ export async function GET(request: Request) {
 
   console.log('Searching for products:', query);
   
-  // Always return mock data to avoid timeouts
+  // Check if the query is a URL using the same regex pattern as in page.tsx
+  const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(query);
+  
+  if (isUrl) {
+    console.log('Query appears to be a URL, redirecting to proper handling');
+    // Redirect client to use the wardrobe API directly instead
+    return NextResponse.json([
+      {
+        brand: 'Redirect',
+        name: 'This is a URL. Please use the Add to Wardrobe button to add this product.',
+        price: '',
+        url: query,
+        isUrl: true  // Add a flag to indicate this is a URL
+      }
+    ]);
+  }
+  
+  // For regular search queries, return mock data to avoid timeouts
   return NextResponse.json([
     {
       brand: 'H&M',

@@ -629,23 +629,34 @@ export default function Home() {
     setSearchResults([])
 
     try {
-      // Clean up input value - remove leading special characters like @ or #
-      const cleanInputValue = inputValue.replace(/^[@#]+/, '');
-      
-      // Check if the cleaned input is a valid URL using a regex pattern
-      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(cleanInputValue)
+      // Check if input is a valid URL using a regex pattern
+      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(inputValue)
       
       if (isUrl) {
-        // Directly add to wardrobe if it's a URL
-        await addProductToWardrobe(cleanInputValue)
+        // Directly add to wardrobe if it's a URL - don't do any search
+        await addProductToWardrobe(inputValue)
+        // Clear the overlay to ensure no search results are shown
+        setShowProductOverlay(false)
       } else {
-        // Handle as search query if not a URL
+        // Only search if it's not a URL
         const response = await fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
         if (!response.ok) {
           throw new Error('Failed to search products')
         }
         const data = await response.json()
-        setSearchResults(data)
+        
+        // Check if the first result indicates this was a URL that the search API detected
+        if (data.length > 0 && data[0].isUrl) {
+          // If search API indicates this is a URL, handle as URL
+          await addProductToWardrobe(data[0].url)
+          setShowProductOverlay(false)
+        } else {
+          // Display normal search results
+          setSearchResults(data)
+          if (data.length > 0) {
+            setShowProductOverlay(true)
+          }
+        }
       }
     } catch (error) {
       console.error('Error:', error)
@@ -659,11 +670,16 @@ export default function Home() {
 
     try {
       let productUrl = url;
+      
+      // Only prepend Myntra domain if the URL doesn't already start with http:// or https://
       if (!url.startsWith('http')) {
         productUrl = url.startsWith('/') 
           ? `https://www.myntra.com${url}`
           : `https://www.myntra.com/${url}`;
       }
+      
+      // Log the URL being sent to the API for debugging
+      console.log('Adding product URL to wardrobe:', productUrl);
       
       await addItem({ productLink: productUrl } as any);
       setInputValue('');
