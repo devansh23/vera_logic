@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
 import { categorizeItem } from '@/lib/categorize-items';
 import { processItemImage } from '@/lib/image-utils';
+import { scrapeProduct } from '@/lib/scrape-product';
 
 // GET /api/wardrobe - Get user's wardrobe
 export async function GET(request: Request) {
@@ -51,34 +52,63 @@ export async function GET(request: Request) {
 
 // POST /api/wardrobe - Add item to wardrobe
 export async function POST(request: Request) {
+  const requestId = Math.random().toString(36).substring(2, 8);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [${requestId}] POST /api/wardrobe - Request received`);
+  
   const session = await getServerSession(authOptions);
-  log('POST /api/wardrobe - Session', { userId: session?.user?.id });
+  log('POST /api/wardrobe - Session', { userId: session?.user?.id, requestId });
   
   if (!session?.user?.id) {
-    log('POST /api/wardrobe - Unauthorized: No user ID in session');
+    log('POST /api/wardrobe - Unauthorized: No user ID in session', { requestId });
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const body = await request.json();
     const { url } = body;
-    log('POST /api/wardrobe - Processing URL', { url });
+    log('POST /api/wardrobe - Processing URL', { url, requestId });
 
-    // Get the base URL for API calls
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
-
-    // Fetch product details from Myntra/H&M
-    const productResponse = await fetch(`${baseUrl}/api/myntra-product?url=${encodeURIComponent(url)}`);
-    if (!productResponse.ok) {
-      const errorText = await productResponse.text();
-      log('Failed to fetch product details', { error: errorText });
-      throw new Error('Failed to fetch product details');
+    if (!url) {
+      log('POST /api/wardrobe - No URL provided', { requestId });
+      return NextResponse.json({ 
+        error: 'URL parameter is required',
+        message: 'Please provide a valid product URL' 
+      }, { status: 400 });
+    }
+    
+    // Validate URL
+    try {
+      new URL(url);
+    } catch (urlError) {
+      log('POST /api/wardrobe - Invalid URL format', { url, requestId });
+      return NextResponse.json({ 
+        error: 'Invalid URL format',
+        message: 'Please provide a valid product URL' 
+      }, { status: 400 });
     }
 
-    const productData = await productResponse.json();
-    log('POST /api/wardrobe - Product data', { productData });
+    // Scrape product information from any website
+    log('POST /api/wardrobe - Scraping product from URL', { url, requestId });
+    const productData = await scrapeProduct(url);
+    
+    if (!productData) {
+      log('POST /api/wardrobe - Failed to extract product data', { url, requestId });
+      return NextResponse.json({ 
+        error: 'Failed to extract product data',
+        message: 'Could not find a valid image or clothing item on this page.' 
+      }, { status: 400 });
+    }
+    
+    if (!productData.name || productData.name === 'Unknown Product') {
+      log('POST /api/wardrobe - Failed to extract product name', { url, productData, requestId });
+      return NextResponse.json({ 
+        error: 'Failed to extract product details',
+        message: 'Could not identify the product. Please try a different URL or a more popular retailer.' 
+      }, { status: 400 });
+    }
+    
+    log('POST /api/wardrobe - Product data extracted', { productData, requestId });
     
     let imageUrl = productData.image || '';
     let finalImageUrl = imageUrl;
@@ -86,7 +116,7 @@ export async function POST(request: Request) {
     // Apply image cropping if image URL exists
     if (imageUrl) {
       try {
-        log('POST /api/wardrobe - Fetching image for cropping', { imageUrl });
+        log('POST /api/wardrobe - Fetching image for cropping', { imageUrl, requestId });
         
         // Fetch the image
         const imageResponse = await fetch(imageUrl);
@@ -99,7 +129,7 @@ export async function POST(request: Request) {
         
         // Process the image using the same function used for email items
         const itemName = productData.name || 'Unknown Product';
-        log('POST /api/wardrobe - Processing image', { itemName });
+        log('POST /api/wardrobe - Processing image', { itemName, requestId });
         
         // Run image through the processItemImage function
         const processedBuffer = await processItemImage(imageBuffer, itemName);
@@ -107,23 +137,16 @@ export async function POST(request: Request) {
         // Convert processed buffer to base64 for storage
         finalImageUrl = `data:image/jpeg;base64,${processedBuffer.toString('base64')}`;
         
-        log('POST /api/wardrobe - Image processing successful');
+        log('POST /api/wardrobe - Image processing successful', { requestId });
       } catch (imageError) {
         // In case of failure, use the original image
-        log('Error processing product image', { error: imageError, fallback: 'Using original image' });
+        log('Error processing product image', { error: imageError, fallback: 'Using original image', requestId });
         // Keep using the original image URL
         finalImageUrl = imageUrl;
       }
+    } else {
+      log('POST /api/wardrobe - No image URL found for the product', { productName: productData.name, requestId });
     }
-
-    // Determine category for the item
-    const itemToCategorizee = {
-      name: productData.name || 'Unknown Product',
-      brand: productData.brand || 'Unknown Brand',
-      color: productData.color || '',
-      sourceRetailer: new URL(url).hostname.includes('myntra.com') ? 'Myntra' : 'Other'
-    };
-    const category = categorizeItem(itemToCategorizee);
 
     // Save to database with the processed image
     const item = await prisma.wardrobe.create({
@@ -134,20 +157,29 @@ export async function POST(request: Request) {
         price: productData.price || '',
         originalPrice: productData.originalPrice || '',
         discount: productData.discount || '',
-        image: finalImageUrl, // Use the cropped image or fallback to original
+        image: finalImageUrl || '', // Use the cropped image or fallback to original
         productLink: url,
         size: productData.size || '',
         color: productData.color || '',
-        category: category
+        category: productData.category || 'Uncategorized',
+        sourceRetailer: productData.sourceRetailer || 'Unknown'
       }
     });
 
-    log('POST /api/wardrobe - Created item', { item });
-    return NextResponse.json(item);
+    log('POST /api/wardrobe - Created item', { item, requestId });
+    return NextResponse.json({
+      success: true,
+      item,
+      message: `Successfully added ${productData.name} from ${productData.sourceRetailer || 'store'} to your wardrobe`
+    });
   } catch (error) {
-    log('Error adding item to wardrobe', { error });
+    log('Error adding item to wardrobe', { error, requestId });
     return NextResponse.json(
-      { error: 'Failed to add item to wardrobe' },
+      { 
+        error: 'Failed to add item to wardrobe',
+        message: 'An unexpected error occurred while adding this item to your wardrobe. Please try again.',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
