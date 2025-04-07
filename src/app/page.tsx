@@ -587,14 +587,39 @@ export default function Home() {
         productLink: urlInputValue
       }));
       
-      // Add each product to wardrobe
+      // First, save all edits to the existing context - this will trigger saveWardrobe
+      const updatedProducts = [...products];
+      let isUpdate = false; // Track if we're updating or adding
+      
       for (const product of productsToAdd) {
-        await addItem(product);
+        // Check if this is an existing item that's being edited
+        const existingIndex = updatedProducts.findIndex(p => p.id === product.id);
+        
+        if (existingIndex >= 0) {
+          // Update the existing item in the array
+          updatedProducts[existingIndex] = {
+            ...updatedProducts[existingIndex],
+            name: product.name,
+            brand: product.brand,
+            category: product.category,
+            image: product.image
+          };
+          isUpdate = true;
+        } else {
+          // Add new item
+          await addItem(product);
+        }
+      }
+      
+      // If we updated any existing items, save the entire wardrobe
+      if (updatedProducts.some((p, i) => p !== products[i])) {
+        // Replace all items at once
+        await saveWardrobe();
       }
       
       showNotification({
         type: 'success',
-        message: `${items.length} item${items.length === 1 ? '' : 's'} added to your wardrobe`,
+        message: `${items.length} item${items.length === 1 ? '' : 's'} ${items.length === 1 ? 'was' : 'were'} ${isUpdate ? 'updated' : 'added'} in your wardrobe`,
         itemCount: items.length
       });
       
