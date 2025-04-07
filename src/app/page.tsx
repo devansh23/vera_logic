@@ -435,7 +435,7 @@ export default function Home() {
     items: products, 
     isLoading, 
     error: wardrobeError, 
-    refreshItems: loadUserWardrobe, 
+    refreshItems, 
     addItem, 
     saveWardrobe,
     categorizedItems,
@@ -574,57 +574,87 @@ export default function Home() {
   
   const handleConfirmItems = async (items: ConfirmationItem[]) => {
     try {
-      // Map confirmed items to required WardrobeItem format
-      const productsToAdd = items.map(item => ({
-        id: item.id,
-        // Use the edited brand if provided, otherwise use name-based fallback
-        brand: item.brand || item.name.split(' ')[0] || 'Unknown Brand',
-        name: item.name,
-        price: '',
-        category: item.category,
-        image: item.imageUrl,
-        dateAdded: new Date(),
-        productLink: urlInputValue
-      }));
+      // Flag to track if we're updating existing items
+      let updatedAnyItems = false;
       
-      // First, save all edits to the existing context - this will trigger saveWardrobe
-      const updatedProducts = [...products];
-      let isUpdate = false; // Track if we're updating or adding
+      // Create a working copy of our products
+      let updatedProducts = [...products];
       
-      for (const product of productsToAdd) {
-        // Check if this is an existing item that's being edited
-        const existingIndex = updatedProducts.findIndex(p => p.id === product.id);
+      // Process each confirmed item
+      for (const item of items) {
+        // Map the confirmation item to the format expected by our database
+        const updatedItem = {
+          id: item.id,
+          brand: item.brand || item.name.split(' ')[0] || 'Unknown Brand',
+          name: item.name,
+          category: item.category,
+          image: item.imageUrl,
+          imageUrl: item.imageUrl, // Add both fields to ensure it works in all contexts
+        };
+        
+        // Find this item in our product list if it exists
+        const existingIndex = updatedProducts.findIndex(p => p.id === item.id);
         
         if (existingIndex >= 0) {
-          // Update the existing item in the array
+          // Update existing item
           updatedProducts[existingIndex] = {
             ...updatedProducts[existingIndex],
-            name: product.name,
-            brand: product.brand,
-            category: product.category,
-            image: product.image
+            ...updatedItem
           };
-          isUpdate = true;
+          updatedAnyItems = true;
         } else {
-          // Add new item
-          await addItem(product);
+          // Add new item via the context function
+          await addItem({
+            ...updatedItem,
+            price: '',
+            dateAdded: new Date(),
+            productLink: urlInputValue
+          });
         }
       }
       
-      // If we updated any existing items, save the entire wardrobe
-      if (updatedProducts.some((p, i) => p !== products[i])) {
-        // Replace all items at once
-        await saveWardrobe();
+      // If we updated any existing items, force a save and refresh
+      if (updatedAnyItems) {
+        // Force save - first we'll put our modified items into local storage
+        // as a backup in case the direct approach doesn't work
+        try {
+          localStorage.setItem('vera_pending_updates', JSON.stringify(updatedProducts));
+        } catch (e) {
+          console.log('Failed to save backup of products to localStorage');
+        }
+        
+        // Force a direct save to the API and refresh
+        const response = await fetch('/api/wardrobe/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ items: updatedProducts }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save updated items');
+        }
+        
+        // Refresh the state from the server
+        await refreshItems();
       }
       
+      // Show success notification
       showNotification({
         type: 'success',
-        message: `${items.length} item${items.length === 1 ? '' : 's'} ${items.length === 1 ? 'was' : 'were'} ${isUpdate ? 'updated' : 'added'} in your wardrobe`,
+        message: `${items.length} item${items.length === 1 ? '' : 's'} ${items.length === 1 ? 'was' : 'were'} ${updatedAnyItems ? 'updated' : 'added'} in your wardrobe`,
         itemCount: items.length
       });
       
+      // Clean up
       setShowConfirmation(false);
       setPendingItems([]);
+      
+      // Clear any backups
+      try {
+        localStorage.removeItem('vera_pending_updates');
+      } catch (e) {}
     } catch (error) {
       console.error('Error confirming items:', error);
       setLocalError(error instanceof Error ? error.message : 'Failed to add items to wardrobe');
@@ -1050,7 +1080,7 @@ export default function Home() {
                       aria-label="Upload file"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
                     </button>
                   </div>
