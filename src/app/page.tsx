@@ -187,7 +187,7 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
         <img
           src={product.image || product.images?.[0]}
           alt={product.name}
-          className="w-full h-full object-cover rounded-t-lg"
+          className="w-full h-full object-contain rounded-t-lg"
         />
       </div>
       <button

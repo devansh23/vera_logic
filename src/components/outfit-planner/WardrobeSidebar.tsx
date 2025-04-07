@@ -71,7 +71,7 @@ export const WardrobeSidebar = () => {
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground p-1">
@@ -104,7 +104,7 @@ export const WardrobeSidebar = () => {
                           <img
                             src={item.image}
                             alt={item.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-contain"
                           />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground p-1">

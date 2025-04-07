@@ -136,7 +136,7 @@ export default function ItemEditorModal({ item, onSave, onClose, isWardrobe = fa
                 <img
                   src={previewUrl || item.imageUrl}
                   alt="Preview"
-                  className="w-full h-full object-cover rounded-lg"
+                  className="w-full h-full object-contain rounded-lg"
                 />
               </div>
             )}
