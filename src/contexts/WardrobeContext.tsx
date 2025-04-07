@@ -126,13 +126,24 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
           body: JSON.stringify({ url }),
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('Server returned non-JSON response:', await response.text());
+          throw new Error('Server error: Please try again or check if the development server is running.');
+        }
+
         if (!response.ok) {
-          throw new Error('Failed to add product');
+          const errorData = await response.json();
+          throw new Error(errorData.message || errorData.error || 'Failed to add product');
         }
         
         const data = await response.json();
-        setItems(prev => [...prev, data]);
-        return data;
+        if (!data.item) {
+          throw new Error('Invalid response from server: missing item data');
+        }
+        setItems(prev => [...prev, data.item]);
+        return data.item;
       } else {
         // Otherwise, directly add the item to the items array
         // Make sure we preserve any existing ID rather than generating a temp one
@@ -145,8 +156,9 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       }
     } catch (error) {
       console.error('Error adding item to wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add item to wardrobe');
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add item to wardrobe';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }

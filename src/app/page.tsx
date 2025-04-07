@@ -179,61 +179,61 @@ const ProductOverlay = ({
 };
 
 const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => (
-  <div className="relative group">
+  <div className="relative group bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
     <div className="aspect-square relative">
       <div className="absolute inset-0">
         <img
           src={product.image || product.images?.[0]}
           alt={product.name}
-          className="w-full h-full object-contain bg-gray-50"
+          className="w-full h-full object-cover rounded-t-lg"
         />
       </div>
       <button
         onClick={onDelete}
-        className="absolute top-2 left-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Delete item"
       >
         <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
-      <div className="absolute top-2 right-2 group/price">
-        <div className="bg-white shadow-md rounded-lg p-2 cursor-help">
-          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-          </svg>
-          <div className="absolute right-0 top-full mt-2 w-auto min-w-max bg-white shadow-lg rounded-lg p-3 opacity-0 invisible group-hover/price:opacity-100 group-hover/price:visible transition-all duration-200 z-10">
-            <div className="flex flex-col gap-1">
-              <span className="font-bold text-gray-900">{product.price}</span>
-              {product.originalPrice && (
-                <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
-              )}
-              {product.discount && (
-                <span className="text-sm text-green-600">{product.discount}</span>
-              )}
-            </div>
-          </div>
+      {product.price && (
+        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium text-gray-900">
+          {product.price}
+        </div>
+      )}
+    </div>
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="font-medium text-gray-900 line-clamp-1">
+            {product.brand || 'Unknown Brand'}
+          </h3>
+          <p className="text-sm text-gray-600 line-clamp-2 mt-1">
+            {product.name}
+          </p>
         </div>
       </div>
-    </div>
-    <div className="p-4 bg-white">
-      <h3 className="font-semibold mb-1">{product.brand}</h3>
-      <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
-      <div className="flex flex-col gap-2">
-        {(product.productLink || product.myntraLink) && (
-          <a
-            href={product.productLink || product.myntraLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
-          >
-            <span>Visit {product.brand}</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        )}
-      </div>
+      {product.category && (
+        <div className="mt-2">
+          <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
+            {product.category}
+          </span>
+        </div>
+      )}
+      {product.productLink && (
+        <a
+          href={product.productLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center text-sm text-purple-600 hover:text-purple-700 gap-1"
+        >
+          <span>View Product</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      )}
     </div>
   </div>
 );
@@ -604,6 +604,7 @@ export default function Home() {
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [urlInputValue, setUrlInputValue] = useState('');
 
   // Display combined error from both sources
   const error = localError || wardrobeError;
@@ -625,38 +626,20 @@ export default function Home() {
     e.preventDefault()
     if (!inputValue) return
 
-    // Clear any previous search results
     setSearchResults([])
 
     try {
-      // Check if input is a valid URL using a regex pattern
-      const isUrl = /^(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/\S*)?$/.test(inputValue)
-      
-      if (isUrl) {
-        // Directly add to wardrobe if it's a URL - don't do any search
+      // Check if input is a Myntra URL
+      if (inputValue.includes('myntra.com')) {
         await addProductToWardrobe(inputValue)
-        // Clear the overlay to ensure no search results are shown
-        setShowProductOverlay(false)
       } else {
-        // Only search if it's not a URL
+        // Handle as search query
         const response = await fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
         if (!response.ok) {
           throw new Error('Failed to search products')
         }
         const data = await response.json()
-        
-        // Check if the first result indicates this was a URL that the search API detected
-        if (data.length > 0 && data[0].isUrl) {
-          // If search API indicates this is a URL, handle as URL
-          await addProductToWardrobe(data[0].url)
-          setShowProductOverlay(false)
-        } else {
-          // Display normal search results
-          setSearchResults(data)
-          if (data.length > 0) {
-            setShowProductOverlay(true)
-          }
-        }
+        setSearchResults(data)
       }
     } catch (error) {
       console.error('Error:', error)
@@ -670,19 +653,15 @@ export default function Home() {
 
     try {
       let productUrl = url;
-      
-      // Only prepend Myntra domain if the URL doesn't already start with http:// or https://
       if (!url.startsWith('http')) {
         productUrl = url.startsWith('/') 
           ? `https://www.myntra.com${url}`
           : `https://www.myntra.com/${url}`;
       }
       
-      // Log the URL being sent to the API for debugging
-      console.log('Adding product URL to wardrobe:', productUrl);
-      
       await addItem({ productLink: productUrl } as any);
       setInputValue('');
+      setUrlInputValue(''); // Also clear the URL input field
       setSearchResults([]);
     } catch (error) {
       console.error('Error adding product:', error);
@@ -997,7 +976,7 @@ export default function Home() {
         
         {session ? (
           <div className="relative max-w-2xl mx-auto mb-16">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               <a 
                 href="/email-fetcher" 
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
@@ -1008,48 +987,113 @@ export default function Home() {
                 Import Items from Your Email
               </a>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-grow">
-                  <input
-                    type="text"
-                    placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.type.startsWith('image/')) {
-                        handleImageUpload(file);
-                      } else if (file.type === 'application/pdf') {
-                        handlePdfUpload(file);
-                      }
-                    }}
-                    className="hidden"
-                    ref={fileInputRef}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                    aria-label="Upload file"
+              {/* Product URL Form */}
+              <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Add Product by URL</h2>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!urlInputValue) return;
+                  addProductToWardrobe(urlInputValue);
+                }} className="flex flex-col gap-4">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      placeholder="Paste a product URL here (e.g., https://www2.hm.com/...)"
+                      value={urlInputValue}
+                      onChange={(e) => setUrlInputValue(e.target.value)}
+                      className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    {urlInputValue && (
+                      <button
+                        type="button"
+                        onClick={() => setUrlInputValue('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-purple-600 transition-colors"
+                        aria-label="Clear URL"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <button 
+                    type="submit"
+                    className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+                    disabled={isLoading || !urlInputValue}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
+                    {isLoading ? 'Fetching...' : 'Fetch Product'}
                   </button>
-                </div>
-                <button 
-                  type="submit"
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Loading...' : 'Add to Wardrobe'}
-                </button>
+                </form>
+              </div>
+
+              {/* Product Search Form */}
+              <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Search for Products</h2>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!inputValue) return;
+                  
+                  // Only handle as search query
+                  setSearchResults([]);
+                  setLocalError(null);
+                  
+                  fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
+                    .then(response => {
+                      if (!response.ok) {
+                        throw new Error('Failed to search products');
+                      }
+                      return response.json();
+                    })
+                    .then(data => {
+                      setSearchResults(data);
+                    })
+                    .catch(error => {
+                      console.error('Error:', error);
+                      setLocalError(error.message);
+                    });
+                }} className="flex flex-col gap-4">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      placeholder="Search for products (e.g., 'blue cotton shirt')"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.type.startsWith('image/')) {
+                          handleImageUpload(file);
+                        } else if (file.type === 'application/pdf') {
+                          handlePdfUpload(file);
+                        }
+                      }}
+                      className="hidden"
+                      ref={fileInputRef}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                      aria-label="Upload file"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                    </button>
+                  </div>
+                  <button 
+                    type="submit"
+                    className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+                    disabled={isLoading || !inputValue}
+                  >
+                    {isLoading ? 'Searching...' : 'Search Products'}
+                  </button>
+                </form>
               </div>
 
               {error && (
@@ -1057,7 +1101,7 @@ export default function Home() {
                   {error}
                 </div>
               )}
-            </form>
+            </div>
 
             {imagePreview && (
               <div className="mt-4 p-4 border border-gray-200 rounded-lg">
