@@ -9,6 +9,8 @@ import { useWardrobe } from '@/contexts/WardrobeContext'
 import { useWardrobeNotification } from '@/contexts/WardrobeNotificationContext'
 import { toast } from 'react-toastify'
 import { categorizeItem } from '@/lib/categorize-items'
+import { ConfirmationModal } from '@/components/ConfirmationFlow'
+import { WardrobeItem as ConfirmationItem } from '@/types/wardrobe'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -179,7 +181,7 @@ const ProductOverlay = ({
 };
 
 const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => (
-  <div className="relative group bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+  <div className="relative group bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer">
     <div className="aspect-square relative">
       <div className="absolute inset-0">
         <img
@@ -190,7 +192,7 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
       </div>
       <button
         onClick={onDelete}
-        className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="delete-button absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Delete item"
       >
         <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,23 +255,10 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Sweaters': ['sweater', 'sweaters', 'pullover', 'pullovers', 'cardigan', 'cardigans', 'jumper', 'jumpers', 'knit', 'knits', 'men sweater', 'men sweaters'],
     'Jackets': ['jacket', 'jackets', 'bomber', 'bombers', 'trucker jacket', 'trucker jackets', 'denim jacket', 'denim jackets', 'zip-up jacket', 'zip-up jackets', 'men jacket', 'men jackets', 'coats'],
     'Blazers & Coats': ['blazer', 'blazers', 'coat', 'coats', 'sports coat', 'sports coats', 'suit jacket', 'suit jackets', 'overcoat', 'overcoats', 'trench coat', 'trench coats', 'men blazer', 'men blazers', 'men coat', 'men coats', 'suits'],
-    'Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
-    'Mens Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean'],
-    'Casual Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'trousers'],
-    'Mens Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts'],
-    'Track Pants & Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
-    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts'],
-    'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'tops'],
-    'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses'],
-    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim'],
-    'Trousers & Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants'],
-    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts'],
-    'Rain Jackets': ['rain jacket', 'rain jackets', 'raincoat', 'raincoats', 'waterproof jacket', 'waterproof jackets', 'windcheater', 'windcheaters', 'men rain jacket', 'men rain jackets'],
 
     // ====== MEN'S BOTTOMWEAR ======
     'Mens Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean', 'H&M jeans'],
     'Casual Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'H&M trousers'],
-    'Formal Trousers': ['formal trouser', 'formal trousers', 'dress pant', 'dress pants', 'dress trouser', 'dress trousers', 'suit pant', 'suit pants', 'office trouser', 'office trousers', 'men formal trouser', 'men formal trousers'],
     'Mens Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts', 'H&M shorts'],
     'Track Pants & Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
 
@@ -280,140 +269,19 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
     'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts', 'H&M sleepwear'],
     'Mens Thermals': ['thermal', 'thermals', 'thermal wear', 'winter thermal', 'winter thermals', 'heat tech', 'warm underwear', 'men thermal', 'men thermals'],
 
-    // ====== MEN'S INDIAN & FESTIVE WEAR ======
-    'Kurtas & Kurta Sets': ['kurta', 'kurtas', 'kurta set', 'kurta sets', 'kurta pajama', 'kurta pajamas', 'kurta pyjama', 'kurta pyjamas', 'men kurta', 'men kurtas'],
-    'Sherwanis': ['sherwani', 'sherwanis', 'wedding sherwani', 'wedding sherwanis', 'groom sherwani', 'groom sherwanis'],
-    'Nehru Jackets': ['nehru jacket', 'nehru jackets', 'modi jacket', 'modi jackets', 'waistcoat', 'waistcoats', 'ethnic jacket', 'ethnic jackets', 'indian jacket', 'indian jackets'],
-    'Dhotis': ['dhoti', 'dhotis', 'dhoti pant', 'dhoti pants', 'ethnic bottom', 'ethnic bottoms', 'men dhoti', 'men dhotis'],
-
-    // ====== MEN'S PLUS SIZE ======
-    'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'extended sizes', 'men plus size'],
-    
-    // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'sneaker', 'sneakers', 'espadrille', 'canvas shoe'],
-    'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers'],
-    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues'],
-    'Sneakers': ['sneaker', 'sneakers', 'running shoe', 'running shoes', 'training shoe', 'training shoes'],
-    'Sandals & Floaters': ['sandal', 'sandals', 'floater', 'floaters', 'slider', 'sliders', 'open toe', 'open toes', 'men sandal', 'men sandals'],
-    'Flip Flops': ['flip flop', 'flip flops', 'thong', 'thongs', 'beach sandal', 'beach sandals', 'slipper', 'slippers', 'men flip flop', 'men flip flops'],
-    'Mens Socks': ['sock', 'socks', 'ankle sock', 'ankle socks', 'crew sock', 'crew socks', 'no-show sock', 'no-show socks', 'low cut sock', 'low cut socks', 'men sock', 'men socks'],
-    
-    // ====== PERSONAL CARE & GROOMING ======
-    'Personal Care & Grooming': ['grooming', 'personal care', 'skincare', 'face wash', 'face washes', 'moisturizer', 'moisturizers', 'sunscreen', 'sunscreens', 'men grooming'],
-    
-    // ====== SUNGLASSES & FRAMES ======
-    'Sunglasses & Frames': ['sunglass', 'sunglasses', 'eyeglass', 'eyeglasses', 'spectacle', 'spectacles', 'frame', 'frames', 'sun glass', 'sun glasses', 'shade', 'shades'],
-    
-    // ====== WATCHES ======
-    'Mens Watches': ['watch', 'watches', 'wristwatch', 'wristwatches', 'analog watch', 'analog watches', 'digital watch', 'digital watches', 'chronograph', 'chronographs', 'men watch', 'men watches'],
-    
-    // ====== SPORTS & ACTIVE WEAR ======
-    'Sports Sandals': ['sports sandal', 'sports sandals', 'hiking sandal', 'hiking sandals', 'outdoor sandal', 'outdoor sandals'],
-    'Active T-Shirts': ['active t-shirt', 'active t-shirts', 'gym t-shirt', 'gym t-shirts', 'workout tee', 'workout tees', 'sport tee', 'sport tees', 'training t-shirt', 'training t-shirts', 'dry fit', 'quick dry'],
-    'Track Pants & Shorts': ['track pant', 'track pants', 'athletic short', 'athletic shorts', 'running short', 'running shorts', 'gym short', 'gym shorts', 'workout pant', 'workout pants'],
-    'Tracksuits': ['tracksuit', 'tracksuits', 'training suit', 'training suits', 'warm up suit', 'warm up suits', 'athletic set', 'athletic sets'],
-    'Sports Jackets & Sweatshirts': ['sports jacket', 'sports jackets', 'athletic jacket', 'athletic jackets', 'hoodie', 'hoodies', 'workout sweatshirt', 'workout sweatshirts', 'gym hoodie', 'gym hoodies'],
-    'Mens Sports Accessories': ['sports accessory', 'sports accessories', 'wristband', 'wristbands', 'headband', 'headbands', 'sport sock', 'sport socks', 'gym glove', 'gym gloves'],
-    'Mens Swimwear': ['swimwear', 'swim trunk', 'swim trunks', 'swimming short', 'swimming shorts', 'swim brief', 'swim briefs', 'men swimwear'],
-    
-    // ====== GADGETS ======
-    'Smart Wearables': ['smart watch', 'smart watches', 'fitness tracker', 'fitness trackers', 'smart band', 'smart bands', 'activity tracker', 'activity trackers'],
-    'Fitness Gadgets': ['fitness gadget', 'fitness gadgets', 'smart scale', 'smart scales', 'muscle massager', 'muscle massagers', 'fitness monitor', 'fitness monitors'],
-    'Headphones': ['headphone', 'headphones', 'earphone', 'earphones', 'earbud', 'earbuds', 'wireless earphone', 'wireless earphones', 'airpod', 'airpods'],
-    'Speakers': ['speaker', 'speakers', 'bluetooth speaker', 'bluetooth speakers', 'wireless speaker', 'wireless speakers', 'portable speaker', 'portable speakers'],
-    
-    // ====== FASHION ACCESSORIES ======
-    'Mens Wallets': ['wallet', 'wallets', 'card holder', 'card holders', 'money clip', 'money clips', 'billfold', 'billfolds', 'men wallet', 'men wallets'],
-    'Mens Belts': ['belt', 'belts', 'leather belt', 'leather belts', 'casual belt', 'casual belts', 'formal belt', 'formal belts', 'men belt', 'men belts'],
-    'Mens Perfumes': ['perfume', 'perfumes', 'fragrance', 'fragrances', 'cologne', 'colognes', 'body mist', 'body mists', 'body spray', 'body sprays', 'eau de toilette', 'men perfume', 'men perfumes'],
-    'Trimmers': ['trimmer', 'trimmers', 'beard trimmer', 'beard trimmers', 'shaver', 'shavers', 'grooming kit', 'grooming kits'],
-    'Mens Deodorants': ['deodorant', 'deodorants', 'antiperspirant', 'antiperspirants', 'body spray', 'body sprays', 'deo stick', 'deo sticks', 'men deodorant', 'men deodorants'],
-    'Ties, Cufflinks & Pocket Squares': ['tie', 'ties', 'necktie', 'neckties', 'bow tie', 'bow ties', 'cufflink', 'cufflinks', 'pocket square', 'pocket squares', 'handkerchief', 'handkerchiefs'],
-    'Accessory Gift Sets': ['gift set', 'gift sets', 'accessory set', 'accessory sets', 'wallet belt set', 'wallet belt sets', 'tie cufflink set', 'tie cufflink sets'],
-    'Mens Caps & Hats': ['cap', 'caps', 'hat', 'hats', 'beanie', 'beanies', 'snapback', 'snapbacks', 'baseball cap', 'baseball caps', 'fedora', 'fedoras', 'men cap', 'men caps', 'men hat', 'men hats'],
-    'Mens Mufflers & Scarves': ['muffler', 'mufflers', 'scarf', 'scarves', 'glove', 'gloves', 'mitten', 'mittens', 'winter accessory', 'winter accessories', 'men scarf', 'men scarves', 'men glove', 'men gloves'],
-    'Phone Cases': ['phone case', 'phone cases', 'mobile cover', 'mobile covers', 'phone cover', 'phone covers', 'smartphone case', 'smartphone cases'],
-    'Mens Rings & Wristwear': ['ring', 'rings', 'bracelet', 'bracelets', 'wristband', 'wristbands', 'bangle', 'bangles', 'men bracelet', 'men bracelets', 'men ring', 'men rings'],
-    'Helmets': ['helmet', 'helmets', 'bike helmet', 'bike helmets', 'motorcycle helmet', 'motorcycle helmets'],
-    
-    // ====== BAGS & BACKPACKS ======
-    'Mens Bags & Backpacks': ['bag', 'bags', 'backpack', 'backpacks', 'laptop bag', 'laptop bags', 'messenger bag', 'messenger bags', 'duffel bag', 'duffel bags', 'gym bag', 'gym bags', 'sling bag', 'sling bags', 'men bag', 'men bags', 'men backpack', 'men backpacks'],
-    
-    // ====== LUGGAGES & TROLLEYS ======
-    'Mens Luggages': ['luggage', 'luggages', 'trolley', 'trolleys', 'suitcase', 'suitcases', 'cabin bag', 'cabin bags', 'travel bag', 'travel bags', 'hard case', 'hard cases'],
-
-    // ====== WOMEN'S INDIAN & FUSION WEAR ======
-    'Kurtas & Suits': ['women kurta', 'women kurtas', 'women suit', 'women suits', 'ladies kurta', 'ladies kurtas', 'kurti', 'kurtis', 'salwar kameez', 'anarkali', 'anarkalis', 'women ethnic suit', 'women ethnic suits'],
-    'Kurtis, Tunics & Tops': ['kurti', 'kurtis', 'ethnic top', 'ethnic tops', 'tunic', 'tunics', 'ladies top', 'ladies tops', 'ethnic tunic', 'ethnic tunics', 'women kurti', 'women kurtis'],
-    'Sarees': ['saree', 'sarees', 'sari', 'saris', 'silk saree', 'silk sarees', 'cotton saree', 'cotton sarees', 'designer saree', 'designer sarees'],
-    'Ethnic Wear': ['ethnic wear', 'ethnic dress', 'ethnic dresses', 'lehenga', 'lehengas', 'choli', 'cholis', 'dupatta', 'dupattas', 'gown', 'gowns', 'women ethnic'],
-    'Leggings, Salwars & Churidars': ['legging', 'leggings', 'salwar', 'salwars', 'churidar', 'churidars', 'patiala', 'patialas', 'palazzo', 'palazzos', 'ethnic pant', 'ethnic pants', 'women legging', 'women leggings'],
-    'Skirts & Palazzos': ['skirt', 'skirts', 'palazzo pant', 'palazzo pants', 'ethnic skirt', 'ethnic skirts', 'long skirt', 'long skirts', 'maxi skirt', 'maxi skirts', 'women skirt', 'women skirts'],
-    'Dress Materials': ['dress material', 'dress materials', 'fabric', 'fabrics', 'unstitched', 'suit material', 'suit materials', 'ethnic fabric', 'ethnic fabrics'],
-    'Lehenga Cholis': ['lehenga', 'lehengas', 'lehenga choli', 'lehenga cholis', 'bridal lehenga', 'bridal lehengas', 'wedding lehenga', 'wedding lehengas', 'ghagra choli', 'ghagra cholis'],
-    'Dupattas & Shawls': ['dupatta', 'dupattas', 'shawl', 'shawls', 'stole', 'stoles', 'ethnic scarf', 'ethnic scarves', 'women shawl', 'women shawls'],
-    
     // ====== WOMEN'S WESTERN WEAR ======
     'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses', 'H&M dress', 'H&M dresses'],
     'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'H&M top', 'H&M tops'],
-    'Tshirts': ['women t-shirt', 'women t-shirts', 'ladies tee', 'ladies tees', 'graphic tee', 'graphic tees', 'printed t-shirt', 'printed t-shirts', 'basic tee', 'basic tees', 'women tshirt', 'women tshirts'],
     'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim', 'H&M jeans for women'],
     'Trousers & Capris': ['women trouser', 'women trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'ladies pant', 'ladies pants', 'H&M trousers for women'],
     'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts', 'H&M shorts for women'],
-    'Co-ords': ['co-ord', 'co-ords', 'matching set', 'matching sets', 'twin set', 'twin sets', 'two piece set', 'two piece sets', 'coordinate set', 'coordinate sets'],
-    'Playsuits': ['playsuit', 'playsuits', 'romper', 'rompers', 'short jumpsuit', 'short jumpsuits', 'beach playsuit', 'beach playsuits'],
-    'Jumpsuits': ['jumpsuit', 'jumpsuits', 'overall', 'overalls', 'dungaree', 'dungarees', 'women jumpsuit', 'women jumpsuits', 'ladies jumpsuit', 'ladies jumpsuits'],
-    'Shrugs': ['shrug', 'shrugs', 'bolero', 'boleros', 'cover up', 'cover ups', 'women shrug', 'women shrugs', 'ladies shrug', 'ladies shrugs'],
-    'Womens Sweaters & Sweatshirts': ['women sweater', 'women sweaters', 'ladies sweatshirt', 'ladies sweatshirts', 'women pullover', 'women pullovers', 'women cardigan', 'women cardigans', 'knit top', 'knit tops', 'H&M sweater', 'H&M cardigans'],
-    'Womens Jackets & Coats': ['women jacket', 'women jackets', 'ladies coat', 'ladies coats', 'women blazer', 'women blazers', 'parka', 'parkas', 'trench coat', 'trench coats', 'women outerwear', 'H&M jacket', 'H&M coats'],
-    'Blazers & Waistcoats': ['women blazer', 'women blazers', 'ladies waistcoat', 'ladies waistcoats', 'women vest', 'women vests', 'suit jacket', 'suit jackets'],
-    
-    // ====== WOMEN'S PLUS SIZE ======
-    'Womens Plus Size': ['women plus size', 'plus size dress', 'plus size dresses', 'plus size top', 'plus size tops', 'plus size jeans', 'curve', 'extended size women'],
-    
-    // ====== MATERNITY ======
-    'Maternity': ['maternity', 'pregnancy', 'prenatal', 'pregnant', 'nursing', 'maternal', 'maternity wear'],
-    
-    // ====== WOMEN'S LINGERIE & SLEEPWEAR ======
-    'Bra': ['bra', 'bras', 'brassiere', 'brassieres', 'sports bra', 'sports bras', 'push up bra', 'push up bras', 'padded bra', 'padded bras', 'nursing bra', 'nursing bras', 'strapless bra', 'strapless bras'],
-    'Womens Briefs': ['women brief', 'women briefs', 'panty', 'panties', 'underwear', 'womens underwear', 'ladies brief', 'ladies briefs', 'bikini brief', 'bikini briefs'],
-    'Shapewear': ['shapewear', 'body shaper', 'body shapers', 'slimming underwear', 'control brief', 'control briefs', 'corset', 'corsets', 'waist trainer', 'waist trainers'],
-    'Womens Sleepwear': ['women sleepwear', 'nightdress', 'nightdresses', 'nightgown', 'nightgowns', 'pajama set', 'pajama sets', 'women loungewear', 'lounge pant women', 'lounge pants women', 'H&M sleepwear'],
-    'Womens Swimwear': ['women swimwear', 'swimsuit', 'swimsuits', 'bikini', 'bikinis', 'one piece', 'one pieces', 'swimming costume', 'swimming costumes', 'beachwear'],
-    'Camisoles & Thermals': ['camisole', 'camisoles', 'slip', 'slips', 'women thermal', 'women thermals', 'inner wear', 'tank top', 'tank tops', 'spaghetti top', 'spaghetti tops'],
-    
+
     // ====== WOMEN'S FOOTWEAR ======
-    'Flats': ['flat', 'flats', 'ballet flat', 'ballet flats', 'moccasin', 'moccasins', 'loafer', 'loafers', 'women flat', 'women flats', 'ladies flat', 'ladies flats', 'slip on', 'slip ons', 'women shoe', 'women shoes'],
     'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers', 'slip on shoe', 'slip on shoes', 'fashion sneaker', 'fashion sneakers', 'women everyday shoe', 'women everyday shoes'],
-    'Heels': ['heel', 'heels', 'stiletto', 'stilettos', 'pump', 'pumps', 'platform heel', 'platform heels', 'wedge', 'wedges', 'block heel', 'block heels', 'high heel', 'high heels', 'kitten heel', 'kitten heels'],
-    'Boots': ['women boot', 'women boots', 'ankle boot', 'ankle boots', 'knee high boot', 'knee high boots', 'ladies boot', 'ladies boots', 'winter boot', 'winter boots', 'chelsea boot', 'chelsea boots'],
-    'Womens Sports Shoes': ['women sports shoe', 'women sports shoes', 'ladies running shoe', 'ladies running shoes', 'women athletic shoe', 'women athletic shoes', 'women floater', 'women floaters'],
-    
-    // ====== WOMEN'S SPORTS & ACTIVE WEAR ======
-    'Womens Sports Clothing': ['women sportswear', 'activewear', 'gym wear', 'workout clothing', 'yoga wear', 'fitness apparel'],
-    'Womens Sports Footwear': ['women sport shoe', 'women sport shoes', 'training shoe', 'training shoes', 'running shoe', 'running shoes', 'women gym shoe', 'women gym shoes', 'yoga shoe', 'yoga shoes'],
-    'Womens Sports Accessories': ['women sport accessory', 'women sport accessories', 'fitness accessory', 'fitness accessories', 'yoga mat', 'yoga mats', 'gym bag', 'gym bags', 'water bottle', 'water bottles'],
-    'Sports Equipment': ['sports equipment', 'fitness equipment', 'yoga prop', 'yoga props', 'exercise equipment', 'home gym'],
-    
-    // ====== BEAUTY & PERSONAL CARE ======
-    'Makeup': ['makeup', 'cosmetic', 'cosmetics', 'foundation', 'foundations', 'lipstick', 'lipsticks', 'mascara', 'mascaras', 'eyeliner', 'eyeliners', 'blush', 'blushes', 'beauty product', 'beauty products'],
-    'Skincare': ['skincare', 'face cream', 'face creams', 'serum', 'serums', 'moisturizer', 'moisturizers', 'face wash', 'face washes', 'sunscreen', 'sunscreens', 'beauty treatment', 'beauty treatments'],
-    'Premium Beauty': ['premium beauty', 'luxury cosmetic', 'luxury cosmetics', 'high end makeup', 'designer beauty', 'prestige beauty'],
-    'Lipsticks': ['lipstick', 'lipsticks', 'lip color', 'lip colors', 'lip gloss', 'lip glosses', 'liquid lipstick', 'liquid lipsticks', 'lip stain', 'lip stains', 'lip product', 'lip products'],
-    'Fragrances': ['women perfume', 'women perfumes', 'ladies fragrance', 'ladies fragrances', 'eau de parfum', 'women cologne', 'women colognes', 'women body mist', 'women body mists', 'scent', 'scents'],
-    
-    // ====== JEWELLERY ======
-    'Fashion Jewellery': ['fashion jewellery', 'costume jewellery', 'artificial jewellery', 'statement necklace', 'statement necklaces', 'fashion earring', 'fashion earrings'],
-    'Fine Jewellery': ['fine jewellery', 'gold jewellery', 'silver jewellery', 'pearl jewellery', 'precious stone', 'precious stones'],
-    'Earrings': ['earring', 'earrings', 'stud', 'studs', 'hoop earring', 'hoop earrings', 'drop earring', 'drop earrings', 'chandelier earring', 'chandelier earrings', 'ear cuff', 'ear cuffs'],
-    
-    // ====== WOMEN'S ACCESSORIES ======
-    'Belts, Scarves & More': ['women belt', 'ladies scarf', 'women glove', 'women hair accessory', 'women fashion accessory'],
-    'Watches & Wearables': ['women watch', 'ladies wristwatch', 'women fitness tracker', 'women smart watch', 'fashion watch'],
-    'Womens Backpacks': ['women backpack', 'ladies backpack', 'fashion backpack', 'mini backpack', 'women rucksack'],
-    'Handbags, Bags & Wallets': ['handbag', 'purse', 'clutch', 'tote bag', 'shoulder bag', 'crossbody bag', 'women wallet'],
-    'Womens Luggages': ['women luggage', 'ladies suitcase', 'travel bag women', 'carry on', 'women trolley'],
+
+    // Add other categories
     'Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
+    // ... existing code ...
   };
   
   // Initialize categories
@@ -581,6 +449,7 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isProductLoading, setIsProductLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [showProductOverlay, setShowProductOverlay] = useState(false);
@@ -605,6 +474,9 @@ export default function Home() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [urlInputValue, setUrlInputValue] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingItems, setPendingItems] = useState<ConfirmationItem[]>([]);
+  // ... rest of the code ...
 
   // Display combined error from both sources
   const error = localError || wardrobeError;
@@ -659,13 +531,84 @@ export default function Home() {
           : `https://www.myntra.com/${url}`;
       }
       
-      await addItem({ productLink: productUrl } as any);
+      setIsProductLoading(true);
+      const response = await fetch(`/api/myntra-product?url=${encodeURIComponent(productUrl)}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch product');
+      }
+      
+      const data = await response.json();
+      
+      // Run categorization before creating the items for confirmation flow
+      // Use categorizeItem function to determine the best category
+      const productCategory = data.category || categorizeItem({
+        name: data.name || 'Product',
+        brand: data.brand || '',
+        color: data.color || '',
+        sourceRetailer: data.sourceRetailer || ''
+      });
+      
+      // Create items for confirmation flow with brand from API response and categorized item
+      const newItems: ConfirmationItem[] = [{
+        id: Date.now().toString(),
+        name: data.name || 'Product',
+        brand: data.brand || '', // Initialize brand from API response
+        category: productCategory, // Use the determined category
+        imageUrl: data.image || data.images?.[0] || '',
+      }];
+      
+      setPendingItems(newItems);
+      setShowConfirmation(true);
+      
       setInputValue('');
-      setUrlInputValue(''); // Also clear the URL input field
+      setUrlInputValue('');
       setSearchResults([]);
     } catch (error) {
       console.error('Error adding product:', error);
+      setLocalError(error instanceof Error ? error.message : 'Failed to fetch product');
+    } finally {
+      setIsProductLoading(false);
     }
+  };
+  
+  const handleConfirmItems = async (items: ConfirmationItem[]) => {
+    try {
+      // Map confirmed items to required WardrobeItem format
+      const productsToAdd = items.map(item => ({
+        id: item.id,
+        // Use the edited brand if provided, otherwise use name-based fallback
+        brand: item.brand || item.name.split(' ')[0] || 'Unknown Brand',
+        name: item.name,
+        price: '',
+        category: item.category,
+        image: item.imageUrl,
+        dateAdded: new Date(),
+        productLink: urlInputValue
+      }));
+      
+      // Add each product to wardrobe
+      for (const product of productsToAdd) {
+        await addItem(product);
+      }
+      
+      showNotification({
+        type: 'success',
+        message: `${items.length} item${items.length === 1 ? '' : 's'} added to your wardrobe`,
+        itemCount: items.length
+      });
+      
+      setShowConfirmation(false);
+      setPendingItems([]);
+    } catch (error) {
+      console.error('Error confirming items:', error);
+      setLocalError(error instanceof Error ? error.message : 'Failed to add items to wardrobe');
+    }
+  };
+  
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setPendingItems([]);
   };
 
   const handleProductSelect = async (url: string) => {
@@ -895,10 +838,10 @@ export default function Home() {
     if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => 
       Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity
     )) {
-      return getSortedProducts(products);
+      return getSortedProducts(products as unknown as MyntraProduct[]);
     }
     
-    return getSortedProducts(products.filter(product => {
+    return getSortedProducts((products as unknown as MyntraProduct[]).filter(product => {
       // Text search
       const searchMatch = !wardrobeFilter.trim() || [
         product.name,
@@ -1019,9 +962,9 @@ export default function Home() {
                   <button 
                     type="submit"
                     className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
-                    disabled={isLoading || !urlInputValue}
+                    disabled={isProductLoading || !urlInputValue}
                   >
-                    {isLoading ? 'Fetching...' : 'Fetch Product'}
+                    {isProductLoading ? 'Fetching...' : 'Fetch Product'}
                   </button>
                 </form>
               </div>
@@ -1089,9 +1032,9 @@ export default function Home() {
                   <button 
                     type="submit"
                     className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
-                    disabled={isLoading || !inputValue}
+                    disabled={isProductLoading || !inputValue}
                   >
-                    {isLoading ? 'Searching...' : 'Search Products'}
+                    {isProductLoading ? 'Searching...' : 'Search Products'}
                   </button>
                 </form>
               </div>
@@ -1320,7 +1263,7 @@ export default function Home() {
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                       >
-                        {getUniqueValues(products, 'category').map(category => (
+                        {getUniqueValues(products as unknown as MyntraProduct[], 'category').map(category => (
                           <option key={category?.toString() || 'uncategorized'} value={category || 'Uncategorized'}>
                             {category || 'Uncategorized'}
                           </option>
@@ -1340,7 +1283,7 @@ export default function Home() {
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                       >
-                        {getUniqueValues(products, 'brand').map(brand => (
+                        {getUniqueValues(products as unknown as MyntraProduct[], 'brand').map(brand => (
                           <option key={brand?.toString() || 'unknown'} value={brand || 'Unknown'}>
                             {brand || 'Unknown'}
                           </option>
@@ -1360,7 +1303,7 @@ export default function Home() {
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                       >
-                        {getUniqueValues(products, 'sourceRetailer').map(retailer => (
+                        {getUniqueValues(products as unknown as MyntraProduct[], 'sourceRetailer').map(retailer => (
                           <option key={retailer?.toString() || 'unknown'} value={retailer || 'Unknown'}>
                             {retailer || 'Unknown'}
                           </option>
@@ -1413,7 +1356,7 @@ export default function Home() {
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                       >
-                        {getUniqueValues(products, 'size').map(size => (
+                        {getUniqueValues(products as unknown as MyntraProduct[], 'size').map(size => (
                           <option key={size?.toString() || 'no-size'} value={size || ''}>
                             {size || 'No Size'}
                           </option>
@@ -1433,7 +1376,7 @@ export default function Home() {
                         }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                       >
-                        {getUniqueValues(products, 'color').map(color => (
+                        {getUniqueValues(products as unknown as MyntraProduct[], 'color').map(color => (
                           <option key={color?.toString() || 'no-color'} value={color || ''}>
                             {color || 'No Color'}
                           </option>
@@ -1464,7 +1407,7 @@ export default function Home() {
 
             {/* Update the WardrobeItem component to include selection */}
             <div className="space-y-4">
-              {Object.entries(categorizeItems(getFilteredProducts()))
+              {Object.entries(categorizeItems(getFilteredProducts() as unknown as MyntraProduct[]))
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([category, items]) => (
                 <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1513,12 +1456,38 @@ export default function Home() {
                                     setSelectedItems(newSelected);
                                   }}
                                   className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                  onClick={(e) => e.stopPropagation()} // Prevent parent click
                                 />
                               </div>
-                              <WardrobeItem 
-                                product={product}
-                                onDelete={() => setShowDeleteConfirm(globalIndex)}
-                              />
+                              {/* Add click handler to the div wrapping WardrobeItem */}
+                              <div 
+                                onClick={(e) => {
+                                  // Don't trigger if the delete button or checkbox was clicked
+                                  if (!(e.target as Element).closest('.delete-button')) {
+                                    // Make sure we have the correct category by running categorization
+                                    const productCategory = product.category || categorizeItem({
+                                      name: product.name,
+                                      brand: product.brand || '',
+                                      color: product.color || '',
+                                      sourceRetailer: product.sourceRetailer || ''
+                                    });
+                                    
+                                    setPendingItems([{
+                                      id: product.id,
+                                      name: product.name,
+                                      brand: product.brand || '',
+                                      category: productCategory, // Use determined category
+                                      imageUrl: product.image || ''
+                                    }]);
+                                    setShowConfirmation(true);
+                                  }
+                                }}
+                              >
+                                <WardrobeItem 
+                                  product={product}
+                                  onDelete={() => setShowDeleteConfirm(globalIndex)}
+                                />
+                              </div>
                             </div>
                           );
                         })}
@@ -1652,6 +1621,17 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <ConfirmationModal
+          items={pendingItems}
+          onConfirm={handleConfirmItems}
+          onCancel={handleCancelConfirmation}
+          // We're currently only using this from URL import flow, not wardrobe
+          isWardrobe={false}
+        />
       )}
     </main>
   )
