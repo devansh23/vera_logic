@@ -67,6 +67,9 @@ export async function POST(request: Request) {
               sourceRetailer: item.sourceRetailer || 'Unknown'
             });
             
+            // Handle both imageUrl and image fields correctly
+            const imageValue = item.imageUrl || item.image || '';
+            
             const itemData = {
               userId: session.user.id,
               brand: item.brand || 'Unknown Brand',
@@ -74,7 +77,7 @@ export async function POST(request: Request) {
               price: item.price || '',
               originalPrice: item.originalPrice || '',
               discount: item.discount || '',
-              image: item.image || '',
+              image: imageValue, // Use the resolved image value
               productLink: item.productLink || item.myntraLink || '',
               size: item.size || '',
               color: item.color || '',
