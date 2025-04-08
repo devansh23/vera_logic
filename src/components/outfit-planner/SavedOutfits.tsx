@@ -114,11 +114,10 @@ export function SavedOutfits() {
                     }}
                   >
                     {item.wardrobeItem.image && (
-                      <Image
+                      <img
                         src={item.wardrobeItem.image}
                         alt={item.wardrobeItem.name}
-                        fill
-                        className="object-contain"
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                       />
                     )}
                   </div>
