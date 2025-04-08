@@ -6,8 +6,12 @@ import { getEmailById, listEmails } from '@/lib/gmail-service';
 import { extractItemsFromHtml } from '../add-from-emails-html/route';
 import { categorizeItem } from '@/lib/categorize-items';
 import { ExtractedItem } from '@/types/email-extraction';
-import { processItemImage } from '@/lib/image-utils';
+import { processItemImage, fetchImageAsBuffer } from '@/lib/image-utils';
+import { getColorInfo } from '@/lib/color-utils';
 import fetch from 'node-fetch';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Add type for email query creation
 const createOrderConfirmationQuery = (retailer: string): string => {
@@ -126,10 +130,8 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
       });
     }
     
-    // Process items to add proper IDs and additional metadata
-    const processedItems = await Promise.all(items.map(async (item: ExtractedItem, index: number) => {
-      const id = `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`;
-      
+    // Process each item with categorization and image processing
+    const processedItems = await Promise.all(items.map(async (item, index) => {
       // Determine category for the item
       const category = categorizeItem({
         name: item.name,
@@ -139,45 +141,45 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
       });
 
       // Process image if available
-      let imageUrl = item.image;
-      if (imageUrl) {
+      let processedImage = item.image;
+      let imageBuffer = null;
+      if (item.image) {
         try {
-          const response = await fetch(imageUrl);
-          if (response.ok) {
-            const imageBuffer = await response.arrayBuffer();
-            const processedImageBuffer = await processItemImage(Buffer.from(imageBuffer), item.name);
-            // Add the data URL prefix for proper rendering
-            imageUrl = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
+          imageBuffer = await fetchImageAsBuffer(item.image);
+          if (imageBuffer) {
+            const processedImageBuffer = await processItemImage(imageBuffer, item.name);
+            processedImage = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
           }
         } catch (error) {
-          console.error('Error processing image:', error);
-          // Keep original image URL on failure
+          log('Image processing failed', { error, itemName: item.name });
+          // Keep original image on failure
         }
       }
-      
+
+      // Get color information
+      const { dominantColor, colorTag } = await getColorInfo({
+        rawColor: item.color,
+        imageBuffer,
+      });
+
       return {
-        id,
-        brand: item.brand,
-        name: item.name,
-        price: item.price || '',
-        originalPrice: item.originalPrice || '',
-        discount: item.discount || '',
-        size: item.size || '',
-        color: item.color || '',
-        imageUrl: imageUrl,
-        productLink: item.productLink || '',
+        ...item,
+        id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
         category,
+        image: processedImage,
+        imageUrl: processedImage, // Set both image and imageUrl for consistency
         emailId,
-        retailer
+        retailer,
+        dominantColor,
+        colorTag
       };
     }));
     
-    log('Items extracted from email', { count: processedItems.length, emailId });
+    log('Items processed with categories and images', { count: processedItems.length, emailId });
     
     return NextResponse.json({
-      success: true,
+      success: processedItems.length > 0,
       message: `${processedItems.length} items found in email`,
-      totalItemsFound: processedItems.length,
       items: processedItems
     });
   } catch (error) {
@@ -277,10 +279,8 @@ async function processEmailsResponse(
       totalItemsFound += items.length;
       
       if (items.length > 0) {
-        // Process items with unique IDs and process images
-        const processedItems = await Promise.all(items.map(async (item: ExtractedItem, index: number) => {
-          const id = `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`;
-          
+        // Process items with categorization and image processing
+        const processedItems = await Promise.all(items.map(async (item, index) => {
           // Determine category for the item
           const category = categorizeItem({
             name: item.name,
@@ -290,36 +290,37 @@ async function processEmailsResponse(
           });
 
           // Process image if available
-          let imageUrl = item.image;
-          if (imageUrl) {
+          let processedImage = item.image;
+          let imageBuffer = null;
+          if (item.image) {
             try {
-              const response = await fetch(imageUrl);
-              if (response.ok) {
-                const imageBuffer = await response.arrayBuffer();
-                const processedImageBuffer = await processItemImage(Buffer.from(imageBuffer), item.name);
-                // Add the data URL prefix for proper rendering
-                imageUrl = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
+              imageBuffer = await fetchImageAsBuffer(item.image);
+              if (imageBuffer) {
+                const processedImageBuffer = await processItemImage(imageBuffer, item.name);
+                processedImage = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
               }
             } catch (error) {
-              console.error('Error processing image:', error);
-              // Keep original image URL on failure
+              log('Image processing failed', { error, itemName: item.name });
+              // Keep original image on failure
             }
           }
-          
+
+          // Get color information
+          const { dominantColor, colorTag } = await getColorInfo({
+            rawColor: item.color,
+            imageBuffer,
+          });
+
           return {
-            id,
-            brand: item.brand,
-            name: item.name,
-            price: item.price || '',
-            originalPrice: item.originalPrice || '',
-            discount: item.discount || '',
-            size: item.size || '',
-            color: item.color || '',
-            imageUrl: imageUrl,
-            productLink: item.productLink || '',
+            ...item,
+            id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
             category,
+            image: processedImage,
+            imageUrl: processedImage, // Set both image and imageUrl for consistency
             emailId: emailMessage.id,
-            retailer
+            retailer,
+            dominantColor,
+            colorTag
           };
         }));
         
