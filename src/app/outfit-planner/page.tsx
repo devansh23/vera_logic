@@ -1,14 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import OutfitPlanner from '@/components/OutfitPlanner';
+import { redirect, useSearchParams } from 'next/navigation';
+import OutfitPlanner from '@/components/outfit-planner/OutfitPlanner';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 
 export default function OutfitPlannerPage() {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId) {
+      setActiveTab('create');
+    }
+  }, [searchParams]);
   
   // Show loading state
   if (status === "loading") {
@@ -55,7 +63,7 @@ export default function OutfitPlannerPage() {
       </div>
 
       {activeTab === 'create' ? (
-        <OutfitPlanner />
+        <OutfitPlanner editId={searchParams.get('edit')} />
       ) : (
         <SavedOutfits />
       )}
