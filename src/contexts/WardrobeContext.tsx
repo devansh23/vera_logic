@@ -65,6 +65,7 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   // Function to load all wardrobe items
   const refreshItems = async () => {
     if (!session?.user?.id) {
+      console.warn('Attempted to refresh wardrobe items without a user session');
       setError('You must be signed in to view your wardrobe');
       return;
     }
@@ -79,22 +80,40 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     loadingRef.current = true;
     setError(null);
 
-    try {
-      const response = await fetch('/api/wardrobe');
-      if (!response.ok) {
-        throw new Error('Failed to fetch wardrobe items');
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        console.log(`Attempting to fetch wardrobe items (attempt ${retries + 1}/${maxRetries})`);
+        const response = await fetch('/api/wardrobe');
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          console.error(`API response error: ${response.status} ${response.statusText}`, errorText);
+          throw new Error(`Failed to fetch wardrobe items: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Successfully fetched ${data.length} wardrobe items`);
+        setItems(data);
+        initialLoadComplete.current = true;
+        break; // Success, exit the retry loop
+      } catch (error) {
+        retries++;
+        console.error(`Error loading wardrobe (attempt ${retries}/${maxRetries}):`, error);
+        
+        if (retries >= maxRetries) {
+          setError(error instanceof Error ? error.message : 'Failed to load wardrobe');
+        } else {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+        }
       }
-      
-      const data = await response.json();
-      setItems(data);
-      initialLoadComplete.current = true;
-    } catch (error) {
-      console.error('Error loading wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load wardrobe');
-    } finally {
-      setIsLoading(false);
-      loadingRef.current = false;
     }
+
+    setIsLoading(false);
+    loadingRef.current = false;
   };
 
   // Load items when session changes, but only if not already loaded

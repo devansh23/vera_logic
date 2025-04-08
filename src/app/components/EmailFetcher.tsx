@@ -4,6 +4,8 @@ import GmailConnectButton from '@/components/GmailConnectButton';
 import Link from 'next/link';
 import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useWardrobe } from '@/contexts/WardrobeContext';
+import { ConfirmationModal } from '@/components/ConfirmationFlow';
+import { toast } from '@/hooks/use-toast';
 
 // Define TypeScript interfaces for better type safety
 interface EmailMessage {
@@ -21,9 +23,26 @@ interface ExtractionResult {
   success: boolean;
   message: string;
   totalItemsFound: number;
-  itemsAdded: number;
+  itemsAdded?: number;
   items: any[];
   debugKey?: string;
+}
+
+// Define WardrobeItem interface for the confirmation flow
+interface WardrobeItem {
+  id: string;
+  name: string;
+  brand?: string;
+  category: string;
+  imageUrl: string;
+  price?: string;
+  originalPrice?: string;
+  discount?: string;
+  size?: string;
+  color?: string;
+  productLink?: string;
+  emailId?: string;
+  retailer?: string;
 }
 
 export default function EmailFetcher() {
@@ -39,6 +58,10 @@ export default function EmailFetcher() {
   const [useDirectHtml, setUseDirectHtml] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const { refreshItems } = useWardrobe();
+  
+  // State for confirmation flow
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingItems, setPendingItems] = useState<WardrobeItem[]>([]);
 
   const fetchEmails = async () => {
     setLoading(true);
@@ -105,18 +128,15 @@ export default function EmailFetcher() {
     setSelectedEmail(selectedEmail === emailId ? null : emailId);
   };
 
-  // Add items from a single email to wardrobe
-  const addEmailItemsToWardrobe = async (emailId: string) => {
+  // Fetch items from a single email without adding to wardrobe
+  const fetchEmailItems = async (emailId: string) => {
     setProcessingEmail(emailId);
     setExtractionResult(null);
     setError(null);
     setErrorDetails(null);
     
     try {
-      // Always use the HTML method endpoint
-      const endpoint = '/api/wardrobe/add-from-emails-html';
-        
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/wardrobe/fetch-from-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -143,8 +163,28 @@ export default function EmailFetcher() {
       // Show the result for this specific email
       setSelectedEmail(emailId);
 
-      // Refresh wardrobe items after successful addition
-      await refreshItems();
+      // If items were found, show the confirmation modal
+      if (data.items && data.items.length > 0) {
+        // Map the items to the format expected by the confirmation modal
+        const wardrobeItems: WardrobeItem[] = data.items.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          brand: item.brand || '',
+          category: item.category || '',
+          imageUrl: item.imageUrl || '',
+          price: item.price || '',
+          originalPrice: item.originalPrice || '',
+          discount: item.discount || '',
+          size: item.size || '',
+          color: item.color || '',
+          productLink: item.productLink || '',
+          emailId: item.emailId || emailId,
+          retailer: item.retailer || retailer
+        }));
+        
+        setPendingItems(wardrobeItems);
+        setShowConfirmation(true);
+      }
     } catch (err) {
       console.error('Error processing email:', err);
       setError(err instanceof Error ? err.message : 'Failed to process email');
@@ -153,8 +193,8 @@ export default function EmailFetcher() {
     }
   };
   
-  // Add items from all emails to wardrobe
-  const addAllEmailItemsToWardrobe = async () => {
+  // Fetch items from all emails without adding to wardrobe
+  const fetchAllEmailItems = async () => {
     if (emails.length === 0) return;
     
     setProcessingAll(true);
@@ -162,9 +202,7 @@ export default function EmailFetcher() {
     setError(null);
     
     try {
-      const endpoint = '/api/wardrobe/add-from-emails-html';
-        
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/wardrobe/fetch-from-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -183,14 +221,95 @@ export default function EmailFetcher() {
       const result = await response.json();
       setExtractionResult(result);
 
-      // Refresh wardrobe items after successful addition
-      await refreshItems();
+      // If items were found, show the confirmation modal
+      if (result.items && result.items.length > 0) {
+        // Map the items to the format expected by the confirmation modal
+        const wardrobeItems: WardrobeItem[] = result.items.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          brand: item.brand || '',
+          category: item.category || '',
+          imageUrl: item.imageUrl || '',
+          price: item.price || '',
+          originalPrice: item.originalPrice || '',
+          discount: item.discount || '',
+          size: item.size || '',
+          color: item.color || '',
+          productLink: item.productLink || '',
+          emailId: item.emailId || '',
+          retailer: item.retailer || retailer
+        }));
+        
+        setPendingItems(wardrobeItems);
+        setShowConfirmation(true);
+      }
     } catch (err) {
       console.error('Error processing emails:', err);
       setError(err instanceof Error ? err.message : 'Failed to process emails');
     } finally {
       setProcessingAll(false);
     }
+  };
+
+  // Save confirmed items to wardrobe
+  const handleConfirmItems = async (items: WardrobeItem[]) => {
+    try {
+      // Convert items to the format expected by the API
+      const wardrobeItems = items.map(item => ({
+        brand: item.brand,
+        name: item.name,
+        price: item.price || '',
+        originalPrice: item.originalPrice || '',
+        discount: item.discount || '',
+        size: item.size || '',
+        color: item.color || '',
+        imageUrl: item.imageUrl,
+        productLink: item.productLink || '',
+        emailId: item.emailId || '',
+        retailer: item.retailer || retailer,
+        category: item.category
+      }));
+      
+      // Call the API to add items to wardrobe
+      const response = await fetch('/api/wardrobe/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: wardrobeItems }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add items to wardrobe');
+      }
+      
+      toast({
+        title: "Items Added to Wardrobe",
+        description: `Successfully added ${items.length} items to your wardrobe.`,
+      });
+      
+      // Close the confirmation modal
+      setShowConfirmation(false);
+      setPendingItems([]);
+      
+      // Refresh wardrobe items after successful addition
+      await refreshItems();
+    } catch (error) {
+      console.error('Error confirming items:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to add items to wardrobe',
+        variant: "destructive"
+      });
+    }
+  };
+  
+  // Cancel confirmation and clear pending items
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setPendingItems([]);
   };
 
   // Handler for successful Gmail connection
@@ -280,7 +399,9 @@ export default function EmailFetcher() {
           <p>{extractionResult.message}</p>
           <div className="text-sm mt-2">
             <p>Items found: {extractionResult.totalItemsFound}</p>
-            <p>Items added to wardrobe: {extractionResult.itemsAdded}</p>
+            {extractionResult.itemsAdded !== undefined && (
+              <p>Items added to wardrobe: {extractionResult.itemsAdded}</p>
+            )}
           </div>
           {!extractionResult.success && extractionResult.totalItemsFound === 0 && (
             <div className="mt-2 text-sm text-gray-600">
@@ -301,7 +422,7 @@ export default function EmailFetcher() {
           <div className="mb-4">
             <h3 className="font-semibold text-blue-700">Debug Information</h3>
             <p className="text-sm text-blue-600">
-              {extractionResult.itemsAdded} items added to wardrobe out of {extractionResult.totalItemsFound} found in the email.
+              {extractionResult.totalItemsFound} items found in the email.
             </p>
           </div>
           
@@ -331,7 +452,7 @@ export default function EmailFetcher() {
             <h3 className="text-lg font-medium">Order Confirmation Emails ({emails.length})</h3>
             
             <button
-              onClick={addAllEmailItemsToWardrobe}
+              onClick={fetchAllEmailItems}
               disabled={processingAll || emails.length === 0}
               className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-green-300 transition-colors flex items-center space-x-1"
             >
@@ -411,7 +532,7 @@ export default function EmailFetcher() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            addEmailItemsToWardrobe(email.id);
+                            fetchEmailItems(email.id);
                           }}
                           disabled={processingEmail === email.id}
                           className="text-sm bg-green-50 text-green-600 px-3 py-1 rounded hover:bg-green-100 transition-colors flex items-center"
@@ -439,6 +560,16 @@ export default function EmailFetcher() {
         <div className="py-8 text-center text-gray-500">
           <p>No order confirmation emails found. Click "Fetch Order Confirmation Emails" to search for order confirmations.</p>
         </div>
+      )}
+      
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <ConfirmationModal
+          items={pendingItems}
+          onConfirm={handleConfirmItems}
+          onCancel={handleCancelConfirmation}
+          isWardrobe={false}
+        />
       )}
     </div>
   );

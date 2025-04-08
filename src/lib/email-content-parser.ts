@@ -521,88 +521,187 @@ export function extractZaraProductsFromHtml(html: string): ExtractedProduct[] {
   const doc = parseHtml(html);
   if (!doc) return [];
 
-  // Find all product tables directly instead of going through rows
+  // Try to find product tables with the specific Zara class
   const productTables = doc.querySelectorAll('table.rd-product');
   
-  if (!productTables || productTables.length === 0) {
-    // Fallback to general extraction if we can't find the specific Zara structure
-    return products;
+  if (productTables && productTables.length > 0) {
+    // Process specific Zara product format
+    productTables.forEach(table => {
+      const product: ExtractedProduct = { name: '' };
+      
+      // Extract product image URL
+      const productImg = table.querySelector('img.rd-product-img');
+      if (productImg && productImg.getAttribute('src')) {
+        const imageUrl = productImg.getAttribute('src') || '';
+        product.images = [imageUrl];
+      }
+      
+      // Find all divs in the product container that contain product information
+      const productDivs = table.querySelectorAll('div');
+      if (!productDivs || productDivs.length === 0) return;
+
+      // Process each div in sequence
+      productDivs.forEach((div, index) => {
+        const textContent = cleanText(div.textContent || '');
+        if (!textContent) return;
+
+        const style = div.getAttribute('style') || '';
+
+        // First non-empty div after image is the product name (in uppercase)
+        if (!product.name && textContent === textContent.toUpperCase()) {
+          product.name = textContent;
+          return;
+        }
+
+        // Color and reference code div has color #666666
+        if (style.includes('#666666') || style.includes('color: #666666')) {
+          const colorRefParts = textContent.split(/\s+(?=\d+\/)/);
+          if (colorRefParts.length >= 2) {
+            product.color = colorRefParts[0].trim();
+            product.reference = colorRefParts[1].trim();
+          } else if (textContent.includes('/')) {
+            // If we can't split cleanly, try to extract reference code by pattern
+            const refMatch = textContent.match(/(\d+\/\d+\/\d+\/\d+(?:\/\d+)?)/);
+            if (refMatch) {
+              product.reference = refMatch[1];
+              // Try to extract color by removing the reference
+              product.color = textContent.replace(refMatch[1], '').trim();
+            }
+          }
+          return;
+        }
+
+        // Price information is in a div containing "unit"
+        if (textContent.toLowerCase().includes('unit')) {
+          const priceMatch = textContent.match(/₹\s*([\d,]+\.?\d*)/);
+          if (priceMatch) {
+            product.price = `₹ ${priceMatch[1]}`;
+          }
+          
+          // Extract quantity if present
+          const quantityMatch = textContent.match(/(\d+)\s*unit/i);
+          if (quantityMatch) {
+            product.quantity = parseInt(quantityMatch[1], 10);
+          }
+          return;
+        }
+
+        // Size can be longer than 3 characters (e.g. "EU 42 (UK 32)")
+        if (!product.size && textContent.length <= 20) {
+          product.size = textContent;
+        }
+      });
+
+      // Only add product if we have at least a name
+      if (product.name) {
+        // Set brand as Zara
+        product.brand = 'Zara';
+        products.push(product);
+      }
+    });
+    
+    // If we found products using the specific format, return them
+    if (products.length > 0) {
+      return products;
+    }
   }
   
-  productTables.forEach(table => {
-    const product: ExtractedProduct = { name: '' };
+  // Fallback to a more general approach for Zara emails
+  // Look for product images and try to find corresponding product info nearby
+  log('Zara specific format not found, trying general approach');
+  
+  // Look for all images that look like product images
+  const allImages = doc.querySelectorAll('img');
+  const productImages: Element[] = Array.from(allImages).filter(img => {
+    const src = img.getAttribute('src') || '';
+    const alt = img.getAttribute('alt') || '';
+    // Filter for likely product images
+    return (src.includes('zara.com') || src.includes('static.zara')) && 
+           (src.includes('product') || alt.includes('product'));
+  });
+  
+  // Extract products based on the found images
+  productImages.forEach(img => {
+    const product: ExtractedProduct = { 
+      name: img.getAttribute('alt') || 'Zara Product',
+      brand: 'Zara'
+    };
     
-    // Extract product image URL
-    const productImg = table.querySelector('img.rd-product-img');
-    if (productImg && productImg.getAttribute('src')) {
-      const imageUrl = productImg.getAttribute('src') || '';
+    // Set the image URL
+    const imageUrl = img.getAttribute('src') || '';
+    if (imageUrl) {
       product.images = [imageUrl];
     }
     
-    // Find all divs in the product container that contain product information
-    const productDivs = table.querySelectorAll('div');
-    if (!productDivs || productDivs.length === 0) return;
-
-    // Process each div in sequence
-    productDivs.forEach((div, index) => {
-      const textContent = cleanText(div.textContent || '');
-      if (!textContent) return;
-
-      const style = div.getAttribute('style') || '';
-
-      // First non-empty div after image is the product name (in uppercase)
-      if (!product.name && textContent === textContent.toUpperCase()) {
-        product.name = textContent;
-        return;
+    // Try to find product info in surrounding elements
+    let currentNode: Element | null = img;
+    let searchLimit = 5; // Only search a few elements up or down
+    
+    // Look at parent elements for product details
+    while (currentNode && searchLimit > 0) {
+      currentNode = currentNode.parentElement;
+      searchLimit--;
+      
+      if (!currentNode) break;
+      
+      const text = cleanText(currentNode.textContent || '');
+      
+      // Look for price patterns (₹ followed by numbers)
+      const priceMatch = text.match(/₹\s*([\d,]+\.?\d*)/);
+      if (priceMatch && !product.price) {
+        product.price = `₹ ${priceMatch[1]}`;
       }
-
-      // Color and reference code div has color #666666
-      if (style.includes('#666666') || style.includes('color: #666666')) {
-        const colorRefParts = textContent.split(/\s+(?=\d+\/)/);
-        if (colorRefParts.length >= 2) {
-          product.color = colorRefParts[0].trim();
-          product.reference = colorRefParts[1].trim();
-        } else if (textContent.includes('/')) {
-          // If we can't split cleanly, try to extract reference code by pattern
-          const refMatch = textContent.match(/(\d+\/\d+\/\d+\/\d+(?:\/\d+)?)/);
-          if (refMatch) {
-            product.reference = refMatch[1];
-            // Try to extract color by removing the reference
-            product.color = textContent.replace(refMatch[1], '').trim();
-          }
-        }
-        return;
+      
+      // Look for reference number patterns (digits/digits/digits/digits)
+      const refMatch = text.match(/(\d+\/\d+\/\d+\/\d+(?:\/\d+)?)/);
+      if (refMatch && !product.reference) {
+        product.reference = refMatch[1];
       }
-
-      // Price information is in a div containing "unit"
-      if (textContent.toLowerCase().includes('unit')) {
-        const priceMatch = textContent.match(/₹\s*([\d,]+\.?\d*)/);
-        if (priceMatch) {
-          product.price = `₹ ${priceMatch[1]}`;
-        }
-        
-        // Extract quantity if present
-        const quantityMatch = textContent.match(/(\d+)\s*unit/i);
-        if (quantityMatch) {
-          product.quantity = parseInt(quantityMatch[1], 10);
-        }
-        return;
-      }
-
-      // Size can be longer than 3 characters (e.g. "EU 42 (UK 32)")
-      if (!product.size && textContent.length <= 20) {
-        product.size = textContent;
-      }
-    });
-
-    // Only add product if we have at least a name
-    if (product.name) {
-      // Set brand as Zara
-      product.brand = 'Zara';
+    }
+    
+    // If we have at least an image, consider it a valid product
+    if (product.images && product.images.length > 0) {
       products.push(product);
     }
   });
-
+  
+  // If still no products found, try using tables that might contain product info
+  if (products.length === 0) {
+    const tables = extractTables(html);
+    tables.forEach(table => {
+      // Check if table might contain product info
+      const tableString = JSON.stringify(table).toLowerCase();
+      if (tableString.includes('product') || tableString.includes('item') || 
+          tableString.includes('quantity') || tableString.includes('price')) {
+        
+        table.rows.forEach(row => {
+          // Skip empty rows
+          if (row.every(cell => !cell.trim())) return;
+          
+          // Try to determine if this row represents a product
+          const rowText = row.join(' ').toLowerCase();
+          if (rowText.length > 10 && !rowText.includes('total') && !rowText.includes('subtotal')) {
+            const product: ExtractedProduct = {
+              name: row[0] || 'Zara Product',
+              brand: 'Zara'
+            };
+            
+            // Try to find price in the row
+            for (const cell of row) {
+              const priceMatch = cell.match(/[₹€$]\s*([\d,]+\.?\d*)/);
+              if (priceMatch && !product.price) {
+                product.price = cell;
+                break;
+              }
+            }
+            
+            products.push(product);
+          }
+        });
+      }
+    });
+  }
+  
   return products;
 }
 
