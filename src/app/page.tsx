@@ -525,14 +525,18 @@ export default function Home() {
 
     try {
       let productUrl = url;
+      // Keep URL as is - no need to prepend myntra.com domain anymore
       if (!url.startsWith('http')) {
+        // Only prepend Myntra domain if it's a relative URL
         productUrl = url.startsWith('/') 
           ? `https://www.myntra.com${url}`
           : `https://www.myntra.com/${url}`;
       }
       
       setIsProductLoading(true);
-      const response = await fetch(`/api/myntra-product?url=${encodeURIComponent(productUrl)}`);
+      
+      // Use our new universal product extraction API
+      const response = await fetch(`/api/extractProductFromURL?url=${encodeURIComponent(productUrl)}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch product');
@@ -540,8 +544,8 @@ export default function Home() {
       
       const data = await response.json();
       
-      // Run categorization before creating the items for confirmation flow
-      // Use categorizeItem function to determine the best category
+      // The category should already be set by the API, but run categorization again 
+      // just to ensure it meets our requirements
       const productCategory = data.category || categorizeItem({
         name: data.name || 'Product',
         brand: data.brand || '',
