@@ -27,23 +27,36 @@ export default function OutfitPlanner({ initialItems = [] }: OutfitPlannerProps)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [errorMessage, setError] = useState<string | null>(null);
   const refreshAttempted = useRef(false);
+  const [shouldRefreshWardrobe, setShouldRefreshWardrobe] = useState(false);
 
   // Refresh wardrobe items when the component mounts, but only once
   useEffect(() => {
-    if (!refreshAttempted.current && !isLoading) {
+    if ((!refreshAttempted.current && !isLoading) || shouldRefreshWardrobe) {
       refreshAttempted.current = true;
-      console.log('OutfitPlanner: Initial wardrobe refresh');
+      setShouldRefreshWardrobe(false);
+      console.log('OutfitPlanner: Refreshing wardrobe items');
       refreshItems();
     }
-  }, [refreshItems, isLoading]);
+  }, [refreshItems, isLoading, shouldRefreshWardrobe]);
 
   const updateCanvasItems = (items: CanvasItem[]) => {
     setCanvasItems(items);
   };
 
-  const saveOutfit = async (name: string, items: { id: string; left: number; top: number }[]) => {
+  const saveOutfit = async (name: string, items: { 
+    id: string; 
+    left: number; 
+    top: number; 
+    width: number; 
+    height: number; 
+    zIndex: number; 
+    isPinned?: boolean;
+    name?: string;
+    wardrobeItemId?: string; // This might come from the canvas now
+  }[]) => {
     if (!session?.user?.id) {
-      return;
+      setError('Please sign in to save outfits');
+      return null;
     }
     
     try {
@@ -64,25 +77,51 @@ export default function OutfitPlanner({ initialItems = [] }: OutfitPlannerProps)
 
       if (missingItems.length > 0) {
         console.error('Missing wardrobe items:', missingItems);
-        setError(`Some items in your outfit (${missingItems.length}) no longer exist in your wardrobe. Please refresh the page and try again.`);
+        setError(`Some items in your outfit (${missingItems.length}) no longer exist in your wardrobe. Refreshing item list...`);
+        // Trigger a refresh when missing items are detected
+        setShouldRefreshWardrobe(true);
         return null;
       }
+      
+      // Set loading state
+      setError(null);
+      
+      // Extra validation for numeric values to prevent null constraint violations
+      const validatedItems = items.map(item => {
+        // Get matching wardrobe item for better error reporting
+        const wardrobeItem = wardrobeItems.find(w => w.id === item.id);
+        
+        // Convert all numeric values to correct types for Prisma
+        // left and top must be Float in Prisma
+        const left = parseFloat(Number(item.left || 0).toFixed(2));
+        const top = parseFloat(Number(item.top || 0).toFixed(2));
+        const width = parseFloat(Number(item.width || 150).toFixed(2));
+        const height = parseFloat(Number(item.height || 150).toFixed(2));
+        // zIndex must be Int in Prisma
+        const zIndex = Math.round(Number(item.zIndex || 1));
+        
+        // Always use the item.id as wardrobeItemId, regardless of whether
+        // item.wardrobeItemId was provided
+        return {
+          wardrobeItemId: item.id,
+          left, 
+          top,
+          width,
+          height,
+          zIndex,
+          isPinned: Boolean(item.isPinned),
+          // Add name for better error reporting
+          name: wardrobeItem?.name || 'Unknown Item'
+        };
+      });
       
       // Prepare the request payload
       const outfitData = {
         name,
-        items: items.map(item => ({
-          wardrobeItemId: item.id,
-          left: item.left,
-          top: item.top,
-          // Add default values for width and height if needed
-          width: 150,
-          height: 150,
-          zIndex: 1
-        }))
+        items: validatedItems
       };
       
-      console.log('Saving outfit with data:', outfitData);
+      console.log('Saving outfit with data:', JSON.stringify(outfitData, null, 2));
       
       const response = await fetch('/api/outfits', {
         method: 'POST',
@@ -92,10 +131,36 @@ export default function OutfitPlanner({ initialItems = [] }: OutfitPlannerProps)
         body: JSON.stringify(outfitData),
       });
       
-      const data = await response.json();
-      console.log('Response from server:', data);
+      // Try to parse the response as JSON, handle potential parsing errors
+      let data;
+      try {
+        data = await response.json();
+        console.log('Response from server:', data);
+      } catch (e) {
+        console.error('Failed to parse server response:', e);
+        throw new Error('Failed to understand server response. Please try again.');
+      }
       
       if (!response.ok) {
+        // Handle specific database constraint errors
+        if (data?.details && typeof data.details === 'string') {
+          const errorDetails = data.details;
+          
+          if (errorDetails.includes('Null constraint violation')) {
+            console.error('Null constraint violation detected:', errorDetails);
+            throw new Error('There was a problem with the data format. Please try again.');
+          } else if (errorDetails.includes('PrismaClientKnownRequestError')) {
+            console.error('Prisma error detected:', errorDetails);
+            throw new Error('Database error when saving outfit. Please try again with different values.');
+          } else {
+            throw new Error(`Server error: ${errorDetails}`);
+          }
+        } else if (data?.details && Array.isArray(data.details)) {
+          // This is an array of missing items
+          const missingItemNames = data.details.map((item: any) => item.name).join(', ');
+          throw new Error(`Cannot save outfit: The following items are no longer in your wardrobe: ${missingItemNames}`);
+        }
+        
         throw new Error(data.error || 'Failed to save outfit');
       }
       
@@ -110,7 +175,20 @@ export default function OutfitPlanner({ initialItems = [] }: OutfitPlannerProps)
     } catch (error) {
       console.error('Error saving outfit:', error);
       // Set error message in state to display to user
-      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred while saving your outfit. Please try again.';
+      setError(errorMessage);
+      
+      // If the error message contains "no longer in your wardrobe", trigger a refresh
+      if (errorMessage.includes('no longer in your wardrobe') || errorMessage.includes('wardrobe items do not exist')) {
+        console.log('Triggering wardrobe refresh due to missing items');
+        setShouldRefreshWardrobe(true);
+      }
+      
+      // Clear error message after 8 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 8000);
+      
       return null;
     }
   };

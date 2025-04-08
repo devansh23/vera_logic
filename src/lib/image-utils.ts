@@ -136,4 +136,21 @@ async function attemptExtractWithType(
     // Return the original image if extraction fails
     return imageBuffer;
   }
+}
+
+import { log } from './logger';
+
+export async function fetchImageAsBuffer(imageUrl: string): Promise<Buffer | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      log('Failed to fetch image', { imageUrl, status: response.status });
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    log('Error fetching image', { imageUrl, error });
+    return null;
+  }
 } 

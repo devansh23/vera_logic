@@ -76,13 +76,6 @@ interface CategoryMap {
 interface FilterOptions {
   categories: string[];
   brands: string[];
-  retailers: string[];
-  priceRange: {
-    min: number;
-    max: number;
-  };
-  sizes: string[];
-  colors: string[];
 }
 
 interface SortOption {
@@ -199,11 +192,6 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
-      {product.price && (
-        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 text-sm font-medium text-gray-900">
-          {product.price}
-        </div>
-      )}
     </div>
     <div className="p-4">
       <div className="flex items-start justify-between gap-2">
@@ -465,11 +453,7 @@ export default function Home() {
   const [sortOption, setSortOption] = useState<SortOption>({ type: 'date', direction: 'desc' });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     categories: [],
-    brands: [],
-    retailers: [],
-    priceRange: { min: 0, max: Infinity },
-    sizes: [],
-    colors: []
+    brands: []
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
@@ -894,9 +878,7 @@ export default function Home() {
 
   // Add filtering function with proper types
   const getFilteredProducts = () => {
-    if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => 
-      Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity
-    )) {
+    if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => v.length > 0)) {
       return getSortedProducts(products as unknown as MyntraProduct[]);
     }
     
@@ -917,25 +899,7 @@ export default function Home() {
       const brandMatch = filterOptions.brands.length === 0 ||
         filterOptions.brands.includes(product.brand || '');
 
-      // Retailer filter
-      const retailerMatch = filterOptions.retailers.length === 0 ||
-        filterOptions.retailers.includes(product.sourceRetailer || 'Unknown');
-
-      // Price filter
-      const price = getPriceAsNumber(product.price);
-      const priceMatch = price >= filterOptions.priceRange.min && 
-        price <= filterOptions.priceRange.max;
-
-      // Size filter
-      const sizeMatch = filterOptions.sizes.length === 0 ||
-        filterOptions.sizes.includes(product.size || '');
-
-      // Color filter
-      const colorMatch = filterOptions.colors.length === 0 ||
-        filterOptions.colors.includes(product.color || '');
-
-      return searchMatch && categoryMatch && brandMatch && retailerMatch && 
-        priceMatch && sizeMatch && colorMatch;
+      return searchMatch && categoryMatch && brandMatch;
     }));
   };
 
@@ -1149,15 +1113,6 @@ export default function Home() {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-gray-900 truncate">{result.brand}</h3>
                         <p className="text-sm text-gray-600 line-clamp-2">{result.name}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="font-semibold text-gray-900">{result.price}</span>
-                          {result.originalPrice && (
-                            <span className="text-sm text-gray-500 line-through">{result.originalPrice}</span>
-                          )}
-                          {result.discount && (
-                            <span className="text-sm text-green-600 font-medium">{result.discount}</span>
-                          )}
-                        </div>
                       </div>
                       <div className="flex flex-col gap-2">
                         <button 
@@ -1309,7 +1264,7 @@ export default function Home() {
               {/* Filter panel */}
               {showFilters && (
                 <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Categories */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
@@ -1349,99 +1304,6 @@ export default function Home() {
                         ))}
                       </select>
                     </div>
-
-                    {/* Retailers */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Retailers</label>
-                      <select
-                        multiple
-                        value={filterOptions.retailers}
-                        onChange={(e) => setFilterOptions(prev => ({
-                          ...prev,
-                          retailers: Array.from(e.target.selectedOptions, option => option.value)
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        {getUniqueValues(products as unknown as MyntraProduct[], 'sourceRetailer').map(retailer => (
-                          <option key={retailer?.toString() || 'unknown'} value={retailer || 'Unknown'}>
-                            {retailer || 'Unknown'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Price Range */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={filterOptions.priceRange.min || ''}
-                          onChange={(e) => setFilterOptions(prev => ({
-                            ...prev,
-                            priceRange: {
-                              ...prev.priceRange,
-                              min: Number(e.target.value) || 0
-                            }
-                          }))}
-                          className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={filterOptions.priceRange.max === Infinity ? '' : filterOptions.priceRange.max}
-                          onChange={(e) => setFilterOptions(prev => ({
-                            ...prev,
-                            priceRange: {
-                              ...prev.priceRange,
-                              max: Number(e.target.value) || Infinity
-                            }
-                          }))}
-                          className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Sizes */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Sizes</label>
-                      <select
-                        multiple
-                        value={filterOptions.sizes}
-                        onChange={(e) => setFilterOptions(prev => ({
-                          ...prev,
-                          sizes: Array.from(e.target.selectedOptions, option => option.value)
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        {getUniqueValues(products as unknown as MyntraProduct[], 'size').map(size => (
-                          <option key={size?.toString() || 'no-size'} value={size || ''}>
-                            {size || 'No Size'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Colors */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Colors</label>
-                      <select
-                        multiple
-                        value={filterOptions.colors}
-                        onChange={(e) => setFilterOptions(prev => ({
-                          ...prev,
-                          colors: Array.from(e.target.selectedOptions, option => option.value)
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      >
-                        {getUniqueValues(products as unknown as MyntraProduct[], 'color').map(color => (
-                          <option key={color?.toString() || 'no-color'} value={color || ''}>
-                            {color || 'No Color'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
 
                   {/* Filter actions */}
@@ -1449,11 +1311,7 @@ export default function Home() {
                     <button
                       onClick={() => setFilterOptions({
                         categories: [],
-                        brands: [],
-                        retailers: [],
-                        priceRange: { min: 0, max: Infinity },
-                        sizes: [],
-                        colors: []
+                        brands: []
                       })}
                       className="px-4 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                     >

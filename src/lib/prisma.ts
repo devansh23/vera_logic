@@ -15,9 +15,36 @@ declare global {
 
 // Configure Prisma client with connection pooling settings
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: ['error', 'warn'],
-  })
+  const client = new PrismaClient({
+    log: [
+      { level: 'query', emit: 'event' },
+      { level: 'error', emit: 'stdout' },
+      { level: 'warn', emit: 'stdout' },
+      { level: 'info', emit: 'stdout' },
+    ],
+    errorFormat: 'pretty'
+  });
+  
+  // Add detailed query logging in development environment
+  if (process.env.NODE_ENV !== 'production') {
+    client.$on('query', (e) => {
+      console.log('Prisma Query:', e.query);
+      console.log('Prisma Params:', e.params);
+      console.log('Prisma Duration:', `${e.duration}ms`);
+    });
+  }
+  
+  // Add error handling
+  client.$use(async (params, next) => {
+    try {
+      return await next(params);
+    } catch (error) {
+      console.error(`Prisma Error in ${params.model}.${params.action}:`, error);
+      throw error;
+    }
+  });
+  
+  return client;
 }
 
 export const prisma = global.prisma || prismaClientSingleton()

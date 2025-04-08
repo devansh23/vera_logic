@@ -111,10 +111,10 @@ export const OutfitControls = ({ outfits, onSchedule }: OutfitControlsProps) => 
       </Tabs>
 
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent aria-describedby="schedule-outfit-description">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Schedule Outfit</DialogTitle>
-            <DialogDescription id="schedule-outfit-description">
+            <DialogDescription>
               Choose a date and title to add this outfit to your calendar.
             </DialogDescription>
           </DialogHeader>

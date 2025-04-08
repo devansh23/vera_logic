@@ -71,7 +71,9 @@ model Wardrobe {
   productLink    String?
   myntraLink     String?
   size           String?
-  color          String?
+  color          String?      // raw scraped color string
+  dominantColor  String?      // hex color code
+  colorTag       String?      // broad color family
   dateAdded      DateTime     @default(now())
   source         String?
   sourceEmailId  String?

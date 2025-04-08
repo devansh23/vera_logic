@@ -6,6 +6,8 @@ import { log } from '@/lib/logger';
 import { categorizeItem } from '@/lib/categorize-items';
 import { processItemImage } from '@/lib/image-utils';
 import { scrapeProduct } from '@/lib/scrape-product';
+import { fetchImageAsBuffer } from '@/lib/image-utils';
+import { getColorInfo } from '@/lib/color-utils';
 
 // GET /api/wardrobe - Get user's wardrobe
 export async function GET(request: Request) {
@@ -65,121 +67,45 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-    const { url } = body;
-    log('POST /api/wardrobe - Processing URL', { url, requestId });
+    const data = await request.json();
+    
+    // Get image buffer for color detection
+    const imageBuffer = data.image ? await fetchImageAsBuffer(data.image) : null;
+    
+    // Get color information
+    const { dominantColor, colorTag } = await getColorInfo({
+      rawColor: data.color,
+      imageBuffer,
+    });
 
-    if (!url) {
-      log('POST /api/wardrobe - No URL provided', { requestId });
-      return NextResponse.json({ 
-        error: 'URL parameter is required',
-        message: 'Please provide a valid product URL' 
-      }, { status: 400 });
-    }
-    
-    // Validate URL
-    try {
-      new URL(url);
-    } catch (urlError) {
-      log('POST /api/wardrobe - Invalid URL format', { url, requestId });
-      return NextResponse.json({ 
-        error: 'Invalid URL format',
-        message: 'Please provide a valid product URL' 
-      }, { status: 400 });
-    }
-
-    // Scrape product information from any website
-    log('POST /api/wardrobe - Scraping product from URL', { url, requestId });
-    const productData = await scrapeProduct(url);
-    
-    if (!productData) {
-      log('POST /api/wardrobe - Failed to extract product data', { url, requestId });
-      return NextResponse.json({ 
-        error: 'Failed to extract product data',
-        message: 'Could not find a valid image or clothing item on this page.' 
-      }, { status: 400 });
-    }
-    
-    if (!productData.name || productData.name === 'Unknown Product') {
-      log('POST /api/wardrobe - Failed to extract product name', { url, productData, requestId });
-      return NextResponse.json({ 
-        error: 'Failed to extract product details',
-        message: 'Could not identify the product. Please try a different URL or a more popular retailer.' 
-      }, { status: 400 });
-    }
-    
-    log('POST /api/wardrobe - Product data extracted', { productData, requestId });
-    
-    let imageUrl = productData.image || '';
-    let finalImageUrl = imageUrl;
-
-    // Apply image cropping if image URL exists
-    if (imageUrl) {
-      try {
-        log('POST /api/wardrobe - Fetching image for cropping', { imageUrl, requestId });
-        
-        // Fetch the image
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-          throw new Error(`Failed to fetch image: ${imageResponse.status}`);
-        }
-        
-        // Convert image to buffer
-        const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-        
-        // Process the image using the same function used for email items
-        const itemName = productData.name || 'Unknown Product';
-        log('POST /api/wardrobe - Processing image', { itemName, requestId });
-        
-        // Run image through the processItemImage function
-        const processedBuffer = await processItemImage(imageBuffer, itemName);
-        
-        // Convert processed buffer to base64 for storage
-        finalImageUrl = `data:image/jpeg;base64,${processedBuffer.toString('base64')}`;
-        
-        log('POST /api/wardrobe - Image processing successful', { requestId });
-      } catch (imageError) {
-        // In case of failure, use the original image
-        log('Error processing product image', { error: imageError, fallback: 'Using original image', requestId });
-        // Keep using the original image URL
-        finalImageUrl = imageUrl;
-      }
-    } else {
-      log('POST /api/wardrobe - No image URL found for the product', { productName: productData.name, requestId });
-    }
-
-    // Save to database with the processed image
     const item = await prisma.wardrobe.create({
       data: {
         userId: session.user.id,
-        brand: productData.brand || 'Unknown Brand',
-        name: productData.name || 'Unknown Product',
-        price: productData.price || '',
-        originalPrice: productData.originalPrice || '',
-        discount: productData.discount || '',
-        image: finalImageUrl || '', // Use the cropped image or fallback to original
-        productLink: url,
-        size: productData.size || '',
-        color: productData.color || '',
-        category: productData.category || 'Uncategorized',
-        sourceRetailer: productData.sourceRetailer || 'Unknown'
-      }
+        brand: data.brand || '',
+        name: data.name,
+        price: data.price || '0',
+        originalPrice: data.originalPrice,
+        discount: data.discount,
+        image: data.image,
+        productLink: data.productLink,
+        myntraLink: data.myntraLink,
+        size: data.size,
+        color: data.color,
+        dominantColor,
+        colorTag,
+        category: data.category || 'Uncategorized',
+        source: data.source,
+        sourceEmailId: data.sourceEmailId,
+        sourceOrderId: data.sourceOrderId,
+        sourceRetailer: data.sourceRetailer,
+      },
     });
 
-    log('POST /api/wardrobe - Created item', { item, requestId });
-    return NextResponse.json({
-      success: true,
-      item,
-      message: `Successfully added ${productData.name} from ${productData.sourceRetailer || 'store'} to your wardrobe`
-    });
+    return NextResponse.json(item);
   } catch (error) {
-    log('Error adding item to wardrobe', { error, requestId });
+    log('Error creating wardrobe item', { error });
     return NextResponse.json(
-      { 
-        error: 'Failed to add item to wardrobe',
-        message: 'An unexpected error occurred while adding this item to your wardrobe. Please try again.',
-        details: error instanceof Error ? error.message : String(error)
-      },
+      { error: 'Failed to create wardrobe item' },
       { status: 500 }
     );
   }

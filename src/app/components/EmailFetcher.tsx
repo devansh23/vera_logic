@@ -6,6 +6,7 @@ import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline
 import { useWardrobe } from '@/contexts/WardrobeContext';
 import { ConfirmationModal } from '@/components/ConfirmationFlow';
 import { toast } from '@/hooks/use-toast';
+import { WardrobeItem } from '@/types/wardrobe';
 
 // Define TypeScript interfaces for better type safety
 interface EmailMessage {
@@ -26,23 +27,6 @@ interface ExtractionResult {
   itemsAdded?: number;
   items: any[];
   debugKey?: string;
-}
-
-// Define WardrobeItem interface for the confirmation flow
-interface WardrobeItem {
-  id: string;
-  name: string;
-  brand?: string;
-  category: string;
-  imageUrl: string;
-  price?: string;
-  originalPrice?: string;
-  discount?: string;
-  size?: string;
-  color?: string;
-  productLink?: string;
-  emailId?: string;
-  retailer?: string;
 }
 
 export default function EmailFetcher() {
@@ -172,6 +156,7 @@ export default function EmailFetcher() {
           brand: item.brand || '',
           category: item.category || '',
           imageUrl: item.imageUrl || '',
+          image: item.image || '',
           price: item.price || '',
           originalPrice: item.originalPrice || '',
           discount: item.discount || '',
@@ -230,6 +215,7 @@ export default function EmailFetcher() {
           brand: item.brand || '',
           category: item.category || '',
           imageUrl: item.imageUrl || '',
+          image: item.image || '',
           price: item.price || '',
           originalPrice: item.originalPrice || '',
           discount: item.discount || '',
@@ -264,6 +250,7 @@ export default function EmailFetcher() {
         size: item.size || '',
         color: item.color || '',
         imageUrl: item.imageUrl,
+        image: item.image || '',
         productLink: item.productLink || '',
         emailId: item.emailId || '',
         retailer: item.retailer || retailer,

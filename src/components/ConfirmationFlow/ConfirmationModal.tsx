@@ -194,7 +194,7 @@ export default function ConfirmationModal({ items, onConfirm, onCancel, isWardro
         setEditedItems(prev => 
           prev.map(item => {
             if (item.id === itemId) {
-              return {...item, imageUrl};
+              return {...item, imageUrl, image: imageUrl};
             }
             return item;
           })
@@ -263,9 +263,14 @@ export default function ConfirmationModal({ items, onConfirm, onCancel, isWardro
                     {/* Image with edit on hover - edit icon moved to top right */}
                     <div className="aspect-square relative">
                       <img
-                        src={item.imageUrl}
+                        src={item.imageUrl || item.image || '/placeholder-image.svg'}
                         alt={item.name}
                         className="w-full h-full object-contain rounded-lg"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder-image.svg';
+                          target.onerror = null; // Prevent infinite loop
+                        }}
                       />
                       {/* Edit button for image */}
                       <button

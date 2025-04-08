@@ -19,7 +19,7 @@ interface CanvasItem extends WardrobeItem {
 interface OutfitCanvasProps {
   items: CanvasItem[];
   onUpdateItems: (items: CanvasItem[]) => void;
-  onSave: (name: string, items: { id: string; left: number; top: number }[]) => void;
+  onSave: (name: string, items: { id: string; left: number; top: number; width: number; height: number; zIndex: number; isPinned?: boolean }[]) => void;
 }
 
 export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps) => {
@@ -193,11 +193,57 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
   const handleSave = () => {
     if (!outfitName.trim()) return;
     
-    const outfitItems = positionedItems.map(({ id, left, top }) => ({
-      id,
-      left,
-      top,
-    }));
+    // Ensure all items have valid positioning data
+    const validItems = positionedItems.filter(item => (
+      // Filter out any item with invalid or NaN values
+      item.id && 
+      !isNaN(item.left) && 
+      !isNaN(item.top) && 
+      !isNaN(item.width) && 
+      !isNaN(item.height) && 
+      !isNaN(item.zIndex)
+    ));
+    
+    if (validItems.length === 0) {
+      console.error('No valid items to save');
+      return;
+    }
+    
+    // Format data according to Prisma schema types
+    // OutfitItem model expects:
+    // - left, top, width, height as Float
+    // - zIndex as Int
+    // - isPinned as Boolean
+    const outfitItems = validItems.map(({ id, left, top, width, height, zIndex, isPinned, name }) => {
+      // Extra safety - make sure we're working with numbers
+      const numLeft = typeof left === 'number' ? left : parseFloat(String(left));
+      const numTop = typeof top === 'number' ? top : parseFloat(String(top));
+      const numWidth = typeof width === 'number' ? width : parseFloat(String(width));
+      const numHeight = typeof height === 'number' ? height : parseFloat(String(height));
+      const numZIndex = typeof zIndex === 'number' ? zIndex : parseInt(String(zIndex));
+      
+      // Convert numbers to the exact format expected by Prisma
+      const formattedLeft = parseFloat(Number(numLeft || 0).toFixed(2)); 
+      const formattedTop = parseFloat(Number(numTop || 0).toFixed(2));
+      const formattedWidth = parseFloat(Number(Math.max(50, numWidth || 150)).toFixed(2));
+      const formattedHeight = parseFloat(Number(Math.max(50, numHeight || 150)).toFixed(2));
+      const formattedZIndex = Math.max(1, Math.round(Number(numZIndex || 1)));
+      
+      return {
+        id,
+        wardrobeItemId: id, // Make sure the property name matches what server expects
+        left: formattedLeft,
+        top: formattedTop,
+        width: formattedWidth,
+        height: formattedHeight,
+        zIndex: formattedZIndex,
+        isPinned: Boolean(isPinned),
+        name: name || 'Unnamed Item'
+      };
+    });
+    
+    // Log the exact data we're sending for debugging
+    console.log('Saving outfit with items:', JSON.stringify(outfitItems, null, 2));
     
     onSave(outfitName, outfitItems);
     setShowSaveDialog(false);
@@ -410,10 +456,10 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
           <DialogTrigger asChild>
             <Button variant="default" size="sm">Save Outfit</Button>
           </DialogTrigger>
-          <DialogContent aria-describedby="outfit-save-description">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Save Your Outfit</DialogTitle>
-              <DialogDescription id="outfit-save-description">
+              <DialogDescription>
                 Give your outfit a name to save it to your collection.
               </DialogDescription>
             </DialogHeader>
