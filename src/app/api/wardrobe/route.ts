@@ -65,8 +65,21 @@ export async function POST(req: Request) {
 
     const createdItems = await Promise.all(
       items.map(async (item) => {
-        // Determine the color tag for the item
-        const colorTag = determineColorTag(item.color, item.dominantColor);
+        // Get color information
+        const imageUrl = item.image || item.imageUrl;
+        let imageBuffer = null;
+        if (imageUrl) {
+          try {
+            imageBuffer = await fetchImageAsBuffer(imageUrl);
+          } catch (e) {
+            log('Failed to fetch image buffer for color info in POST', { imageUrl, error: e });
+          }
+        }
+        
+        const { dominantColor, colorTag } = await getColorInfo({
+          rawColor: item.color,
+          imageBuffer: imageBuffer,
+        });
 
         return prisma.wardrobe.create({
           data: {
@@ -76,13 +89,13 @@ export async function POST(req: Request) {
             price: item.price || '',
             originalPrice: item.originalPrice || '',
             discount: item.discount || '',
-            image: item.image || item.imageUrl || '',
+            image: imageUrl || '', // Ensure image URL is saved
             productLink: item.productLink || '',
             myntraLink: item.myntraLink || '',
             size: item.size || '',
-            color: item.color || '',
-            dominantColor: item.dominantColor || null,
-            colorTag: colorTag,
+            color: item.color || '', // Keep the original color string
+            dominantColor: dominantColor, // Use determined dominant color
+            colorTag: colorTag, // Use determined color tag
             source: item.source || null,
             sourceEmailId: item.sourceEmailId || null,
             sourceOrderId: item.sourceOrderId || null,
@@ -113,8 +126,21 @@ export async function PUT(req: Request) {
 
     const data = await req.json();
     
-    // Determine the color tag for the item
-    const colorTag = determineColorTag(data.color, data.dominantColor);
+    // Get color information
+    const imageUrl = data.image || data.imageUrl;
+    let imageBuffer = null;
+    if (imageUrl) {
+      try {
+        imageBuffer = await fetchImageAsBuffer(imageUrl);
+      } catch (e) {
+        log('Failed to fetch image buffer for color info in PUT', { imageUrl, error: e });
+      }
+    }
+        
+    const { dominantColor, colorTag } = await getColorInfo({
+      rawColor: data.color,
+      imageBuffer: imageBuffer,
+    });
 
     const updatedItem = await prisma.wardrobe.update({
       where: {
@@ -127,13 +153,13 @@ export async function PUT(req: Request) {
         price: data.price || '',
         originalPrice: data.originalPrice || '',
         discount: data.discount || '',
-        image: data.image || data.imageUrl || '',
+        image: imageUrl || '', // Ensure image URL is saved
         productLink: data.productLink || '',
         myntraLink: data.myntraLink || '',
         size: data.size || '',
-        color: data.color || '',
-        dominantColor: data.dominantColor || null,
-        colorTag: colorTag,
+        color: data.color || '', // Keep the original color string
+        dominantColor: dominantColor, // Use determined dominant color
+        colorTag: colorTag, // Use determined color tag
         source: data.source || null,
         sourceEmailId: data.sourceEmailId || null,
         sourceOrderId: data.sourceOrderId || null,

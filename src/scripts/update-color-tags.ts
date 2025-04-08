@@ -10,7 +10,11 @@ async function updateColorTags() {
     // Update each item with a color tag
     let updated = 0;
     for (const item of items) {
-      const colorTag = determineColorTag(item.color, item.dominantColor);
+      const colorTag = await determineColorTag(
+        item.color, 
+        item.dominantColor,
+        item.image || undefined
+      );
       
       await prisma.wardrobe.update({
         where: { id: item.id },

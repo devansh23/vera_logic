@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { log } from '@/lib/logger';
 import { categorizeItem } from '@/lib/categorize-items';
+import { getColorInfo } from '@/lib/color-utils';
+import { fetchImageAsBuffer } from '@/lib/image-utils';
 
 // POST /api/wardrobe/save - Save the entire wardrobe state
 export async function POST(request: Request) {
@@ -69,6 +71,21 @@ export async function POST(request: Request) {
             
             // Handle both imageUrl and image fields correctly
             const imageValue = item.imageUrl || item.image || '';
+
+            // Get color information
+            let imageBuffer = null;
+            if (imageValue) {
+              try {
+                imageBuffer = await fetchImageAsBuffer(imageValue);
+              } catch (e) {
+                log('Failed to fetch image buffer for color info in Save', { imageValue, error: e });
+              }
+            }
+            
+            const { dominantColor, colorTag } = await getColorInfo({
+              rawColor: item.color,
+              imageBuffer: imageBuffer,
+            });
             
             const itemData = {
               userId: session.user.id,
@@ -80,7 +97,13 @@ export async function POST(request: Request) {
               image: imageValue, // Use the resolved image value
               productLink: item.productLink || item.myntraLink || '',
               size: item.size || '',
-              color: item.color || '',
+              color: item.color || '', // Keep original color string
+              dominantColor: dominantColor, // Use determined dominant color
+              colorTag: colorTag, // Use determined color tag
+              source: item.source || null,
+              sourceEmailId: item.sourceEmailId || null,
+              sourceOrderId: item.sourceOrderId || null,
+              sourceRetailer: item.sourceRetailer || null,
               category: category
             };
             

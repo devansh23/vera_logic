@@ -85,6 +85,8 @@ export async function addItemsToWardrobe(
           productLink: item.productLink || '',
           size: item.size || '',
           color: item.color || '',
+          dominantColor: item.dominantColor || null,
+          colorTag: item.colorTag || (item.color ? item.color.toLowerCase() : 'unknown'),
           source: 'email',
           sourceEmailId: item.emailId,
           sourceOrderId: item.orderId || '',

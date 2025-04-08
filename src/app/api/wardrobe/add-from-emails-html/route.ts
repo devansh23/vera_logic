@@ -113,7 +113,9 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
         imageUrl: item.image,
         productLink: item.productLink || '',
         emailId,
-        retailer
+        retailer,
+        dominantColor: item.dominantColor || null,
+        colorTag: item.colorTag || (item.color ? item.color.toLowerCase() : 'unknown')
       }));
       const result = await addItemsToWardrobe(
         userId,
@@ -236,7 +238,9 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
           imageUrl: item.image,
           productLink: item.productLink || '',
           emailId: emailMessage.id,
-          retailer
+          retailer,
+          dominantColor: item.dominantColor || null,
+          colorTag: item.colorTag || (item.color ? item.color.toLowerCase() : 'unknown')
         }));
         const result = await addItemsToWardrobe(userId, wardrobeItems);
         totalItemsAdded += result.addedItems;

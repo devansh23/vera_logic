@@ -2,12 +2,13 @@ import getColors from 'get-image-colors';
 import nearestColor from 'nearest-color';
 import colornames from 'colornames';
 import { log } from './logger';
+import { fetchImageAsBuffer } from './image-utils';
 
 export const COLOR_MAP = {
   black: '#000000',
   white: '#ffffff',
   grey: '#808080',
-  beige: '#f5f5dc',
+  beige: '#d4b895',
   red: '#ff0000',
   orange: '#ffa500',
   yellow: '#ffff00',
@@ -15,8 +16,7 @@ export const COLOR_MAP = {
   blue: '#0000ff',
   purple: '#800080',
   pink: '#ffc0cb',
-  brown: '#a52a2a',
-  navy: '#000080',
+  brown: '#6F4E37'
 };
 
 const nearest = nearestColor.from(COLOR_MAP);
@@ -67,7 +67,7 @@ const COLOR_NAME_MAPPING: { [key: string]: string } = {
   'white': 'white',
   'off white': 'white',
   'ivory': 'white',
-  'cream': 'beige',
+  'cream': 'white',
   
   // Grey variants
   'grey': 'grey',
@@ -110,6 +110,9 @@ const COLOR_NAME_MAPPING: { [key: string]: string } = {
   'sky blue': 'blue',
   'turquoise': 'blue',
   'teal': 'blue',
+  'navy': 'navy',
+  'navy blue': 'navy',
+  'midnight blue': 'navy',
   
   // Purple variants
   'purple': 'purple',
@@ -126,20 +129,27 @@ const COLOR_NAME_MAPPING: { [key: string]: string } = {
   'brown': 'brown',
   'chocolate': 'brown',
   'coffee': 'brown',
-  'mocha': 'brown',
+  'mocha': 'brown'
   
-  // Navy variants
-  'navy': 'navy',
-  'navy blue': 'navy',
-  'midnight blue': 'navy'
+  
+  
 };
 
-export function determineColorTag(color?: string | null, dominantColor?: string | null): string {
-  // If no color information is available, return a default
-  if (!color && !dominantColor) {
-    return 'unknown';
-  }
+// Extract dominant color from image
+async function extractDominantColor(imageUrl: string): Promise<string | null> {
+  try {
+    const imageBuffer = await fetchImageAsBuffer(imageUrl);
+    if (!imageBuffer) return null;
 
+    const colors = await getColors(imageBuffer, 'image/jpeg');
+    return colors?.[0]?.hex?.() || null;
+  } catch (error) {
+    console.error('Failed to extract dominant color:', error);
+    return null;
+  }
+}
+
+export async function determineColorTag(color: string | null | undefined, dominantColor: string | null | undefined, imageUrl?: string): Promise<string> {
   // First try to match the text color name if available
   if (color) {
     const normalizedColor = color.toLowerCase().trim();
@@ -157,10 +167,17 @@ export function determineColorTag(color?: string | null, dominantColor?: string 
     }
   }
 
-  // If we have a dominant color hex value and no match was found from the text color,
-  // find the closest matching predefined color
+  // If we have a dominant color hex value, use it
   if (dominantColor) {
     return findClosestColor(dominantColor);
+  }
+
+  // If we have an image URL but no color information, try to extract the dominant color
+  if (imageUrl) {
+    const extractedColor = await extractDominantColor(imageUrl);
+    if (extractedColor) {
+      return findClosestColor(extractedColor);
+    }
   }
 
   // If we get here and we have a color string but no match was found,

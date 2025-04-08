@@ -76,6 +76,7 @@ interface CategoryMap {
 interface FilterOptions {
   categories: string[];
   brands: string[];
+  colors: string[];  // Add colors array for color filtering
 }
 
 interface SortOption {
@@ -453,7 +454,8 @@ export default function Home() {
   const [sortOption, setSortOption] = useState<SortOption>({ type: 'date', direction: 'desc' });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     categories: [],
-    brands: []
+    brands: [],
+    colors: []  // Add empty colors array
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
@@ -841,7 +843,7 @@ export default function Home() {
   };
 
   // Add helper function to extract unique values
-  const getUniqueValues = (products: MyntraProduct[], key: keyof MyntraProduct) => {
+  const getUniqueValues = (products: (MyntraProduct & { colorTag?: string })[], key: keyof (MyntraProduct & { colorTag?: string })) => {
     return Array.from(new Set(products.map(product => product[key]).filter(Boolean)));
   };
 
@@ -879,10 +881,10 @@ export default function Home() {
   // Add filtering function with proper types
   const getFilteredProducts = () => {
     if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => v.length > 0)) {
-      return getSortedProducts(products as unknown as MyntraProduct[]);
+      return getSortedProducts(products as unknown as (MyntraProduct & { colorTag?: string })[]);
     }
     
-    return getSortedProducts((products as unknown as MyntraProduct[]).filter(product => {
+    return getSortedProducts((products as unknown as (MyntraProduct & { colorTag?: string })[]).filter(product => {
       // Text search
       const searchMatch = !wardrobeFilter.trim() || [
         product.name,
@@ -899,7 +901,11 @@ export default function Home() {
       const brandMatch = filterOptions.brands.length === 0 ||
         filterOptions.brands.includes(product.brand || '');
 
-      return searchMatch && categoryMatch && brandMatch;
+      // Color filter - use colorTag for more consistent filtering
+      const colorMatch = filterOptions.colors.length === 0 ||
+        filterOptions.colors.includes(product.colorTag || '');
+
+      return searchMatch && categoryMatch && brandMatch && colorMatch;
     }));
   };
 
@@ -1264,7 +1270,7 @@ export default function Home() {
               {/* Filter panel */}
               {showFilters && (
                 <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Categories */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
@@ -1304,6 +1310,32 @@ export default function Home() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Colors */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Colors</label>
+                      <select
+                        multiple
+                        value={filterOptions.colors}
+                        onChange={(e) => setFilterOptions(prev => ({
+                          ...prev,
+                          colors: Array.from(e.target.selectedOptions, option => option.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        {getUniqueValues(products as unknown as (MyntraProduct & { colorTag?: string })[], 'colorTag')
+                          .filter(Boolean)
+                          .sort()
+                          .map(color => {
+                            const colorStr = color as string;
+                            return (
+                              <option key={colorStr || 'unknown'} value={colorStr || 'Unknown'}>
+                                {colorStr ? colorStr.charAt(0).toUpperCase() + colorStr.slice(1) : 'Unknown'}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
                   </div>
 
                   {/* Filter actions */}
@@ -1311,7 +1343,8 @@ export default function Home() {
                     <button
                       onClick={() => setFilterOptions({
                         categories: [],
-                        brands: []
+                        brands: [],
+                        colors: []  // Clear colors too
                       })}
                       className="px-4 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                     >

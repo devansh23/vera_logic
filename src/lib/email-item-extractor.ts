@@ -26,6 +26,8 @@ export interface ExtractedWardrobeItem {
   orderId?: string;
   normalizedImageUrl?: string; // Used for deduplication
   reference?: string;
+  dominantColor?: string | null;
+  colorTag?: string;
 }
 
 /**

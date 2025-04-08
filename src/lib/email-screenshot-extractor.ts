@@ -16,6 +16,8 @@ export interface ExtractedItem {
   myntraLink?: string;  
   image?: string;
   sourceRetailer: string;
+  dominantColor?: string | null;
+  colorTag?: string;
 }
 
 // For storing debug information
@@ -123,7 +125,9 @@ export async function extractItemsWithAI(
         image: item.imageUrl || '', // Use imageUrl from AI response
         productLink: item.productLink || '',
         myntraLink: item.productLink && item.productLink.includes('myntra.com') ? item.productLink : '',
-        sourceRetailer: retailer
+        sourceRetailer: retailer,
+        dominantColor: item.dominantColor || null,
+        colorTag: item.colorTag || ''
       };
 
       return mappedItem;
