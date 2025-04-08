@@ -7,7 +7,7 @@ import { categorizeItem } from '@/lib/categorize-items';
 import { processItemImage } from '@/lib/image-utils';
 import { scrapeProduct } from '@/lib/scrape-product';
 import { fetchImageAsBuffer } from '@/lib/image-utils';
-import { getColorInfo } from '@/lib/color-utils';
+import { getColorInfo, determineColorTag } from '@/lib/color-utils';
 
 // GET /api/wardrobe - Get user's wardrobe
 export async function GET(request: Request) {
@@ -53,121 +53,132 @@ export async function GET(request: Request) {
 }
 
 // POST /api/wardrobe - Add item to wardrobe
-export async function POST(request: Request) {
-  const requestId = Math.random().toString(36).substring(2, 8);
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${requestId}] POST /api/wardrobe - Request received`);
-  
-  const session = await getServerSession(authOptions);
-  log('POST /api/wardrobe - Session', { userId: session?.user?.id, requestId });
-  
-  if (!session?.user?.id) {
-    log('POST /api/wardrobe - Unauthorized: No user ID in session', { requestId });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function POST(req: Request) {
   try {
-    const data = await request.json();
-    
-    // Get image buffer for color detection
-    const imageBuffer = data.image ? await fetchImageAsBuffer(data.image) : null;
-    
-    // Get color information
-    const { dominantColor, colorTag } = await getColorInfo({
-      rawColor: data.color,
-      imageBuffer,
-    });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
 
-    const item = await prisma.wardrobe.create({
-      data: {
-        userId: session.user.id,
-        brand: data.brand || '',
-        name: data.name,
-        price: data.price || '0',
-        originalPrice: data.originalPrice,
-        discount: data.discount,
-        image: data.image,
-        productLink: data.productLink,
-        myntraLink: data.myntraLink,
-        size: data.size,
-        color: data.color,
-        dominantColor,
-        colorTag,
-        category: data.category || 'Uncategorized',
-        source: data.source,
-        sourceEmailId: data.sourceEmailId,
-        sourceOrderId: data.sourceOrderId,
-        sourceRetailer: data.sourceRetailer,
-      },
-    });
+    const data = await req.json();
+    const items = Array.isArray(data) ? data : [data];
 
-    return NextResponse.json(item);
+    const createdItems = await Promise.all(
+      items.map(async (item) => {
+        // Determine the color tag for the item
+        const colorTag = determineColorTag(item.color, item.dominantColor);
+
+        return prisma.wardrobe.create({
+          data: {
+            userId: session.user.id,
+            brand: item.brand || 'Unknown',
+            name: item.name,
+            price: item.price || '',
+            originalPrice: item.originalPrice || '',
+            discount: item.discount || '',
+            image: item.image || item.imageUrl || '',
+            productLink: item.productLink || '',
+            myntraLink: item.myntraLink || '',
+            size: item.size || '',
+            color: item.color || '',
+            dominantColor: item.dominantColor || null,
+            colorTag: colorTag,
+            source: item.source || null,
+            sourceEmailId: item.sourceEmailId || null,
+            sourceOrderId: item.sourceOrderId || null,
+            sourceRetailer: item.sourceRetailer || null,
+            category: item.category || 'Uncategorized'
+          }
+        });
+      })
+    );
+
+    return NextResponse.json(createdItems);
   } catch (error) {
-    log('Error creating wardrobe item', { error });
-    return NextResponse.json(
-      { error: 'Failed to create wardrobe item' },
+    console.error('Error in POST /api/wardrobe:', error);
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Internal Server Error',
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/wardrobe - Update item in wardrobe
+export async function PUT(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const data = await req.json();
+    
+    // Determine the color tag for the item
+    const colorTag = determineColorTag(data.color, data.dominantColor);
+
+    const updatedItem = await prisma.wardrobe.update({
+      where: {
+        id: data.id,
+        userId: session.user.id
+      },
+      data: {
+        brand: data.brand,
+        name: data.name,
+        price: data.price || '',
+        originalPrice: data.originalPrice || '',
+        discount: data.discount || '',
+        image: data.image || data.imageUrl || '',
+        productLink: data.productLink || '',
+        myntraLink: data.myntraLink || '',
+        size: data.size || '',
+        color: data.color || '',
+        dominantColor: data.dominantColor || null,
+        colorTag: colorTag,
+        source: data.source || null,
+        sourceEmailId: data.sourceEmailId || null,
+        sourceOrderId: data.sourceOrderId || null,
+        sourceRetailer: data.sourceRetailer || null,
+        category: data.category || 'Uncategorized'
+      }
+    });
+
+    return NextResponse.json(updatedItem);
+  } catch (error) {
+    console.error('Error in PUT /api/wardrobe:', error);
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Internal Server Error',
       { status: 500 }
     );
   }
 }
 
 // DELETE /api/wardrobe - Delete item from wardrobe
-export async function DELETE(request: Request) {
-  const session = await getServerSession(authOptions);
-  log('DELETE /api/wardrobe - Session', { userId: session?.user?.id });
-  
-  if (!session?.user?.id) {
-    log('DELETE /api/wardrobe - Unauthorized: No user ID in session');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function DELETE(req: Request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      log('DELETE /api/wardrobe - No item ID provided');
-      return NextResponse.json({ error: 'Item ID required' }, { status: 400 });
+      return new NextResponse('Missing item ID', { status: 400 });
     }
 
-    log('DELETE /api/wardrobe - Attempting to delete item', { id, userId: session.user.id });
-
-    // First verify the item exists and belongs to the user
-    const item = await prisma.wardrobe.findFirst({
+    await prisma.wardrobe.delete({
       where: {
         id,
         userId: session.user.id
       }
     });
 
-    if (!item) {
-      log('DELETE /api/wardrobe - Item not found or not owned by user', { id, userId: session.user.id });
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
-    }
-
-    // Delete the item
-    const deletedItem = await prisma.wardrobe.delete({
-      where: {
-        id
-      }
-    });
-
-    log('DELETE /api/wardrobe - Successfully deleted item', { deletedItem });
-    return NextResponse.json({ 
-      message: 'Item deleted successfully', 
-      deletedItem,
-      success: true 
-    });
-  } catch (error: any) {
-    log('Error deleting item', { error });
-    if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Item not found', success: false },
-        { status: 404 }
-      );
-    }
-    return NextResponse.json(
-      { error: 'Failed to delete item', success: false },
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error('Error in DELETE /api/wardrobe:', error);
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Internal Server Error',
       { status: 500 }
     );
   }
