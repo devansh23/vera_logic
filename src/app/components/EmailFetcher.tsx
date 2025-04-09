@@ -240,8 +240,15 @@ export default function EmailFetcher() {
   // Save confirmed items to wardrobe
   const handleConfirmItems = async (items: WardrobeItem[]) => {
     try {
-      // Convert items to the format expected by the API
-      const wardrobeItems = items.map(item => ({
+      // First, fetch existing items from the wardrobe
+      const fetchResponse = await fetch('/api/wardrobe');
+      if (!fetchResponse.ok) {
+        throw new Error('Failed to fetch current wardrobe data');
+      }
+      const existingItems = await fetchResponse.json();
+      
+      // Convert new items to the format expected by the API
+      const newWardrobeItems = items.map(item => ({
         brand: item.brand,
         name: item.name,
         price: item.price || '',
@@ -257,13 +264,16 @@ export default function EmailFetcher() {
         category: item.category
       }));
       
-      // Call the API to add items to wardrobe
+      // Merge existing items with new items
+      const allItems = [...existingItems, ...newWardrobeItems];
+      
+      // Call the API to save all items
       const response = await fetch('/api/wardrobe/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ items: wardrobeItems }),
+        body: JSON.stringify({ items: allItems }),
       });
       
       const data = await response.json();
