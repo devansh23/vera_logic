@@ -7,23 +7,42 @@ import { categorizeItems } from '@/lib/categorize-items';
 
 // Function to perform deep comparison of arrays
 function areItemsEqual(items1: WardrobeItem[], items2: WardrobeItem[]): boolean {
+  if (items1 === items2) return true; // Same reference = same content
   if (items1.length !== items2.length) return false;
   
-  // Create map of items by ID for faster lookup
-  const itemMap = new Map();
-  items1.forEach(item => itemMap.set(item.id, item));
-  
-  // Check if all items in items2 match corresponding items in items1
-  return items2.every(item2 => {
-    const item1 = itemMap.get(item2.id);
-    if (!item1) return false;
+  try {
+    // Create map of items by ID for faster lookup
+    const itemMap = new Map();
+    items1.forEach(item => itemMap.set(item.id, item));
     
-    // Compare all properties
-    return Object.keys(item2).every(key => {
-      // @ts-ignore - Dynamic property access
-      return JSON.stringify(item1[key]) === JSON.stringify(item2[key]);
+    // Check if all items in items2 match corresponding items in items1
+    return items2.every(item2 => {
+      const item1 = itemMap.get(item2.id);
+      if (!item1) return false;
+      
+      // For each property in item2, deep compare with item1
+      return Object.keys(item2).every(key => {
+        // Skip functions or other non-serializable values
+        const val1 = (item1 as any)[key];
+        const val2 = (item2 as any)[key];
+        
+        if (typeof val1 === 'function' || typeof val2 === 'function') {
+          return true; // Skip function comparisons
+        }
+        
+        // Use string comparison for deep equality
+        return JSON.stringify(val1) === JSON.stringify(val2);
+      });
     });
-  });
+  } catch (e) {
+    console.error('Error comparing items:', e);
+    return false; // If any error occurs, assume they're different
+  }
+}
+
+// Function to create a deep copy of an array of wardrobe items
+function deepCopyItems(items: WardrobeItem[]): WardrobeItem[] {
+  return JSON.parse(JSON.stringify(items));
 }
 
 // Define the context type
@@ -56,10 +75,25 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const initialLoadComplete = useRef(false);
   const loadingRef = useRef(false);
+  const lastSavedState = useRef<WardrobeItem[]>([]);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSaveTime = useRef<number>(0);
+  const isDirty = useRef<boolean>(false);
+  const isAutosaving = useRef<boolean>(false);
 
   // Update categorizedItems whenever items change
   useEffect(() => {
     setCategorizedItems(categorizeItems(items));
+    
+    // Mark as dirty only if there's an actual change
+    if (items.length > 0 && initialLoadComplete.current) {
+      // Only consider it dirty if it's different from last saved state
+      const hasChanged = !areItemsEqual(items, lastSavedState.current);
+      if (hasChanged && !isAutosaving.current) {
+        isDirty.current = true;
+        console.log('Items changed - marked as dirty');
+      }
+    }
   }, [items]);
 
   // Function to load all wardrobe items
@@ -96,7 +130,13 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         
         const data = await response.json();
         console.log(`Successfully fetched ${data.length} wardrobe items`);
-        setItems(data);
+        
+        // Deep copy and update
+        const deepCopiedData = deepCopyItems(data);
+        lastSavedState.current = deepCopiedData;
+        isDirty.current = false; // Items just loaded, not dirty
+        isAutosaving.current = false;
+        setItems(deepCopiedData);
         initialLoadComplete.current = true;
         break; // Success, exit the retry loop
       } catch (error) {
@@ -161,7 +201,12 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         if (!data.item) {
           throw new Error('Invalid response from server: missing item data');
         }
-        setItems(prev => [...prev, data.item]);
+        
+        // Update state and lastSavedState
+        const newItems = [...items, data.item];
+        setItems(newItems);
+        // Don't update lastSavedState here - let autosave handle it
+        
         return data.item;
       } else {
         // Otherwise, directly add the item to the items array
@@ -170,6 +215,8 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
           ...item,
           id: item.id && item.id.length > 0 ? item.id : `temp-${Date.now()}`, // Use provided ID if it exists
         };
+        
+        // Update state but don't update lastSavedState to trigger autosave
         setItems(prev => [...prev, newItem]);
         return newItem;
       }
@@ -203,6 +250,8 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       }
 
       await response.json();
+      
+      // Update state but don't update lastSavedState to trigger autosave
       setItems(prev => prev.filter(item => item.id !== id));
     } catch (error) {
       console.error('Error removing item from wardrobe:', error);
@@ -218,9 +267,28 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       setError('You must be signed in to save your wardrobe');
       return;
     }
+    
+    // Don't save if not dirty or too soon since last save (rate limit)
+    if (!isDirty.current) {
+      console.log('Skipping save - no changes to save');
+      return;
+    }
+    
+    const now = Date.now();
+    if (now - lastSaveTime.current < 5000) { // Min 5 seconds between saves
+      console.log('Skipping save - too soon since last save');
+      return;
+    }
+    
+    // Prevent concurrent saves
+    if (isAutosaving.current) {
+      console.log('Save already in progress - skipping');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
+    isAutosaving.current = true;
 
     const maxRetries = 3;
     let retryCount = 0;
@@ -228,27 +296,17 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
 
     while (retryCount < maxRetries && !success) {
       try {
-        // Make sure all items have IDs before sending to API
-        const itemsToSave = items.map(item => {
-          if (!item.id || item.id.startsWith('temp-')) {
-            // Only regenerate ID if it's a temp ID or missing
-            return { ...item, id: item.id || `temp-${Date.now()}` };
-          }
-          return item;
-        });
-
-        // If this is a retry, add a small delay to allow connections to be released
-        if (retryCount > 0) {
-          console.log(`Retrying save (attempt ${retryCount+1}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-
+        // Make a deep copy of items to send
+        const itemsToSend = deepCopyItems(items);
+        
+        console.log('Saving wardrobe with', itemsToSend.length, 'items');
+        
         const response = await fetch('/api/wardrobe/save', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ items: itemsToSave }),
+          body: JSON.stringify({ items: itemsToSend }),
         });
 
         if (!response.ok) {
@@ -258,36 +316,44 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
 
         const result = await response.json();
         
-        // If we got updated items back from the server, only refresh our state if they've actually changed
-        if (result.updatedItems) {
-          // Only update state if the items have actually changed
-          if (!areItemsEqual(items, result.updatedItems)) {
-            console.log('Items changed, updating state');
-            setItems(result.updatedItems);
-          } else {
-            console.log('Items unchanged, skipping state update');
-          }
+        // Update last save time
+        lastSaveTime.current = Date.now();
+        isDirty.current = false;
+        
+        // Only update state if something actually changed from server
+        if (result.updatedItems && !areItemsEqual(items, result.updatedItems)) {
+          console.log('Server returned changed items - updating state');
+          // Create deep copy of returned items
+          const deepCopiedItems = deepCopyItems(result.updatedItems);
+          // Update last saved state and set items
+          lastSavedState.current = deepCopiedItems;
+          setItems(deepCopiedItems);
+        } else {
+          console.log('No changes from server - keeping current state');
+          // Still update last saved state with current items
+          lastSavedState.current = deepCopyItems(items);
         }
         
         if (showMessage) {
-          // You can add a toast or notification here if needed
           console.log('Wardrobe saved successfully');
         }
         
         success = true;
-        break;
       } catch (error) {
         retryCount++;
         console.error(`Error saving wardrobe (attempt ${retryCount}/${maxRetries}):`, error);
         
-        // Only set error if all retries failed
         if (retryCount >= maxRetries) {
           setError(error instanceof Error ? error.message : 'Failed to save wardrobe after multiple attempts');
+        } else {
+          // Wait between retries
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
     }
 
     setIsLoading(false);
+    isAutosaving.current = false;
   };
 
   // Function to clear the entire wardrobe
@@ -326,15 +392,48 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     }
   };
 
-  // Autosave wardrobe when items change, but only after initial load
+  // Periodic autosave check (completely rewritten)
   useEffect(() => {
-    if (items.length > 0 && initialLoadComplete.current) {
-      const timeoutId = setTimeout(() => {
+    // This effect doesn't depend on items to avoid triggering on every item change
+    const checkAndSaveIfNeeded = () => {
+      if (initialLoadComplete.current && isDirty.current && !isAutosaving.current) {
+        console.log('Scheduled check found dirty state - saving');
         saveWardrobe(false);
-      }, 2000);
-
-      return () => clearTimeout(timeoutId);
+      }
+    };
+    
+    // Set up periodic check instead of watching items directly
+    const intervalId = setInterval(checkAndSaveIfNeeded, 10000); // Check every 10 seconds
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []); // Empty dependency array - doesn't react to items changes
+  
+  // Manually run save when items are modified directly (add/remove)
+  useEffect(() => {
+    if (items.length > 0 && initialLoadComplete.current && isDirty.current && !isAutosaving.current) {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+      
+      // Delay to debounce multiple changes
+      autosaveTimeoutRef.current = setTimeout(() => {
+        const now = Date.now();
+        if (now - lastSaveTime.current > 5000) { // Min 5 seconds between saves
+          console.log('Debounced save triggered');
+          saveWardrobe(false);
+        } else {
+          console.log('Debounced save skipped - too soon since last save');
+        }
+      }, 3000);
     }
+    
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
   }, [items]);
 
   return (
