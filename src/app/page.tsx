@@ -664,12 +664,36 @@ export default function Home() {
       }
       setError(null);
       
+      // First, fetch the latest data to ensure we have all items
+      const fetchResponse = await fetch('/api/wardrobe');
+      if (!fetchResponse.ok) {
+        throw new Error('Failed to fetch current wardrobe data');
+      }
+      
+      const currentItems = await fetchResponse.json();
+      console.log('Current items in database:', currentItems.length);
+      console.log('Current items in state:', products.length);
+      
+      // Merge current items with any new ones that haven't been saved yet
+      const mergedItems = [...currentItems];
+      
+      // Add any new items from state that aren't in the database yet
+      // (temporary IDs or items added but not yet saved)
+      for (const item of products) {
+        if (item.id.startsWith('temp-') || !currentItems.some(dbItem => dbItem.id === item.id)) {
+          mergedItems.push(item);
+        }
+      }
+      
+      console.log('Merged items count:', mergedItems.length);
+      
+      // Now send the complete merged list to save
       const response = await fetch('/api/wardrobe/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ items: products }),
+        body: JSON.stringify({ items: mergedItems }),
       });
 
       if (!response.ok) {
@@ -677,6 +701,11 @@ export default function Home() {
       }
       
       const data = await response.json();
+      
+      // Update our state with the latest data from the server
+      if (data.updatedItems) {
+        setProducts(data.updatedItems);
+      }
       
       if (showMessage) {
         setSaveSuccess(`Wardrobe saved successfully! (${data.count} items)`);
@@ -694,51 +723,16 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!inputValue) return
-
-    setIsLoading(true)
-    setError(null)
-    setSearchResults([])
-
-    try {
-      // Check if input is a Myntra URL
-      if (inputValue.includes('myntra.com')) {
-        await addProductToWardrobe(inputValue)
-      } else {
-        // Handle as search query
-        const response = await fetch(`/api/myntra-search?q=${encodeURIComponent(inputValue)}`)
-        if (!response.ok) {
-          throw new Error('Failed to search products')
-        }
-        const data = await response.json()
-        setSearchResults(data)
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const addProductToWardrobe = async (url: string) => {
+  // Find the function that's handling the product updates
+  const handleAddProduct = async (productUrl: string) => {
     if (!session) {
-      setError('Please sign in to add items to your wardrobe');
+      setError('Please sign in to add products');
       return;
     }
 
     try {
       setIsLoading(true);
       setError(null);
-      
-      let productUrl = url;
-      if (!url.startsWith('http')) {
-        productUrl = url.startsWith('/') 
-          ? `https://www.myntra.com${url}`
-          : `https://www.myntra.com/${url}`;
-      }
       
       const response = await fetch('/api/wardrobe', {
         method: 'POST',
@@ -753,25 +747,75 @@ export default function Home() {
       }
       
       const data = await response.json();
-      setProducts(prevProducts => [...prevProducts, data]);
+      // Debug logging to verify the data structure
+      console.log('Product data received:', data);
+      
+      // Make sure we're accessing the correct property (data.item)
+      if (!data.item) {
+        console.error('Expected data.item but got:', data);
+        throw new Error('Invalid response format from server');
+      }
+      
+      // Ensure we're properly appending to existing products
+      setProducts(prevProducts => {
+        // Create a new array with all previous products plus the new one
+        const updatedProducts = [...prevProducts, data.item];
+        console.log('Updated products count:', updatedProducts.length);
+        return updatedProducts;
+      });
+      
       setInputValue('');
-      setSearchResults([]);
-      // Autosave will be triggered by the useEffect
+      setShowProductOverlay(false);
     } catch (error) {
       console.error('Error adding product:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add product to wardrobe');
+      setError(error instanceof Error ? error.message : 'Failed to add product');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleProductSelect = async (url: string) => {
+  // Check if the handleSubmit function is causing the issue
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!inputValue) return
+    
     try {
-      await addProductToWardrobe(url)
-      handleOverlayClose()
+      setIsLoading(true)
+      setError(null)
+      
+      // Myntra search flow
+      if (inputValue.includes('myntra.com') || 
+          inputValue.includes('zara.com') || 
+          inputValue.includes('hm.com') || 
+          inputValue.includes('2.hm.com')) {
+        // Direct product URL - add to wardrobe
+        await handleAddProduct(inputValue);
+      } else {
+        // Search term - search Myntra for results
+        const response = await fetch(`/api/myntra-search?query=${encodeURIComponent(inputValue)}`)
+        if (!response.ok) {
+          throw new Error('Failed to search Myntra')
+        }
+        const data = await response.json()
+        
+        if (data.length === 0) {
+          setError('No results found')
+        } else {
+          setSearchResults(data)
+          setShowProductOverlay(true)
+        }
+      }
     } catch (error) {
-      console.error('Error in product selection:', error)
+      console.error('Error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to process request')
+    } finally {
+      setIsLoading(false)
     }
+  }
+
+  // Handle direct product selection from search results
+  const handleProductSelect = async (url: string) => {
+    await handleAddProduct(url);
   }
 
   const handleImageUpload = async (file: File) => {
