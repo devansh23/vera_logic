@@ -39,6 +39,7 @@ model User {
   email             String?         @unique
   emailVerified     DateTime?
   image             String?
+  fullBodyPhoto     String?         // URL to the user's full body photo
   gmailAccessToken  String?
   gmailConnected    Boolean         @default(false)
   gmailLastSynced   DateTime?
