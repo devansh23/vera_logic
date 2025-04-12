@@ -3,12 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-// Types for the request
-interface VirtualTryonRequest {
-  userImage: File;
-  clothingImage: File;
-}
-
 // Helper function to convert File to base64 with proper MIME type
 async function fileToGenerativePart(file: File) {
   const buffer = await file.arrayBuffer();
@@ -38,41 +32,54 @@ export async function POST(request: Request) {
       );
     }
 
-    // Log API key presence (but not the actual key)
-    console.log('GEMINI_API_KEY is present:', !!apiKey);
-
     // Get form data
     const formData = await request.formData();
     const userImage = formData.get('userImage') as File | null;
-    const clothingImage = formData.get('clothingImage') as File | null;
+    
+    // Get all clothing images
+    const clothingImages: File[] = [];
+    let i = 0;
+    while (formData.has(`clothingImage${i}`)) {
+      const image = formData.get(`clothingImage${i}`) as File;
+      if (image) {
+        clothingImages.push(image);
+      }
+      i++;
+    }
 
     // Validate required fields
-    if (!userImage || !clothingImage) {
+    if (!userImage || clothingImages.length === 0) {
       return NextResponse.json(
-        { error: 'Both userImage and clothingImage are required' },
+        { error: 'User image and at least one clothing image are required' },
         { status: 400 }
       );
     }
 
     // Convert images to base64 with proper MIME types
-    const [userImagePart, clothingImagePart] = await Promise.all([
-      fileToGenerativePart(userImage),
-      fileToGenerativePart(clothingImage)
-    ]);
+    const userImagePart = await fileToGenerativePart(userImage);
+    const clothingImageParts = await Promise.all(
+      clothingImages.map(fileToGenerativePart)
+    );
 
     // Initialize Gemini
     console.log('Initializing Gemini...');
     const ai = new GoogleGenAI({ apiKey });
     console.log('Gemini initialized');
 
+    // Prepare the prompt
+    const prompt = `Generate a realistic image of the person in the first image wearing all the clothing items shown in the subsequent images. 
+    The clothing items should be properly fitted and positioned on the person's body.
+    Maintain the person's pose and background while accurately applying the clothing items.
+    Ensure the final image looks natural and realistic.`;
+
     // Generate content
     console.log('Generating content...');
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash-exp-image-generation",
       contents: [
-        { text: "This is a full-body photo of a person. This is a photo of an outfit. Please generate a realistic image of the person wearing this outfit. Maintain the person's body shape, faceial features, face,  pose, hairstyle, skin tone, and background context. Ensure the clothing fits naturally over their body without distortion. Blend the textures and shadows realistically for a natural appearance. Only return the new image of the person wearing the outfit — no borders, labels, or captions." },
+        { text: prompt },
         userImagePart,
-        clothingImagePart
+        ...clothingImageParts
       ],
       config: {
         responseModalities: ["Text", "Image"]
@@ -93,30 +100,28 @@ export async function POST(request: Request) {
           console.log('Text response received:', textResponse);
         } else if (part.inlineData?.data) {
           generatedImage = part.inlineData.data;
+          console.log('Image data received');
         }
       }
     }
 
-    // Check for successful generation
     if (!generatedImage) {
-      throw new Error(`Failed to generate image: ${textResponse || 'No image data in response'}`);
+      console.error('No image generated in response');
+      return NextResponse.json(
+        { error: 'Failed to generate image' },
+        { status: 500 }
+      );
     }
 
-    // Convert the generated image to a buffer
-    const imageBuffer = Buffer.from(generatedImage, 'base64');
-
-    // Return the image
-    return new NextResponse(imageBuffer, {
-      headers: {
-        'Content-Type': 'image/png',
-        'Content-Disposition': 'inline; filename="virtual-tryon.png"'
-      }
+    // Return the generated image
+    return NextResponse.json({ 
+      image: generatedImage,
+      text: textResponse 
     });
-
   } catch (error) {
     console.error('Error in virtual try-on:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate virtual try-on image' },
+      { error: 'Failed to process request' },
       { status: 500 }
     );
   }

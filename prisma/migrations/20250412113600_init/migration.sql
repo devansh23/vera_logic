@@ -38,6 +38,7 @@ CREATE TABLE "User" (
     "gmailLastSynced" TIMESTAMP(3),
     "gmailRefreshToken" TEXT,
     "gmailTokenExpiry" TIMESTAMP(3),
+    "fullBodyPhoto" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -69,6 +70,10 @@ CREATE TABLE "Wardrobe" (
     "sourceOrderId" TEXT,
     "sourceRetailer" TEXT,
     "category" TEXT DEFAULT 'Uncategorized',
+    "colorTag" TEXT,
+    "dominantColor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Wardrobe_pkey" PRIMARY KEY ("id")
 );
@@ -78,6 +83,7 @@ CREATE TABLE "Outfit" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
+    "tryOnImage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -89,12 +95,14 @@ CREATE TABLE "OutfitItem" (
     "id" TEXT NOT NULL,
     "outfitId" TEXT NOT NULL,
     "wardrobeItemId" TEXT NOT NULL,
-    "left" DOUBLE PRECISION NOT NULL,
-    "top" DOUBLE PRECISION NOT NULL,
-    "zIndex" INTEGER NOT NULL,
+    "left" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "top" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "width" DOUBLE PRECISION NOT NULL DEFAULT 150,
     "height" DOUBLE PRECISION NOT NULL DEFAULT 150,
+    "zIndex" INTEGER NOT NULL DEFAULT 1,
     "isPinned" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "OutfitItem_pkey" PRIMARY KEY ("id")
 );
@@ -126,6 +134,12 @@ CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
+
+-- CreateIndex
+CREATE INDEX "OutfitItem_outfitId_idx" ON "OutfitItem"("outfitId");
+
+-- CreateIndex
+CREATE INDEX "OutfitItem_wardrobeItemId_idx" ON "OutfitItem"("wardrobeItemId");
 
 -- AddForeignKey
 ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -7,19 +7,26 @@ import { Input } from "@/components/ui/input";
 import { WardrobeItem } from "@/types/outfit";
 import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 
-interface CanvasItem extends WardrobeItem {
+export interface CanvasItem extends WardrobeItem {
   left: number;
   top: number;
   zIndex: number;
   isPinned?: boolean;
   width: number;
   height: number;
+  price?: string;
 }
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
   onUpdateItems: (items: CanvasItem[]) => void;
-  onSave: (name: string, items: { id: string; left: number; top: number; width: number; height: number; zIndex: number; isPinned?: boolean }[]) => void;
+  onSave: (name: string, items: { id: string; left: number; top: number; width: number; height: number; zIndex: number; isPinned?: boolean }[], tryOnImageBase64?: string | null) => void;
+}
+
+interface TryOnImageState {
+  url: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
 }
 
 export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps) => {
@@ -31,6 +38,11 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
   const [maxZIndex, setMaxZIndex] = useState(1);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState('');
+  const [tryOnImage, setTryOnImage] = useState<TryOnImageState | null>(null);
+  const [isDraggingTryOn, setIsDraggingTryOn] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isResizingTryOn, setIsResizingTryOn] = useState(false);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   // Initialize positioned items
   useEffect(() => {
@@ -190,12 +202,11 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!outfitName.trim()) return;
     
     // Ensure all items have valid positioning data
     const validItems = positionedItems.filter(item => (
-      // Filter out any item with invalid or NaN values
       item.id && 
       !isNaN(item.left) && 
       !isNaN(item.top) && 
@@ -209,34 +220,38 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
       return;
     }
     
+    // Convert try-on image to base64 if it exists
+    let tryOnImageBase64 = null;
+    if (tryOnImage) {
+      try {
+        const response = await fetch(tryOnImage.url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        tryOnImageBase64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error('Error converting try-on image to base64:', error);
+      }
+    }
+    
     // Format data according to Prisma schema types
-    // OutfitItem model expects:
-    // - left, top, width, height as Float
-    // - zIndex as Int
-    // - isPinned as Boolean
     const outfitItems = validItems.map(({ id, left, top, width, height, zIndex, isPinned, name }) => {
-      // Extra safety - make sure we're working with numbers
       const numLeft = typeof left === 'number' ? left : parseFloat(String(left));
       const numTop = typeof top === 'number' ? top : parseFloat(String(top));
       const numWidth = typeof width === 'number' ? width : parseFloat(String(width));
       const numHeight = typeof height === 'number' ? height : parseFloat(String(height));
       const numZIndex = typeof zIndex === 'number' ? zIndex : parseInt(String(zIndex));
       
-      // Convert numbers to the exact format expected by Prisma
-      const formattedLeft = parseFloat(Number(numLeft || 0).toFixed(2)); 
-      const formattedTop = parseFloat(Number(numTop || 0).toFixed(2));
-      const formattedWidth = parseFloat(Number(Math.max(50, numWidth || 150)).toFixed(2));
-      const formattedHeight = parseFloat(Number(Math.max(50, numHeight || 150)).toFixed(2));
-      const formattedZIndex = Math.max(1, Math.round(Number(numZIndex || 1)));
-      
       return {
         id,
-        wardrobeItemId: id, // Make sure the property name matches what server expects
-        left: formattedLeft,
-        top: formattedTop,
-        width: formattedWidth,
-        height: formattedHeight,
-        zIndex: formattedZIndex,
+        wardrobeItemId: id,
+        left: parseFloat(Number(numLeft || 0).toFixed(2)),
+        top: parseFloat(Number(numTop || 0).toFixed(2)),
+        width: parseFloat(Number(Math.max(50, numWidth || 150)).toFixed(2)),
+        height: parseFloat(Number(Math.max(50, numHeight || 150)).toFixed(2)),
+        zIndex: Math.max(1, Math.round(Number(numZIndex || 1))),
         isPinned: Boolean(isPinned),
         name: name || 'Unnamed Item'
       };
@@ -245,7 +260,7 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     // Log the exact data we're sending for debugging
     console.log('Saving outfit with items:', JSON.stringify(outfitItems, null, 2));
     
-    onSave(outfitName, outfitItems);
+    onSave(outfitName, outfitItems, tryOnImageBase64);
     setShowSaveDialog(false);
     setOutfitName('');
   };
@@ -347,12 +362,148 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     return acc;
   }, {});
 
+  const handleTryItOn = async () => {
+    try {
+      // Log the current items on the canvas for debugging
+      console.log('Items on canvas:', positionedItems);
+
+      // Ensure there are items on the canvas
+      if (positionedItems.length === 0) {
+        console.error('No items on canvas to try on');
+        return;
+      }
+
+      // Fetch user's full body photo
+      const userPhotoResponse = await fetch('/api/user/full-body-photo');
+      if (!userPhotoResponse.ok) {
+        console.error('Failed to fetch user photo:', await userPhotoResponse.json());
+        return;
+      }
+      const { fullBodyPhoto } = await userPhotoResponse.json();
+      if (!fullBodyPhoto) {
+        console.error('No full body photo found for user');
+        return;
+      }
+
+      // Create FormData object
+      const formData = new FormData();
+      
+      // Add user's full body photo
+      const userPhotoBlob = await fetch(fullBodyPhoto).then(r => r.blob());
+      formData.append('userImage', userPhotoBlob, 'user-photo.jpg');
+
+      // Add each clothing item image
+      for (let i = 0; i < positionedItems.length; i++) {
+        const item = positionedItems[i];
+        if (item.image) {
+          const itemBlob = await fetch(item.image).then(r => r.blob());
+          formData.append(`clothingImage${i}`, itemBlob, `clothing-${i}.jpg`);
+        }
+      }
+
+      // Log the form data for debugging
+      console.log('FormData entries:', Array.from(formData.entries()));
+
+      // Call the virtual try-on API
+      const response = await fetch('/api/virtual-tryon', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Error calling virtual try-on API:', error);
+        return;
+      }
+
+      // Get the response data
+      const data = await response.json();
+      if (!data.image) {
+        console.error('No image in response:', data);
+        return;
+      }
+
+      // Create a data URL from the base64 image
+      const imageUrl = `data:image/png;base64,${data.image}`;
+
+      // Set the try-on image
+      setTryOnImage({
+        url: imageUrl,
+        position: { x: window.innerWidth - 220, y: 20 }, // 20px from top, 20px from right edge
+        size: { width: 200, height: 300 }
+      });
+
+      // Log the try-on image state
+      console.log('Try-on image set:', {
+        url: imageUrl,
+        position: { x: window.innerWidth - 220, y: 20 },
+        size: { width: 200, height: 300 }
+      });
+
+    } catch (error) {
+      console.error('Error in handleTryItOn:', error);
+    }
+  };
+
+  const handleTryOnMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingTryOn(true);
+    setDragStart({
+      x: e.clientX - (tryOnImage?.position.x || 0),
+      y: e.clientY - (tryOnImage?.position.y || 0)
+    });
+  };
+
+  const handleTryOnResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizingTryOn(true);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: tryOnImage?.size.width || 0,
+      height: tryOnImage?.size.height || 0
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingTryOn && tryOnImage) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setTryOnImage({
+        ...tryOnImage,
+        position: { x: newX, y: newY }
+      });
+    } else if (isResizingTryOn && tryOnImage) {
+      const deltaX = e.clientX - resizeStart.x;
+      const deltaY = e.clientY - resizeStart.y;
+      const newWidth = Math.max(100, resizeStart.width + deltaX);
+      const newHeight = Math.max(100, resizeStart.height + deltaY);
+      setTryOnImage({
+        ...tryOnImage,
+        size: { width: newWidth, height: newHeight }
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingTryOn(false);
+    setIsResizingTryOn(false);
+  };
+
+  const handleDeleteTryOn = () => {
+    setTryOnImage(null);
+  };
+
   return (
     <div 
       ref={canvasRef}
       className="h-full w-full bg-white rounded-md shadow-sm border border-gray-100 relative overflow-hidden"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
     >
       {/* Canvas background */}
       <div className="bg-[url('/grid-pattern.svg')] bg-center h-full w-full absolute opacity-5"></div>
@@ -469,6 +620,15 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
                 value={outfitName} 
                 onChange={(e) => setOutfitName(e.target.value)}
               />
+              {tryOnImage && (
+                <div className="relative w-full aspect-[2/3] bg-gray-100 rounded-md overflow-hidden">
+                  <img 
+                    src={tryOnImage.url} 
+                    alt="Try on preview" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
               <Button onClick={handleSave} disabled={!outfitName.trim()}>
                 Save
               </Button>
@@ -476,6 +636,43 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
           </DialogContent>
         </Dialog>
       </div>
+      {/* Try it on button */}
+      <div className="absolute bottom-4 right-32">
+        <Button variant="default" size="sm" onClick={handleTryItOn}>Try it on</Button>
+      </div>
+      
+      {/* Display try-on image */}
+      {tryOnImage && (
+        <div 
+          className="absolute bg-white rounded-md shadow-md overflow-hidden"
+          style={{
+            left: `${tryOnImage.position.x}px`,
+            top: `${tryOnImage.position.y}px`,
+            width: `${tryOnImage.size.width}px`,
+            height: `${tryOnImage.size.height}px`,
+            cursor: isDraggingTryOn ? 'grabbing' : 'grab'
+          }}
+          onMouseDown={handleTryOnMouseDown}
+        >
+          <img 
+            src={tryOnImage.url} 
+            alt="Try on result" 
+            className="w-full h-full object-contain"
+          />
+          <div 
+            className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize"
+            onMouseDown={handleTryOnResizeMouseDown}
+          />
+          <button
+            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+            onClick={handleDeleteTryOn}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      )}
       
       {/* Placeholder for empty state */}
       {positionedItems.length === 0 && (

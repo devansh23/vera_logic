@@ -4,7 +4,7 @@ declare module '@/types/outfit' {
     userId?: string;
     brand: string;
     name: string;
-    price: string;
+    price?: string;
     originalPrice?: string;
     discount?: string;
     image?: string;

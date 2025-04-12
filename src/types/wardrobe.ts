@@ -22,4 +22,6 @@ export interface WardrobeItem {
   updatedAt?: string;
   dominantColor?: string;
   colorTag?: string;
+  subcategory: string;
+  notes?: string;
 } 

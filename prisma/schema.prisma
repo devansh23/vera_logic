@@ -39,12 +39,12 @@ model User {
   email             String?         @unique
   emailVerified     DateTime?
   image             String?
-  fullBodyPhoto     String?         // URL to the user's full body photo
   gmailAccessToken  String?
   gmailConnected    Boolean         @default(false)
   gmailLastSynced   DateTime?
   gmailRefreshToken String?
   gmailTokenExpiry  DateTime?
+  fullBodyPhoto     String?
   accounts          Account[]
   calendarEvents    CalendarEvent[]
   outfits           Outfit[]
@@ -72,23 +72,26 @@ model Wardrobe {
   productLink    String?
   myntraLink     String?
   size           String?
-  color          String?      // raw scraped color string
-  dominantColor  String?      // hex color code
-  colorTag       String?      // broad color family
+  color          String?
   dateAdded      DateTime     @default(now())
   source         String?
   sourceEmailId  String?
   sourceOrderId  String?
   sourceRetailer String?
   category       String?      @default("Uncategorized")
-  outfitItems    OutfitItem[]
+  colorTag       String?
+  dominantColor  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outfitItems    OutfitItem[]
 }
 
 model Outfit {
   id             String          @id @default(cuid())
   name           String
   userId         String
+  tryOnImage     String?         // Base64 encoded try-on image
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   calendarEvents CalendarEvent[]
@@ -100,14 +103,19 @@ model OutfitItem {
   id             String   @id @default(cuid())
   outfitId       String
   wardrobeItemId String
-  left           Float
-  top            Float
-  zIndex         Int
+  left           Float    @default(0)
+  top            Float    @default(0)
   width          Float    @default(150)
   height         Float    @default(150)
+  zIndex         Int      @default(1)
   isPinned       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   outfit         Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
   wardrobeItem   Wardrobe @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+
+  @@index([outfitId])
+  @@index([wardrobeItemId])
 }
 
 model CalendarEvent {
