@@ -56,6 +56,8 @@ interface WardrobeContextType {
   removeItem: (id: string) => Promise<void>;
   saveWardrobe: (showMessage?: boolean) => Promise<void>;
   clearWardrobe: () => Promise<void>;
+  setAutosaveEnabled: (enabled: boolean) => void;
+  autosaveEnabled: boolean;
 }
 
 // Create the context
@@ -80,6 +82,7 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
   const lastSaveTime = useRef<number>(0);
   const isDirty = useRef<boolean>(false);
   const isAutosaving = useRef<boolean>(false);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false);
 
   // Update categorizedItems whenever items change
   useEffect(() => {
@@ -394,7 +397,8 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
 
   // Periodic autosave check (completely rewritten)
   useEffect(() => {
-    // This effect doesn't depend on items to avoid triggering on every item change
+    if (!autosaveEnabled) return; // Skip if autosave is disabled
+    
     const checkAndSaveIfNeeded = () => {
       if (initialLoadComplete.current && isDirty.current && !isAutosaving.current) {
         console.log('Scheduled check found dirty state - saving');
@@ -402,25 +406,22 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       }
     };
     
-    // Set up periodic check instead of watching items directly
-    const intervalId = setInterval(checkAndSaveIfNeeded, 10000); // Check every 10 seconds
-    
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []); // Empty dependency array - doesn't react to items changes
+    const intervalId = setInterval(checkAndSaveIfNeeded, 10000);
+    return () => clearInterval(intervalId);
+  }, [autosaveEnabled]);
   
   // Manually run save when items are modified directly (add/remove)
   useEffect(() => {
+    if (!autosaveEnabled) return; // Skip if autosave is disabled
+    
     if (items.length > 0 && initialLoadComplete.current && isDirty.current && !isAutosaving.current) {
       if (autosaveTimeoutRef.current) {
         clearTimeout(autosaveTimeoutRef.current);
       }
       
-      // Delay to debounce multiple changes
       autosaveTimeoutRef.current = setTimeout(() => {
         const now = Date.now();
-        if (now - lastSaveTime.current > 5000) { // Min 5 seconds between saves
+        if (now - lastSaveTime.current > 5000) {
           console.log('Debounced save triggered');
           saveWardrobe(false);
         } else {
@@ -434,7 +435,7 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [items]);
+  }, [items, autosaveEnabled]);
 
   return (
     <WardrobeContext.Provider
@@ -448,6 +449,8 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
         removeItem,
         saveWardrobe,
         clearWardrobe,
+        setAutosaveEnabled,
+        autosaveEnabled,
       }}
     >
       {children}

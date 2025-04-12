@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { prisma } from '@/lib/prisma'
 import FullBodyPhotoUpload from '@/components/FullBodyPhotoUpload';
+import { useWardrobe } from '@/contexts/WardrobeContext';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -575,6 +576,7 @@ export default function Home() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const { setAutosaveEnabled, autosaveEnabled } = useWardrobe();
   // Add state for expanded categories
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
   // Add state for wardrobe search/filter
@@ -614,8 +616,8 @@ export default function Home() {
 
   // Autosave effect - triggers save whenever products change
   useEffect(() => {
-    // Don't save if there are no products or no session
-    if (!products.length || !session?.user?.id) return;
+    // Don't save if autosave is disabled, there are no products, or no session
+    if (!autosaveEnabled || !products.length || !session?.user?.id) return;
     
     // Clear any existing timeout to prevent multiple saves
     if (autoSaveTimeout) {
@@ -635,7 +637,7 @@ export default function Home() {
         clearTimeout(autoSaveTimeout);
       }
     };
-  }, [products]);
+  }, [products, autosaveEnabled]);
 
   const loadUserWardrobe = async () => {
     try {
