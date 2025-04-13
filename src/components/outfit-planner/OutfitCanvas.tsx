@@ -364,7 +364,7 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
 
   const handleTryItOn = async () => {
     try {
-      // Log the current items on the canvas for debugging
+      // Log the current items on canvas for debugging
       console.log('Items on canvas:', positionedItems);
 
       // Ensure there are items on the canvas
@@ -372,6 +372,19 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
         console.error('No items on canvas to try on');
         return;
       }
+
+      // Get canvas dimensions for positioning
+      const canvasRect = canvasRef.current?.getBoundingClientRect();
+      if (!canvasRect) return;
+
+      // Set initial size for try-on image
+      const initialWidth = 300; // You can adjust this value
+      const initialHeight = 400; // You can adjust this value
+
+      // Calculate position for top right corner
+      const margin = 20;
+      const xPosition = canvasRect.width - initialWidth - margin;
+      const yPosition = margin;
 
       // Fetch user's full body photo
       const userPhotoResponse = await fetch('/api/user/full-body-photo');
@@ -426,18 +439,18 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
       // Create a data URL from the base64 image
       const imageUrl = `data:image/png;base64,${data.image}`;
 
-      // Set the try-on image
+      // Set the try-on image with the new positioning
       setTryOnImage({
         url: imageUrl,
-        position: { x: window.innerWidth - 220, y: 20 }, // 20px from top, 20px from right edge
-        size: { width: 200, height: 300 }
+        position: { x: xPosition, y: yPosition },
+        size: { width: initialWidth, height: initialHeight }
       });
 
       // Log the try-on image state
       console.log('Try-on image set:', {
         url: imageUrl,
-        position: { x: window.innerWidth - 220, y: 20 },
-        size: { width: 200, height: 300 }
+        position: { x: xPosition, y: yPosition },
+        size: { width: initialWidth, height: initialHeight }
       });
 
     } catch (error) {
