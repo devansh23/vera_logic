@@ -1,9 +1,9 @@
 export interface WardrobeItem {
   id: string;
   userId?: string;
-  brand: string;
+  brand?: string;
   name: string;
-  price: string;
+  price?: string;
   originalPrice?: string;
   discount?: string;
   image?: string;

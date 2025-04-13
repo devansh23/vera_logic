@@ -17,9 +17,9 @@ interface LinkPreview {
 }
 
 interface MyntraProduct {
-  brand: string;
+  brand?: string;  // Made optional
   name: string;
-  price: string;
+  price?: string;  // Made optional
   originalPrice?: string;
   discount?: string;
   sizes?: string[];
@@ -916,11 +916,46 @@ export default function Home() {
     setImagePreview(null)
   }
 
-  const handleDeleteProduct = (index: number) => {
-    setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
-          setShowDeleteConfirm(null);
-    // Autosave will be triggered by the useEffect
-  }
+  const handleDeleteProduct = async (index: number) => {
+    if (!session) {
+      setError('Please sign in to manage your wardrobe');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      
+      // Update local state first
+      setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
+      
+      // Save the updated state to the backend
+      const response = await fetch('/api/wardrobe/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: products.filter((_, i) => i !== index) }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save wardrobe after deletion');
+      }
+      
+      setSaveSuccess('Item successfully removed from your wardrobe');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(null);
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete item');
+    } finally {
+      setIsSaving(false);
+      setShowDeleteConfirm(null);
+    }
+  };
 
   const handleDeleteAllItems = async () => {
     if (!session) {
@@ -1005,8 +1040,8 @@ export default function Home() {
             ? (a.name || '').localeCompare(b.name || '')
             : (b.name || '').localeCompare(a.name || '');
         case 'price':
-          const priceA = getPriceAsNumber(a.price);
-          const priceB = getPriceAsNumber(b.price);
+          const priceA = getPriceAsNumber(a.price || '0');
+          const priceB = getPriceAsNumber(b.price || '0');
           return sortOption.direction === 'asc'
             ? priceA - priceB
             : priceB - priceA;
@@ -1039,14 +1074,14 @@ export default function Home() {
 
       // Brand filter
       const brandMatch = filterOptions.brands.length === 0 ||
-        filterOptions.brands.includes(product.brand || '');
+        (product.brand ? filterOptions.brands.includes(product.brand) : false);
 
       // Retailer filter
       const retailerMatch = filterOptions.retailers.length === 0 ||
         filterOptions.retailers.includes(product.sourceRetailer || 'Unknown');
 
       // Price filter
-      const price = getPriceAsNumber(product.price);
+      const price = getPriceAsNumber(product.price || '0');
       const priceMatch = price >= filterOptions.priceRange.min && 
         price <= filterOptions.priceRange.max;
 
