@@ -56,12 +56,19 @@ export interface OutfitItemRelation {
   isPinned?: boolean;
 }
 
+// Try-on image structure
+export interface TryOnImage {
+  url: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+}
+
 // Complete outfit representation
 export interface Outfit {
   id: string;
   name: string;
   userId: string;
-  tryOnImage?: string;
+  tryOnImage?: TryOnImage;
   createdAt?: Date;
   updatedAt?: Date;
   items: OutfitItemRelation[];

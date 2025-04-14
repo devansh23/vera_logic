@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
 import OutfitCanvas from './OutfitCanvas';
 import { WardrobeSidebar } from './WardrobeSidebar';
-import { WardrobeItem, CanvasItem } from "@/types/wardrobe";
+import { WardrobeItem, CanvasItem, TryOnImage } from "@/types/wardrobe";
 import { useWardrobe } from '@/contexts/WardrobeContext';
 
 // Use CanvasItem type directly since it already extends WardrobeItem with the correct properties
@@ -35,7 +35,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [shouldRefreshWardrobe, setShouldRefreshWardrobe] = useState(false);
   const [outfitName, setOutfitName] = useState<string | null>(null);
-  const [tryOnImage, setTryOnImage] = useState<{ url: string; position: { x: number; y: number }; size: { width: number; height: number } } | null>(null);
+  const [tryOnImage, setTryOnImage] = useState<TryOnImage | null>(null);
 
   useEffect(() => {
     if (editId) {
@@ -53,11 +53,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           
           // Set the virtual try-on image if it exists
           if (outfit.tryOnImage) {
-            setTryOnImage({
-              url: outfit.tryOnImage,
-              position: { x: 0, y: 0 },
-              size: { width: 400, height: 600 }
-            });
+            setTryOnImage(outfit.tryOnImage);
           }
           
           // Map the outfit items to the canvas format

@@ -4,20 +4,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { WardrobeItem, CanvasItem } from "@/types/wardrobe";
+import { WardrobeItem, CanvasItem, TryOnImage } from "@/types/wardrobe";
 import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
   onUpdateItems: (items: CanvasItem[]) => void;
   onSave: (name: string, items: CanvasItem[], tryOnImageBase64?: string | null) => Promise<any>;
-  initialTryOnImage?: string | null;
-}
-
-interface TryOnImageState {
-  url: string;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
+  initialTryOnImage?: TryOnImage | null;
 }
 
 export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryOnImage }: OutfitCanvasProps) {
@@ -29,7 +23,7 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
   const [maxZIndex, setMaxZIndex] = useState(1);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [outfitName, setOutfitName] = useState('');
-  const [tryOnImage, setTryOnImage] = useState<TryOnImageState | null>(null);
+  const [tryOnImage, setTryOnImage] = useState<TryOnImage | null>(null);
   const [isDraggingTryOn, setIsDraggingTryOn] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isResizingTryOn, setIsResizingTryOn] = useState(false);
@@ -84,11 +78,7 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
   // Initialize try-on image from props
   useEffect(() => {
     if (initialTryOnImage) {
-      setTryOnImage({
-        url: initialTryOnImage,
-        position: { x: 0, y: 0 },
-        size: { width: 300, height: 400 }
-      });
+      setTryOnImage(initialTryOnImage);
     }
   }, [initialTryOnImage]);
 
