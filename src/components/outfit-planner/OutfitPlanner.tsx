@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
-import OutfitCanvas, { type CanvasItem } from './OutfitCanvas';
+import OutfitCanvas from './OutfitCanvas';
 import { WardrobeSidebar } from './WardrobeSidebar';
-import { WardrobeItem } from "@/types/wardrobe";
+import { WardrobeItem, CanvasItem } from "@/types/wardrobe";
 import { useWardrobe } from '@/contexts/WardrobeContext';
 
 // Use CanvasItem type directly since it already extends WardrobeItem with the correct properties
@@ -34,7 +34,8 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [shouldRefreshWardrobe, setShouldRefreshWardrobe] = useState(false);
-  const [tryOnImage, setTryOnImage] = useState<string | null>(null);
+  const [outfitName, setOutfitName] = useState<string | null>(null);
+  const [tryOnImage, setTryOnImage] = useState<{ url: string; position: { x: number; y: number }; size: { width: number; height: number } } | null>(null);
 
   useEffect(() => {
     if (editId) {
@@ -47,8 +48,20 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           }
           const outfit = await response.json();
           
-          // Set the items
-          setItems(outfit.items.map((item: any) => ({
+          // Set the outfit name
+          setOutfitName(outfit.name);
+          
+          // Set the virtual try-on image if it exists
+          if (outfit.tryOnImage) {
+            setTryOnImage({
+              url: outfit.tryOnImage,
+              position: { x: 0, y: 0 },
+              size: { width: 400, height: 600 }
+            });
+          }
+          
+          // Map the outfit items to the canvas format
+          const canvasItems = outfit.items.map((item: any) => ({
             ...item.wardrobeItem,
             left: item.left || 0,
             top: item.top || 0,
@@ -57,13 +70,11 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
             zIndex: item.zIndex || 1,
             isPinned: item.isPinned || false,
             brand: item.wardrobeItem.brand || 'Unknown Brand',
-            category: item.wardrobeItem.category || 'Uncategorized'
-          })));
-
-          // Set the try-on image if it exists
-          if (outfit.tryOnImage) {
-            setTryOnImage(outfit.tryOnImage);
-          }
+            category: item.wardrobeItem.category || 'Uncategorized',
+            price: item.wardrobeItem.price || '0'
+          }));
+          
+          setItems(canvasItems);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load outfit');
         } finally {
@@ -162,7 +173,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
         id: editId, // Include the ID if we're editing
         name,
         items: validatedItems,
-        tryOnImage: tryOnImageBase64 || tryOnImage // Use existing try-on image if no new one is provided
+        tryOnImage: tryOnImageBase64 || tryOnImage?.url // Use existing try-on image URL if no new one is provided
       };
       
       console.log('Saving outfit with data:', JSON.stringify(outfitData, null, 2));

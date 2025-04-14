@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // GET /api/outfits - Get all outfits for the current user
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -15,28 +15,68 @@ export async function GET() {
       );
     }
 
-    const outfits = await prisma.outfit.findMany({
-      where: {
-        userId: session.user.id
-      },
-      include: {
-        items: {
-          include: {
-            wardrobeItem: {
-              select: {
-                name: true,
-                image: true
+    const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get('id');
+
+    if (id) {
+      // Get a specific outfit with full wardrobe item details
+      const outfit = await prisma.outfit.findUnique({
+        where: {
+          id,
+          userId: session.user.id
+        },
+        include: {
+          items: {
+            include: {
+              wardrobeItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                  brand: true,
+                  category: true,
+                  price: true,
+                  color: true
+                }
               }
             }
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+      });
 
-    return NextResponse.json(outfits);
+      if (!outfit) {
+        return NextResponse.json(
+          { error: 'Outfit not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(outfit);
+    } else {
+      // Get all outfits with basic details
+      const outfits = await prisma.outfit.findMany({
+        where: {
+          userId: session.user.id
+        },
+        include: {
+          items: {
+            include: {
+              wardrobeItem: {
+                select: {
+                  name: true,
+                  image: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      return NextResponse.json(outfits);
+    }
   } catch (error) {
     console.error('Error fetching outfits:', error);
     return NextResponse.json(

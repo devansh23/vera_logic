@@ -27,6 +27,7 @@ export interface WardrobeItem extends BaseWardrobeItem {
   dominantColor?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  notes?: string;
 }
 
 // Position data for items on canvas
