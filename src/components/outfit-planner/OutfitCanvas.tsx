@@ -10,11 +10,20 @@ import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 interface OutfitCanvasProps {
   items: CanvasItem[];
   onUpdateItems: (items: CanvasItem[]) => void;
-  onSave: (name: string, items: CanvasItem[], tryOnImageBase64?: string | null) => Promise<any>;
+  onSave: (name: string, items: CanvasItem[], tryOnImageBase64?: string | null, saveAsNew?: boolean) => Promise<any>;
   initialTryOnImage?: TryOnImage | null;
+  isEditing?: boolean;
+  existingName?: string;
 }
 
-export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryOnImage }: OutfitCanvasProps) {
+export default function OutfitCanvas({ 
+  items, 
+  onUpdateItems, 
+  onSave, 
+  initialTryOnImage,
+  isEditing,
+  existingName 
+}: OutfitCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [positionedItems, setPositionedItems] = useState<CanvasItem[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -29,6 +38,7 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
   const [isResizingTryOn, setIsResizingTryOn] = useState(false);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [saveAsNew, setSaveAsNew] = useState(false);
 
   // Initialize positioned items
   useEffect(() => {
@@ -81,6 +91,13 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
       setTryOnImage(initialTryOnImage);
     }
   }, [initialTryOnImage]);
+
+  // Initialize outfit name from props when editing
+  useEffect(() => {
+    if (isEditing && existingName) {
+      setOutfitName(existingName);
+    }
+  }, [isEditing, existingName]);
 
   // Global mouse event handlers
   useEffect(() => {
@@ -202,10 +219,13 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
     }
 
     try {
-      const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null);
+      const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null, saveAsNew);
       if (result) {
         setShowSaveDialog(false);
-        setOutfitName('');
+        if (!isEditing || saveAsNew) {
+          setOutfitName('');
+        }
+        setSaveAsNew(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save outfit');
@@ -571,7 +591,9 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
             <DialogHeader>
               <DialogTitle>Save Your Outfit</DialogTitle>
               <DialogDescription>
-                Give your outfit a name to save it to your collection.
+                {isEditing 
+                  ? "Update the existing outfit or save as a new one."
+                  : "Give your outfit a name to save it to your collection."}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
@@ -589,9 +611,38 @@ export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryO
                   />
                 </div>
               )}
-              <Button onClick={handleSave} disabled={!outfitName.trim()}>
-                Save
-              </Button>
+              {isEditing ? (
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      setSaveAsNew(false);
+                      handleSave();
+                    }} 
+                    className="flex-1"
+                    disabled={!outfitName.trim()}
+                  >
+                    Update Outfit
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setSaveAsNew(true);
+                      handleSave();
+                    }}
+                    className="flex-1"
+                    disabled={!outfitName.trim()}
+                  >
+                    Save as New
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  onClick={handleSave} 
+                  disabled={!outfitName.trim()}
+                  className="w-full"
+                >
+                  Save
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -22,6 +23,7 @@ interface SavedOutfit {
 
 export function SavedOutfits() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +70,10 @@ export function SavedOutfits() {
     }
   };
 
+  const handleEditOutfit = (outfitId: string) => {
+    router.push(`/outfit-planner?edit=${outfitId}`);
+  };
+
   if (loading) {
     return <div className="text-center py-4">Loading saved outfits...</div>;
   }
@@ -94,7 +100,8 @@ export function SavedOutfits() {
         {outfits.map((outfit) => (
           <div
             key={outfit.id}
-            className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative group"
+            className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative group cursor-pointer"
+            onClick={() => handleEditOutfit(outfit.id)}
           >
             <h3 className="font-semibold text-lg mb-2">{outfit.name}</h3>
             <p className="text-sm text-gray-500 mb-2">
@@ -125,7 +132,10 @@ export function SavedOutfits() {
               </div>
             </div>
             <button
-              onClick={() => setOutfitToDelete(outfit.id)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent triggering the parent onClick
+                setOutfitToDelete(outfit.id);
+              }}
               className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
               aria-label="Delete outfit"
             >

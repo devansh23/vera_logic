@@ -19,6 +19,7 @@ interface SaveOutfitResponse {
   success?: boolean;
   error?: string;
   details?: MissingItem[];
+  outfit?: { id: string };
 }
 
 interface OutfitPlannerProps {
@@ -53,7 +54,11 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           
           // Set the virtual try-on image if it exists
           if (outfit.tryOnImage) {
-            setTryOnImage(outfit.tryOnImage);
+            setTryOnImage({
+              url: outfit.tryOnImage,
+              position: { x: 0, y: 0 }, // Default position
+              size: { width: 400, height: 600 } // Default size
+            });
           }
           
           // Map the outfit items to the canvas format
@@ -102,7 +107,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
     isPinned?: boolean;
     name?: string;
     wardrobeItemId?: string;
-  }[], tryOnImageBase64?: string | null): Promise<SaveOutfitResponse | null> => {
+  }[], tryOnImageBase64?: string | null, saveAsNew?: boolean): Promise<SaveOutfitResponse | null> => {
     if (!session?.user?.id) {
       setError('Please sign in to save outfits');
       return null;
@@ -166,16 +171,16 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
       
       // Prepare the request payload
       const outfitData = {
-        id: editId, // Include the ID if we're editing
+        id: saveAsNew ? undefined : editId, // Only include ID if updating existing outfit
         name,
         items: validatedItems,
-        tryOnImage: tryOnImageBase64 || tryOnImage?.url // Use existing try-on image URL if no new one is provided
+        tryOnImage: tryOnImageBase64 || (tryOnImage ? tryOnImage.url : null)
       };
       
       console.log('Saving outfit with data:', JSON.stringify(outfitData, null, 2));
       
       const response = await fetch('/api/outfits', {
-        method: editId ? 'PUT' : 'POST', // Use PUT for updates, POST for new outfits
+        method: saveAsNew ? 'POST' : editId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -214,7 +219,12 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
         throw new Error(data.error || 'Failed to save outfit');
       }
       
-      setSaveSuccess(`Outfit "${name}" ${editId ? 'updated' : 'saved'} successfully!`);
+      setSaveSuccess(`Outfit "${name}" ${saveAsNew ? 'saved as new' : editId ? 'updated' : 'saved'} successfully!`);
+      
+      // If we saved as new, redirect to the new outfit
+      if (saveAsNew && data?.outfit?.id) {
+        router.push(`/outfit-planner?edit=${data.outfit.id}`);
+      }
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -260,6 +270,8 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           onUpdateItems={handleUpdateItems}
           onSave={saveOutfit}
           initialTryOnImage={tryOnImage}
+          isEditing={!!editId}
+          existingName={outfitName || ''}
         />
       </div>
     </div>
