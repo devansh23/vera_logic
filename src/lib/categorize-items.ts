@@ -1,4 +1,4 @@
-import { WardrobeItem } from '@/types/outfit';
+import { WardrobeItem } from '@/types/wardrobe';
 
 const categoryKeywords: Record<string, string[]> = {
   // Men's Categories

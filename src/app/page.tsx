@@ -30,7 +30,6 @@ interface MyntraProduct {
   myntraLink?: string;  // Keep for backward compatibility
   productLink?: string; // Add for H&M and other retailers
   category?: string;
-  subCategory?: string;
   color?: string;
   pattern?: string;
   fabric?: string;

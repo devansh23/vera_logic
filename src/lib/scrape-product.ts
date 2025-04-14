@@ -1,26 +1,15 @@
 import * as cheerio from 'cheerio';
 import puppeteer from 'puppeteer';
 import { categorizeItem } from './categorize-items';
+import { WardrobeItem } from '@/types/wardrobe';
 
-interface Product {
-  name: string;
-  brand: string;
-  price: string;
-  originalPrice?: string;
-  discount?: string;
+interface Product extends Omit<WardrobeItem, 'id' | 'userId' | 'createdAt' | 'updatedAt'> {
   sizes?: string[];
   colors?: string[];
   images?: string[];
   description?: string;
-  image?: string;
-  productLink: string;
-  category?: string;
-  subCategory?: string;
-  color?: string;
   pattern?: string;
   fabric?: string;
-  dateAdded: string;
-  size?: string;
   quantity?: string;
   seller?: string;
   sourceRetailer?: string;
@@ -200,7 +189,7 @@ export async function scrapeProduct(url: string): Promise<Product> {
       brand,
       price,
       productLink: url,
-      dateAdded: new Date().toISOString(),
+      dateAdded: new Date(),
       id: url.split('/').pop() || '',
       sourceRetailer: brand
     };

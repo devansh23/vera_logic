@@ -1,6 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import { log } from '@/lib/logger';
 import { categorizeItem } from './categorize-items';
+import { WardrobeItem } from '@/types/wardrobe';
+
+interface OrderItem {
+  brand?: string;
+  productName?: string;
+  price?: number;
+  imageUrl?: string;
+  size?: string;
+  color?: string;
+}
 
 /**
  * Add items from an order to the user's wardrobe
@@ -12,15 +22,8 @@ import { categorizeItem } from './categorize-items';
 export async function addOrderItemsToWardrobe(
   userId: string, 
   orderId: string, 
-  items: Array<{
-    brand?: string;
-    productName?: string;
-    price?: number;
-    imageUrl?: string;
-    size?: string;
-    color?: string;
-  }>
-) {
+  items: OrderItem[]
+): Promise<string[]> {
   const wardrobeItemIds: string[] = [];
   
   for (const item of items) {
@@ -37,7 +40,7 @@ export async function addOrderItemsToWardrobe(
           userId: userId,
           brand: item.brand || 'Unknown',
           name: item.productName || 'Unknown Product',
-          price: item.price ? item.price.toString() : '',
+          price: item.price ? item.price.toString() : '0',
           originalPrice: '',
           discount: '',
           image: item.imageUrl || '',
@@ -65,39 +68,4 @@ export async function addOrderItemsToWardrobe(
   }
   
   return wardrobeItemIds;
-}
-
-/**
- * Update the email processing history record
- * @param userId User ID
- * @param emailId Email ID
- * @param subject Email subject
- * @param itemsAdded Number of items added to wardrobe
- */
-export async function updateEmailProcessingHistory(
-  userId: string,
-  emailId: string,
-  subject: string,
-  itemsAdded: number
-) {
-  return prisma.emailProcessingHistory.upsert({
-    where: {
-      userId_emailId: {
-        userId: userId,
-        emailId: emailId
-      }
-    },
-    update: {
-      success: true,
-      itemsAdded: itemsAdded
-    },
-    create: {
-      id: `${userId}_${emailId}`,
-      userId: userId,
-      emailId: emailId,
-      subject: subject || '',
-      success: true,
-      itemsAdded: itemsAdded
-    }
-  });
 } 

@@ -1,17 +1,17 @@
 "use client"
 
 import React, { useState } from 'react';
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
+import { ScrollArea } from "../../components/ui/scroll-area";
+import { Input } from "../../components/ui/input";
 import { Search } from "lucide-react";
 import { useWardrobe } from '@/contexts/WardrobeContext';
-import { WardrobeItem } from '@/types/outfit';
+import { WardrobeItem } from "@/types/wardrobe";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
+} from "../../components/ui/accordion"
 
 export const WardrobeSidebar = () => {
   const { items, categorizedItems } = useWardrobe();

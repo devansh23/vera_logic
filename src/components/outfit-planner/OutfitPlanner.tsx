@@ -2,21 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { useSession } from 'next-auth/react';
-import { OutfitCanvas, type CanvasItem } from './OutfitCanvas';
+import OutfitCanvas, { type CanvasItem } from './OutfitCanvas';
 import { WardrobeSidebar } from './WardrobeSidebar';
-import type { WardrobeItem } from '@/types/wardrobe';
+import { WardrobeItem } from "@/types/wardrobe";
 import { useWardrobe } from '@/contexts/WardrobeContext';
 
-interface OutfitItem extends WardrobeItem {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  zIndex: number;
-  isPinned?: boolean;
-  brand: string;
-  category: string;
-  price?: string;
+// Use CanvasItem type directly since it already extends WardrobeItem with the correct properties
+type OutfitItem = CanvasItem;
+
+interface MissingItem {
+  name: string;
+  id: string;
+}
+
+interface SaveOutfitResponse {
+  success?: boolean;
+  error?: string;
+  details?: MissingItem[];
 }
 
 interface OutfitPlannerProps {
@@ -32,6 +34,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [shouldRefreshWardrobe, setShouldRefreshWardrobe] = useState(false);
+  const [tryOnImage, setTryOnImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (editId) {
@@ -43,6 +46,8 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
             throw new Error('Failed to load outfit');
           }
           const outfit = await response.json();
+          
+          // Set the items
           setItems(outfit.items.map((item: any) => ({
             ...item.wardrobeItem,
             left: item.left || 0,
@@ -54,6 +59,11 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
             brand: item.wardrobeItem.brand || 'Unknown Brand',
             category: item.wardrobeItem.category || 'Uncategorized'
           })));
+
+          // Set the try-on image if it exists
+          if (outfit.tryOnImage) {
+            setTryOnImage(outfit.tryOnImage);
+          }
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load outfit');
         } finally {
@@ -85,7 +95,7 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
     isPinned?: boolean;
     name?: string;
     wardrobeItemId?: string;
-  }[], tryOnImageBase64?: string | null) => {
+  }[], tryOnImageBase64?: string | null): Promise<SaveOutfitResponse | null> => {
     if (!session?.user?.id) {
       setError('Please sign in to save outfits');
       return null;
@@ -149,15 +159,16 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
       
       // Prepare the request payload
       const outfitData = {
+        id: editId, // Include the ID if we're editing
         name,
         items: validatedItems,
-        tryOnImage: tryOnImageBase64
+        tryOnImage: tryOnImageBase64 || tryOnImage // Use existing try-on image if no new one is provided
       };
       
       console.log('Saving outfit with data:', JSON.stringify(outfitData, null, 2));
       
       const response = await fetch('/api/outfits', {
-        method: 'POST',
+        method: editId ? 'PUT' : 'POST', // Use PUT for updates, POST for new outfits
         headers: {
           'Content-Type': 'application/json',
         },
@@ -189,15 +200,14 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
             throw new Error(`Server error: ${errorDetails}`);
           }
         } else if (data?.details && Array.isArray(data.details)) {
-          // This is an array of missing items
-          const missingItemNames = data.details.map((item: any) => item.name).join(', ');
+          const missingItemNames = data.details.map((item: MissingItem) => item.name).join(', ');
           throw new Error(`Cannot save outfit: The following items are no longer in your wardrobe: ${missingItemNames}`);
         }
         
         throw new Error(data.error || 'Failed to save outfit');
       }
       
-      setSaveSuccess(`Outfit "${name}" saved successfully!`);
+      setSaveSuccess(`Outfit "${name}" ${editId ? 'updated' : 'saved'} successfully!`);
       
       // Clear success message after 3 seconds
       setTimeout(() => {
@@ -242,8 +252,9 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           items={items}
           onUpdateItems={handleUpdateItems}
           onSave={saveOutfit}
+          initialTryOnImage={tryOnImage}
         />
       </div>
     </div>
   );
-} 
+}

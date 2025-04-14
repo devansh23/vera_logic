@@ -1,26 +1,17 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { WardrobeItem } from "@/types/outfit";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../components/ui/dialog";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { WardrobeItem, CanvasItem } from "@/types/wardrobe";
 import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
-
-export interface CanvasItem extends WardrobeItem {
-  left: number;
-  top: number;
-  zIndex: number;
-  isPinned?: boolean;
-  width: number;
-  height: number;
-  price?: string;
-}
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
   onUpdateItems: (items: CanvasItem[]) => void;
-  onSave: (name: string, items: { id: string; left: number; top: number; width: number; height: number; zIndex: number; isPinned?: boolean }[], tryOnImageBase64?: string | null) => void;
+  onSave: (name: string, items: CanvasItem[], tryOnImageBase64?: string | null) => Promise<any>;
+  initialTryOnImage?: string | null;
 }
 
 interface TryOnImageState {
@@ -29,7 +20,7 @@ interface TryOnImageState {
   size: { width: number; height: number };
 }
 
-export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps) => {
+export default function OutfitCanvas({ items, onUpdateItems, onSave, initialTryOnImage }: OutfitCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [positionedItems, setPositionedItems] = useState<CanvasItem[]>([]);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -43,6 +34,7 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isResizingTryOn, setIsResizingTryOn] = useState(false);
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize positioned items
   useEffect(() => {
@@ -88,6 +80,17 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
     
     setPositionedItems(updatedItems);
   }, [items]);
+
+  // Initialize try-on image from props
+  useEffect(() => {
+    if (initialTryOnImage) {
+      setTryOnImage({
+        url: initialTryOnImage,
+        position: { x: 0, y: 0 },
+        size: { width: 300, height: 400 }
+      });
+    }
+  }, [initialTryOnImage]);
 
   // Global mouse event handlers
   useEffect(() => {
@@ -203,66 +206,20 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
   };
 
   const handleSave = async () => {
-    if (!outfitName.trim()) return;
-    
-    // Ensure all items have valid positioning data
-    const validItems = positionedItems.filter(item => (
-      item.id && 
-      !isNaN(item.left) && 
-      !isNaN(item.top) && 
-      !isNaN(item.width) && 
-      !isNaN(item.height) && 
-      !isNaN(item.zIndex)
-    ));
-    
-    if (validItems.length === 0) {
-      console.error('No valid items to save');
+    if (outfitName.trim() === '') {
+      setError('Please enter a name for your outfit');
       return;
     }
-    
-    // Convert try-on image to base64 if it exists
-    let tryOnImageBase64 = null;
-    if (tryOnImage) {
-      try {
-        const response = await fetch(tryOnImage.url);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        tryOnImageBase64 = await new Promise<string>((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (error) {
-        console.error('Error converting try-on image to base64:', error);
+
+    try {
+      const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null);
+      if (result) {
+        setShowSaveDialog(false);
+        setOutfitName('');
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save outfit');
     }
-    
-    // Format data according to Prisma schema types
-    const outfitItems = validItems.map(({ id, left, top, width, height, zIndex, isPinned, name }) => {
-      const numLeft = typeof left === 'number' ? left : parseFloat(String(left));
-      const numTop = typeof top === 'number' ? top : parseFloat(String(top));
-      const numWidth = typeof width === 'number' ? width : parseFloat(String(width));
-      const numHeight = typeof height === 'number' ? height : parseFloat(String(height));
-      const numZIndex = typeof zIndex === 'number' ? zIndex : parseInt(String(zIndex));
-      
-      return {
-        id,
-        wardrobeItemId: id,
-        left: parseFloat(Number(numLeft || 0).toFixed(2)),
-        top: parseFloat(Number(numTop || 0).toFixed(2)),
-        width: parseFloat(Number(Math.max(50, numWidth || 150)).toFixed(2)),
-        height: parseFloat(Number(Math.max(50, numHeight || 150)).toFixed(2)),
-        zIndex: Math.max(1, Math.round(Number(numZIndex || 1))),
-        isPinned: Boolean(isPinned),
-        name: name || 'Unnamed Item'
-      };
-    });
-    
-    // Log the exact data we're sending for debugging
-    console.log('Saving outfit with items:', JSON.stringify(outfitItems, null, 2));
-    
-    onSave(outfitName, outfitItems, tryOnImageBase64);
-    setShowSaveDialog(false);
-    setOutfitName('');
   };
 
   const handleRemoveItem = (id: string) => {
@@ -700,4 +657,4 @@ export const OutfitCanvas = ({ items, onUpdateItems, onSave }: OutfitCanvasProps
       )}
     </div>
   );
-};
+}

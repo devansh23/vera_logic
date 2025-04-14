@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react';
-import { WardrobeItem } from '@/types/outfit';
+import { WardrobeItem } from '@/types/wardrobe';
 import { WardrobeSidebar } from './outfit-planner/WardrobeSidebar';
-import { OutfitCanvas } from './outfit-planner/OutfitCanvas';
+import OutfitCanvas from './outfit-planner/OutfitCanvas';
 import { useSession } from 'next-auth/react';
 import { useWardrobe } from '@/contexts/WardrobeContext';
 

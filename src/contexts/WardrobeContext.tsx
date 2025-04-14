@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
-import { WardrobeItem } from '@/types/outfit';
+import { WardrobeItem } from '@/types/wardrobe';
 import { useSession } from 'next-auth/react';
 import { categorizeItems } from '@/lib/categorize-items';
 

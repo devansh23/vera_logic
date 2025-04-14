@@ -182,8 +182,6 @@ export interface EmailProduct {
   sku?: string;
   /** Product category */
   category?: string;
-  /** Product subcategory */
-  subcategory?: string;
   /** List of product images */
   images?: string[];
   /** Primary product image */
