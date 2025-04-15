@@ -214,9 +214,9 @@ export async function PUT(request: Request) {
     }
 
     const data = await request.json();
-    const { id, name, items } = data;
+    const { id, name, items, tryOnImage } = data;
     
-    console.log('PUT /api/outfits - Request:', { id, name, itemsCount: items?.length });
+    console.log('PUT /api/outfits - Request:', { id, name, itemsCount: items?.length, hasTryOnImage: !!tryOnImage });
     
     if (!id || !name || !items || !Array.isArray(items)) {
       return NextResponse.json(
@@ -248,6 +248,7 @@ export async function PUT(request: Request) {
       },
       data: {
         name,
+        tryOnImage: tryOnImage, // Include the tryOnImage field in the update
         items: {
           // Delete all existing items
           deleteMany: {},
