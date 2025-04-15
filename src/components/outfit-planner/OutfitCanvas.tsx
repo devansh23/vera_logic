@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { WardrobeItem, CanvasItem, TryOnImage } from "@/types/wardrobe";
-import { Pin, ArrowUp, ArrowDown, Trash2, ZoomIn, ZoomOut } from "lucide-react";
+import { Pin, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
@@ -39,6 +39,8 @@ export default function OutfitCanvas({
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [error, setError] = useState<string | null>(null);
   const [saveAsNew, setSaveAsNew] = useState(false);
+  const [isResizingItem, setIsResizingItem] = useState<string | null>(null);
+  const [itemResizeStart, setItemResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   // Initialize positioned items
   useEffect(() => {
@@ -282,41 +284,21 @@ export default function OutfitCanvas({
     ));
   };
 
-  // New handlers for size buttons
-  const handleIncreaseSize = (id: string, e: React.MouseEvent) => {
+  // Handle canvas item resize with resize handle
+  const handleItemResizeMouseDown = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
     e.stopPropagation();
-    const itemIndex = positionedItems.findIndex(i => i.id === id);
-    if (itemIndex === -1) return;
     
-    const item = positionedItems[itemIndex];
-    const updatedItems = [...positionedItems];
+    const item = positionedItems.find(i => i.id === id);
+    if (!item) return;
     
-    updatedItems[itemIndex] = {
-      ...item,
-      width: item.width * 1.2,
-      height: item.height * 1.2
-    };
-    
-    setPositionedItems(updatedItems);
-    onUpdateItems(updatedItems);
-  };
-
-  const handleDecreaseSize = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const itemIndex = positionedItems.findIndex(i => i.id === id);
-    if (itemIndex === -1) return;
-    
-    const item = positionedItems[itemIndex];
-    const updatedItems = [...positionedItems];
-    
-    updatedItems[itemIndex] = {
-      ...item,
-      width: Math.max(50, item.width * 0.8),
-      height: Math.max(50, item.height * 0.8)
-    };
-    
-    setPositionedItems(updatedItems);
-    onUpdateItems(updatedItems);
+    setIsResizingItem(id);
+    setItemResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: item.width,
+      height: item.height
+    });
   };
 
   // Group items by category
@@ -463,12 +445,30 @@ export default function OutfitCanvas({
         ...tryOnImage,
         size: { width: newWidth, height: newHeight }
       });
+    } else if (isResizingItem) {
+      const item = positionedItems.find(i => i.id === isResizingItem);
+      if (!item) return;
+      
+      const deltaX = e.clientX - itemResizeStart.x;
+      const deltaY = e.clientY - itemResizeStart.y;
+      const newWidth = Math.max(50, itemResizeStart.width + deltaX);
+      const newHeight = Math.max(50, itemResizeStart.height + deltaY);
+      
+      const updatedItems = positionedItems.map(i => 
+        i.id === isResizingItem
+          ? { ...i, width: newWidth, height: newHeight }
+          : i
+      );
+      
+      setPositionedItems(updatedItems);
+      onUpdateItems(updatedItems);
     }
   };
 
   const handleMouseUp = () => {
     setIsDraggingTryOn(false);
     setIsResizingTryOn(false);
+    setIsResizingItem(null);
   };
 
   const handleDeleteTryOn = () => {
@@ -550,23 +550,11 @@ export default function OutfitCanvas({
             </button>
           </div>
           
-          {/* Size controls - completely hidden until hover */}
-          <div className="absolute bottom-0 right-0 p-1 flex space-x-1 bg-white bg-opacity-80 rounded-tl-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-            <button 
-              onClick={(e) => handleIncreaseSize(item.id, e)}
-              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              title="Increase size"
-            >
-              <ZoomIn size={12} />
-            </button>
-            <button 
-              onClick={(e) => handleDecreaseSize(item.id, e)}
-              className="p-1 rounded-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              title="Decrease size"
-            >
-              <ZoomOut size={12} />
-            </button>
-          </div>
+          {/* Resize handle in the bottom right corner */}
+          <div 
+            className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+            onMouseDown={(e) => handleItemResizeMouseDown(e, item.id)}
+          />
           
           {/* Remove button - completely hidden until hover */}
           <div className="absolute bottom-0 left-0 p-1 bg-white bg-opacity-80 rounded-tr-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
