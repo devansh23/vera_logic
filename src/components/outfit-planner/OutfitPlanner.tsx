@@ -26,6 +26,20 @@ interface OutfitPlannerProps {
   editId?: string | null;
 }
 
+// Add a debug script loader function
+const loadDebugScript = () => {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    const script = document.createElement('script');
+    script.src = '/test-outfit-loading.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }
+  return () => {};
+};
+
 export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -38,45 +52,96 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   const [outfitName, setOutfitName] = useState<string | null>(null);
   const [tryOnImage, setTryOnImage] = useState<TryOnImage | null>(null);
 
+  // Load the debug script in development mode
+  useEffect(() => {
+    return loadDebugScript();
+  }, []);
+
+  useEffect(() => {
+    // Log the editId when it changes
+    if (editId) {
+      console.log(`OutfitPlanner received editId: ${editId}`);
+    }
+  }, [editId]);
+
   useEffect(() => {
     if (editId) {
       const loadOutfit = async () => {
         try {
           setLoading(true);
+          console.log(`Loading outfit with ID: ${editId}`);
+          
           const response = await fetch(`/api/outfits?id=${editId}`);
           if (!response.ok) {
-            throw new Error('Failed to load outfit');
+            console.error(`API response not OK: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to load outfit: ${response.status} ${response.statusText}`);
           }
+          
           const outfit = await response.json();
+          console.log('Successfully loaded outfit data:', outfit);
+          
+          // Validate the outfit data
+          if (!outfit || !outfit.id || !outfit.items || !Array.isArray(outfit.items)) {
+            console.error('Invalid outfit data received:', outfit);
+            throw new Error('Invalid outfit data received from API');
+          }
+          
+          // Check if items array is empty
+          if (outfit.items.length === 0) {
+            console.warn('Outfit has no items');
+          }
           
           // Set the outfit name
-          setOutfitName(outfit.name);
+          setOutfitName(outfit.name || 'Unnamed Outfit');
           
           // Set the virtual try-on image if it exists
           if (outfit.tryOnImage) {
+            console.log('Setting try-on image:', outfit.tryOnImage);
             setTryOnImage({
               url: outfit.tryOnImage,
               position: { x: 0, y: 0 }, // Default position
               size: { width: 400, height: 600 } // Default size
             });
+          } else {
+            // Explicitly clear any existing try-on image
+            console.log('No try-on image found, clearing any existing one');
+            setTryOnImage(null);
           }
           
           // Map the outfit items to the canvas format
-          const canvasItems = outfit.items.map((item: any) => ({
-            ...item.wardrobeItem,
-            left: item.left || 0,
-            top: item.top || 0,
-            width: item.width || 150,
-            height: item.height || 150,
-            zIndex: item.zIndex || 1,
-            isPinned: item.isPinned || false,
-            brand: item.wardrobeItem.brand || 'Unknown Brand',
-            category: item.wardrobeItem.category || 'Uncategorized',
-            price: item.wardrobeItem.price || '0'
-          }));
+          const canvasItems = outfit.items.map((item: any) => {
+            // Validate that wardrobeItem exists
+            if (!item.wardrobeItem) {
+              console.warn('Item missing wardrobeItem:', item);
+              return null;
+            }
+            
+            return {
+              ...item.wardrobeItem,
+              left: item.left || 0,
+              top: item.top || 0,
+              width: item.width || 150,
+              height: item.height || 150,
+              zIndex: item.zIndex || 1,
+              isPinned: item.isPinned || false,
+              brand: item.wardrobeItem.brand || 'Unknown Brand',
+              category: item.wardrobeItem.category || 'Uncategorized',
+              price: item.wardrobeItem.price || '0'
+            };
+          })
+          .filter(Boolean); // Remove any null items
           
-          setItems(canvasItems);
+          console.log(`Mapped ${canvasItems.length} canvas items:`, canvasItems);
+          
+          // Only update state if we have valid data
+          if (canvasItems.length > 0) {
+            setItems(canvasItems);
+          } else {
+            console.warn('No valid canvas items found in outfit data');
+            setError('This outfit appears to be empty or contains invalid items');
+          }
         } catch (err) {
+          console.error('Error loading outfit:', err);
           setError(err instanceof Error ? err.message : 'Failed to load outfit');
         } finally {
           setLoading(false);
@@ -84,6 +149,8 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
       };
 
       loadOutfit();
+    } else {
+      console.log('No editId provided, not loading any outfit');
     }
   }, [editId]);
 
@@ -254,11 +321,41 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-lg text-gray-600 font-medium">Loading your outfit...</p>
+        {editId && (
+          <p className="text-sm text-gray-500 mt-2">Loading outfit ID: {editId}</p>
+        )}
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500 text-center py-4">{error}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-lg text-center">
+          <p className="font-bold mb-2">Error loading outfit</p>
+          <p>{error}</p>
+          
+          <div className="mt-4">
+            <button 
+              onClick={() => router.push('/outfit-planner')}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mr-2"
+            >
+              Create New Outfit
+            </button>
+            <button 
+              onClick={() => router.push('/outfit-planner?tab=saved')}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
+            >
+              View Saved Outfits
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

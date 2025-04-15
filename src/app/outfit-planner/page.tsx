@@ -11,12 +11,15 @@ export default function OutfitPlannerPage() {
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   const searchParams = useSearchParams();
   
+  // Extract edit ID from URL params and add logging
+  const editId = searchParams.get('edit');
+  console.log('OutfitPlannerPage - editId from URL:', editId);
+
   useEffect(() => {
-    const editId = searchParams.get('edit');
     if (editId) {
       setActiveTab('create');
     }
-  }, [searchParams]);
+  }, [editId]);
   
   // Show loading state
   if (status === "loading") {
@@ -63,10 +66,10 @@ export default function OutfitPlannerPage() {
       </div>
 
       {activeTab === 'create' ? (
-        <OutfitPlanner editId={searchParams.get('edit')} />
+        <OutfitPlanner editId={editId} />
       ) : (
         <SavedOutfits />
       )}
     </div>
   );
-} 
+}

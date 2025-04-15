@@ -87,7 +87,21 @@ export function SavedOutfits() {
   };
 
   const handleEditOutfit = (outfitId: string) => {
-    router.push(`/outfit-planner?edit=${outfitId}`);
+    console.log('Navigating to outfit:', outfitId);
+    
+    // Create the target URL with the edit parameter
+    const targetUrl = `/outfit-planner?edit=${outfitId}`;
+    console.log('Navigation target URL:', targetUrl);
+    
+    // Force a full page navigation instead of client-side routing
+    // This helps ensure the OutfitPlanner component is fully remounted
+    if (typeof window !== 'undefined') {
+      console.log('Using window.location for navigation');
+      window.location.href = targetUrl;
+    } else {
+      // Fall back to Next.js router if window is not available
+      router.push(targetUrl);
+    }
   };
 
   if (loading) {
