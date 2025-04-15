@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { log } from '@/lib/logger';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/calendar-events - Get user's calendar events
 export async function GET(request: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   
   log('GET /api/calendar-events - Session', { userId: session?.user?.id });
   
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
 // POST /api/calendar-events - Create a new calendar event
 export async function POST(request: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   
   log('POST /api/calendar-events - Session', { userId: session?.user?.id });
   
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/calendar-events - Delete a calendar event
 export async function DELETE(request: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   
   log('DELETE /api/calendar-events - Session', { userId: session?.user?.id });
   

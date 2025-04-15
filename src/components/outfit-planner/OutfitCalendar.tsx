@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Edit } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
 import { toast } from 'react-toastify';
+import { useRouter } from 'next/navigation';
 
 interface CalendarEvent {
   id: string;
@@ -26,6 +27,7 @@ interface CalendarEvent {
 
 export function OutfitCalendar() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,6 +168,29 @@ export function OutfitCalendar() {
       setSelectedEvent(null);
     } catch (err) {
       toast.error('Failed to remove outfit from calendar');
+    }
+  };
+
+  // Function to handle editing an outfit
+  const handleEditOutfit = (outfitId: string) => {
+    console.log('Navigating to outfit:', outfitId);
+    
+    // Create the target URL with the edit parameter
+    const targetUrl = `/outfit-planner?edit=${outfitId}`;
+    console.log('Navigation target URL:', targetUrl);
+    
+    // Close the event modal
+    setShowEventModal(false);
+    setSelectedEvent(null);
+    
+    // Force a full page navigation instead of client-side routing
+    // This helps ensure the OutfitPlanner component is fully remounted
+    if (typeof window !== 'undefined') {
+      console.log('Using window.location for navigation');
+      window.location.href = targetUrl;
+    } else {
+      // Fall back to Next.js router if window is not available
+      router.push(targetUrl);
     }
   };
 
@@ -344,24 +369,30 @@ export function OutfitCalendar() {
               
               <div className="mt-4">
                 <div
-                  className="w-full h-48 bg-contain bg-center bg-no-repeat mb-3 border rounded"
+                  className="w-full h-48 bg-contain bg-center bg-no-repeat mb-3 border rounded cursor-pointer hover:shadow-md transition-shadow relative group"
                   style={{ 
                     backgroundImage: `url(${selectedEvent.outfit.tryOnImage || 
                       (selectedEvent.outfit.items[0]?.wardrobeItem.image || '/placeholder-clothing.svg')})` 
                   }}
-                />
+                  onClick={() => handleEditOutfit(selectedEvent.outfit.id)}
+                >
+                  {/* Edit overlay that appears on hover */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="bg-white rounded-full p-2">
+                      <Edit size={20} className="text-blue-500" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-center text-gray-500 italic">Click the outfit image to edit</p>
               </div>
             </div>
             
             <div className="flex justify-end space-x-3 mt-4">
               <button
-                onClick={() => {
-                  setShowEventModal(false);
-                  setSelectedEvent(null);
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => handleEditOutfit(selectedEvent.outfit.id)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
-                Close
+                Edit Outfit
               </button>
               <button
                 onClick={removeOutfitFromCalendar}

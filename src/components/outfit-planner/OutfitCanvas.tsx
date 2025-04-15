@@ -47,6 +47,8 @@ export default function OutfitCanvas({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [savedOutfitId, setSavedOutfitId] = useState<string | null>(null);
+  const [savedOutfitName, setSavedOutfitName] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize positioned items
   useEffect(() => {
@@ -227,13 +229,29 @@ export default function OutfitCanvas({
     }
 
     try {
+      setIsSaving(true);
+      setError(null);
+      
       const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null, saveAsNew);
-      if (result) {
-        if (scheduleAfterSave && result.outfit?.id) {
-          // Store the outfit ID for scheduling
-          setSavedOutfitId(result.outfit.id);
-          // Show schedule modal
-          setShowScheduleModal(true);
+      
+      // Consider the save successful if either:
+      // 1. result.success is true (for new outfits)
+      // 2. result.id exists (for updates to existing outfits)
+      if (result && (result.success || result.id)) {
+        // Get the outfit ID from the result, regardless of format
+        const outfitId = result.outfit?.id || result.id;
+        
+        if (scheduleAfterSave && outfitId) {
+          // Store the outfit ID and name for scheduling
+          setSavedOutfitId(outfitId);
+          // Store the actual outfit name that was used for saving
+          setSavedOutfitName(outfitName.trim());
+          // Close the save dialog
+          setShowSaveDialog(false);
+          // Show schedule modal with a small delay to ensure UI updates correctly
+          setTimeout(() => {
+            setShowScheduleModal(true);
+          }, 100);
         } else {
           setShowSaveDialog(false);
         }
@@ -242,9 +260,16 @@ export default function OutfitCanvas({
           setOutfitName('');
         }
         setSaveAsNew(false);
+      } else {
+        // Handle case where save was not successful
+        console.error('Save operation did not return valid result:', result);
+        setError('Failed to save outfit properly');
       }
     } catch (err) {
+      console.error('Error saving outfit:', err);
       setError(err instanceof Error ? err.message : 'Failed to save outfit');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -490,30 +515,50 @@ export default function OutfitCanvas({
   };
 
   const scheduleOutfit = async () => {
-    if (!selectedDate || !savedOutfitId) return;
+    if (!selectedDate || !savedOutfitId) {
+      console.error('Cannot schedule outfit: missing date or outfit ID', { 
+        selectedDate, 
+        savedOutfitId 
+      });
+      toast.error('Missing required information to schedule outfit');
+      return;
+    }
+    
+    // Use the explicitly saved outfit name rather than the current outfitName state
+    // which might have been cleared if the user is creating a new outfit
+    const title = savedOutfitName || 'Unnamed Outfit';
     
     try {
+      console.log('Scheduling outfit with data:', {
+        title,
+        date: selectedDate.toISOString(),
+        outfitId: savedOutfitId
+      });
+      
       const response = await fetch('/api/calendar-events', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: outfitName,
+          title,
           date: selectedDate.toISOString(),
           outfitId: savedOutfitId,
         }),
       });
       
       if (!response.ok) {
-        throw new Error('Failed to schedule outfit');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to schedule outfit:', errorData, response.status);
+        throw new Error(`Failed to schedule outfit: ${response.status} ${errorData.error || ''}`);
       }
       
       toast.success('Outfit scheduled successfully');
       setShowScheduleModal(false);
       setShowSaveDialog(false);
     } catch (err) {
-      toast.error('Failed to schedule outfit');
+      console.error('Error scheduling outfit:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to schedule outfit');
     }
   };
 
@@ -663,9 +708,9 @@ export default function OutfitCanvas({
                       handleSave();
                     }} 
                     className="flex-1"
-                    disabled={!outfitName.trim()}
+                    disabled={!outfitName.trim() || isSaving}
                   >
-                    Update Outfit
+                    {isSaving ? 'Saving...' : 'Update Outfit'}
                   </Button>
                   <Button 
                     onClick={() => {
@@ -673,18 +718,18 @@ export default function OutfitCanvas({
                       handleSave();
                     }}
                     className="flex-1"
-                    disabled={!outfitName.trim()}
+                    disabled={!outfitName.trim() || isSaving}
                   >
-                    Save as New
+                    {isSaving ? 'Saving...' : 'Save as New'}
                   </Button>
                 </div>
               ) : (
                 <Button 
                   onClick={handleSave} 
-                  disabled={!outfitName.trim()}
+                  disabled={!outfitName.trim() || isSaving}
                   className="w-full"
                 >
-                  Save
+                  {isSaving ? 'Saving...' : 'Save'}
                 </Button>
               )}
             </div>
@@ -733,7 +778,9 @@ export default function OutfitCanvas({
       {showScheduleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Schedule "{outfitName}"</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Schedule "{savedOutfitName || 'Unnamed Outfit'}"
+            </h3>
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -744,14 +791,18 @@ export default function OutfitCanvas({
                 className="w-full p-2 border rounded-md"
                 value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
                 onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : null)}
+                required
               />
+              {!selectedDate && (
+                <p className="text-red-500 text-xs mt-1">Please select a date</p>
+              )}
             </div>
             
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowScheduleModal(false);
-                  setShowSaveDialog(false);
+                  toast.info('Outfit saved but not scheduled');
                 }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -759,7 +810,12 @@ export default function OutfitCanvas({
               </button>
               <button
                 onClick={scheduleOutfit}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                disabled={!selectedDate}
+                className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                  !selectedDate 
+                    ? 'bg-blue-300 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
               >
                 Schedule
               </button>
