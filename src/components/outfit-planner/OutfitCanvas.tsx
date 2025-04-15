@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { WardrobeItem, CanvasItem, TryOnImage } from "@/types/wardrobe";
-import { Pin, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { Pin, ArrowUp, ArrowDown, Trash2, Calendar } from "lucide-react";
+import { format } from 'date-fns';
+import { toast } from 'react-toastify';
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
@@ -41,6 +43,10 @@ export default function OutfitCanvas({
   const [saveAsNew, setSaveAsNew] = useState(false);
   const [isResizingItem, setIsResizingItem] = useState<string | null>(null);
   const [itemResizeStart, setItemResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [scheduleAfterSave, setScheduleAfterSave] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [savedOutfitId, setSavedOutfitId] = useState<string | null>(null);
 
   // Initialize positioned items
   useEffect(() => {
@@ -223,7 +229,15 @@ export default function OutfitCanvas({
     try {
       const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null, saveAsNew);
       if (result) {
-        setShowSaveDialog(false);
+        if (scheduleAfterSave && result.outfit?.id) {
+          // Store the outfit ID for scheduling
+          setSavedOutfitId(result.outfit.id);
+          // Show schedule modal
+          setShowScheduleModal(true);
+        } else {
+          setShowSaveDialog(false);
+        }
+        
         if (!isEditing || saveAsNew) {
           setOutfitName('');
         }
@@ -475,6 +489,34 @@ export default function OutfitCanvas({
     setTryOnImage(null);
   };
 
+  const scheduleOutfit = async () => {
+    if (!selectedDate || !savedOutfitId) return;
+    
+    try {
+      const response = await fetch('/api/calendar-events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: outfitName,
+          date: selectedDate.toISOString(),
+          outfitId: savedOutfitId,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to schedule outfit');
+      }
+      
+      toast.success('Outfit scheduled successfully');
+      setShowScheduleModal(false);
+      setShowSaveDialog(false);
+    } catch (err) {
+      toast.error('Failed to schedule outfit');
+    }
+  };
+
   return (
     <div 
       ref={canvasRef}
@@ -599,6 +641,20 @@ export default function OutfitCanvas({
                   />
                 </div>
               )}
+              
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="checkbox" 
+                  id="schedule-outfit" 
+                  className="rounded border-gray-300"
+                  checked={scheduleAfterSave}
+                  onChange={(e) => setScheduleAfterSave(e.target.checked)}
+                />
+                <label htmlFor="schedule-outfit" className="text-sm text-gray-700">
+                  Schedule this outfit after saving
+                </label>
+              </div>
+              
               {isEditing ? (
                 <div className="flex gap-2">
                   <Button 
@@ -670,6 +726,45 @@ export default function OutfitCanvas({
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
+        </div>
+      )}
+      
+      {/* Schedule Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Schedule "{outfitName}"</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Date
+              </label>
+              <input 
+                type="date"
+                className="w-full p-2 border rounded-md"
+                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+                onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : null)}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setShowSaveDialog(false);
+                }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Skip
+              </button>
+              <button
+                onClick={scheduleOutfit}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Schedule
+              </button>
+            </div>
+          </div>
         </div>
       )}
       

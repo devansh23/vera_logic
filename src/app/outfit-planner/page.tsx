@@ -5,10 +5,11 @@ import { useSession } from 'next-auth/react';
 import { redirect, useSearchParams } from 'next/navigation';
 import OutfitPlanner from '@/components/outfit-planner/OutfitPlanner';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
+import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 
 export default function OutfitPlannerPage() {
   const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'saved' | 'calendar'>('create');
   const searchParams = useSearchParams();
   
   // Extract edit ID from URL params and add logging
@@ -62,13 +63,25 @@ export default function OutfitPlannerPage() {
           >
             Saved Outfits
           </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'calendar'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+            }`}
+          >
+            Calendar
+          </button>
         </div>
       </div>
 
       {activeTab === 'create' ? (
         <OutfitPlanner editId={editId} />
-      ) : (
+      ) : activeTab === 'saved' ? (
         <SavedOutfits />
+      ) : (
+        <OutfitCalendar />
       )}
     </div>
   );

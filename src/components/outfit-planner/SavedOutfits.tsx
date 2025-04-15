@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { format } from 'date-fns';
 
 interface SavedOutfit {
   id: string;
@@ -29,6 +30,9 @@ export function SavedOutfits() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [outfitToDelete, setOutfitToDelete] = useState<string | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState<SavedOutfit | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
   useEffect(() => {
     const fetchOutfits = async () => {
@@ -101,6 +105,40 @@ export function SavedOutfits() {
     } else {
       // Fall back to Next.js router if window is not available
       router.push(targetUrl);
+    }
+  };
+
+  const handleScheduleClick = (e: React.MouseEvent, outfit: SavedOutfit) => {
+    e.stopPropagation(); // Prevent triggering the parent onClick
+    setSelectedOutfit(outfit);
+    setShowScheduleModal(true);
+  };
+
+  const scheduleOutfit = async () => {
+    if (!session?.user || !selectedOutfit || !selectedDate) return;
+    
+    try {
+      const response = await fetch('/api/calendar-events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: selectedOutfit.name,
+          date: selectedDate.toISOString(),
+          outfitId: selectedOutfit.id,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to schedule outfit');
+      }
+      
+      toast.success('Outfit scheduled successfully');
+      setShowScheduleModal(false);
+      setSelectedOutfit(null);
+    } catch (err) {
+      toast.error('Failed to schedule outfit');
     }
   };
 
@@ -183,6 +221,7 @@ export function SavedOutfits() {
                 </div>
               )}
             </div>
+            {/* Delete button */}
             <button
               onClick={(e) => {
                 e.stopPropagation(); // Prevent triggering the parent onClick
@@ -192,6 +231,15 @@ export function SavedOutfits() {
               aria-label="Delete outfit"
             >
               <Trash2 size={16} />
+            </button>
+            
+            {/* Schedule button */}
+            <button
+              onClick={(e) => handleScheduleClick(e, outfit)}
+              className="absolute top-2 right-12 p-2 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600"
+              aria-label="Schedule outfit"
+            >
+              <Calendar size={16} />
             </button>
           </div>
         ))}
@@ -217,6 +265,45 @@ export function SavedOutfits() {
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Modal */}
+      {showScheduleModal && selectedOutfit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Schedule "{selectedOutfit.name}"</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Date
+              </label>
+              <input 
+                type="date"
+                className="w-full p-2 border rounded-md"
+                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+                onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : null)}
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setSelectedOutfit(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={scheduleOutfit}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Schedule
               </button>
             </div>
           </div>
