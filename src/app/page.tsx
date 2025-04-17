@@ -178,6 +178,116 @@ const ProductOverlay = ({
 };
 
 const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => {
+  // Function to convert color names to CSS color values
+  const getColorValue = (color?: string): string => {
+    if (!color) return 'transparent';
+    
+    // If it's already a hex code, return it
+    if (color.startsWith('#')) {
+      return color;
+    }
+    
+    // Normalize the color name: lowercase and trim
+    const normalizedColor = color.toLowerCase().trim();
+    
+    // Map of common color names to hex values
+    const colorMap: Record<string, string> = {
+      // Basic colors
+      'black': '#000000',
+      'white': '#FFFFFF',
+      'red': '#FF0000',
+      'green': '#008000',
+      'blue': '#0000FF',
+      'yellow': '#FFFF00',
+      'purple': '#800080',
+      'orange': '#FFA500',
+      'pink': '#FFC0CB',
+      'brown': '#A52A2A',
+      
+      // Grays
+      'gray': '#808080',
+      'grey': '#808080',
+      'dark gray': '#404040',
+      'dark grey': '#404040',
+      'light gray': '#D3D3D3',
+      'light grey': '#D3D3D3',
+      'charcoal': '#36454F',
+      'silver': '#C0C0C0',
+      
+      // Blues
+      'navy': '#000080',
+      'navy blue': '#000080',
+      'royal blue': '#4169E1',
+      'sky blue': '#87CEEB',
+      'light blue': '#ADD8E6',
+      'dark blue': '#00008B',
+      'teal': '#008080',
+      'turquoise': '#40E0D0',
+      'aqua': '#00FFFF',
+      
+      // Reds
+      'maroon': '#800000',
+      'burgundy': '#800020',
+      'crimson': '#DC143C',
+      'coral': '#FF7F50',
+      'salmon': '#FA8072',
+      'dark red': '#8B0000',
+      
+      // Greens
+      'olive': '#808000',
+      'lime': '#00FF00',
+      'dark green': '#006400',
+      'light green': '#90EE90',
+      'forest green': '#228B22',
+      'mint': '#98FB98',
+      'emerald': '#50C878',
+      
+      // Yellows & Browns
+      'gold': '#FFD700',
+      'khaki': '#F0E68C',
+      'beige': '#F5F5DC',
+      'tan': '#D2B48C',
+      'sand': '#C2B280',
+      'chocolate': '#D2691E',
+      'dark brown': '#5C4033',
+      'light brown': '#B5651D',
+      
+      // Purples & Pinks
+      'magenta': '#FF00FF',
+      'violet': '#EE82EE',
+      'lavender': '#E6E6FA',
+      'plum': '#DDA0DD',
+      'dark purple': '#301934',
+      'light pink': '#FFB6C1',
+      'hot pink': '#FF69B4',
+      'fuchsia': '#FF00FF',
+      
+      // Common clothing colors
+      'indigo': '#4B0082',
+      'denim': '#1560BD',
+      'off white': '#F8F8FF',
+      'cream': '#FFFDD0',
+      'ivory': '#FFFFF0',
+      'camel': '#C19A6B',
+      'mustard': '#FFDB58',
+    };
+    
+    // Try to find an exact match
+    if (colorMap[normalizedColor]) {
+      return colorMap[normalizedColor];
+    }
+    
+    // If no exact match, try to find a partial match
+    for (const [colorName, colorValue] of Object.entries(colorMap)) {
+      if (normalizedColor.includes(colorName)) {
+        return colorValue;
+      }
+    }
+    
+    // If we can't map it, use it directly (CSS might understand some color names)
+    return normalizedColor;
+  };
+  
   // Format color text to be more user-friendly
   const getColorText = (color?: string) => {
     if (!color) return 'Unknown color';
@@ -189,6 +299,7 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
     return color;
   };
   
+  const colorValue = getColorValue(product.color || product.colorTag || product.dominantColor);
   const colorText = getColorText(product.color || product.colorTag || product.dominantColor);
   
   return (
@@ -219,7 +330,7 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
               <div 
                 className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0" 
                 style={{ 
-                  backgroundColor: product.color || product.colorTag || product.dominantColor || 'transparent'
+                  backgroundColor: colorValue
                 }}
               />
               {/* Custom tooltip */}
