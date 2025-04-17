@@ -210,24 +210,6 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
-        <div className="absolute top-2 right-2 group/price">
-          <div className="bg-white shadow-md rounded-lg p-2 cursor-help">
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-            </svg>
-            <div className="absolute right-0 top-full mt-2 w-auto min-w-max bg-white shadow-lg rounded-lg p-3 opacity-0 invisible group-hover/price:opacity-100 group-hover/price:visible transition-all duration-200 z-10">
-              <div className="flex flex-col gap-1">
-                <span className="font-bold text-gray-900">{product.price}</span>
-                {product.originalPrice && (
-                  <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
-                )}
-                {product.discount && (
-                  <span className="text-sm text-green-600">{product.discount}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
       <div className="p-4 bg-white">
         <div className="flex items-center gap-2 mb-1">
