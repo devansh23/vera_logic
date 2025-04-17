@@ -6,6 +6,8 @@ import { useSession, signIn, signOut } from 'next-auth/react'
 import { prisma } from '@/lib/prisma'
 import FullBodyPhotoUpload from '@/components/FullBodyPhotoUpload';
 import { useWardrobe } from '@/contexts/WardrobeContext';
+import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
+import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -39,6 +41,8 @@ interface MyntraProduct {
   seller?: string;
   sourceRetailer?: string;
   id: string;
+  colorTag?: string;
+  dominantColor?: string;
 }
 
 interface WardrobeItem {
@@ -205,29 +209,42 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
               )}
               {product.discount && (
                 <span className="text-sm text-green-600">{product.discount}</span>
-      )}
-    </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-        </div>
     </div>
     <div className="p-4 bg-white">
-      <h3 className="font-semibold mb-1">{product.brand}</h3>
+      <div className="flex items-center gap-2 mb-1">
+        {/* Color Square */}
+        {(product.color || product.colorTag || product.dominantColor) && (
+          <div 
+            className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0" 
+            style={{ 
+              backgroundColor: product.color || product.colorTag || product.dominantColor || 'transparent',
+              cursor: 'help'
+            }}
+            title={`Color: ${product.color || product.colorTag || product.dominantColor}`}
+          />
+        )}
+        <h3 className="font-semibold">{product.brand}</h3>
+      </div>
       <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
       <div className="flex flex-col gap-2">
         {(product.productLink || product.myntraLink) && (
           <a
             href={product.productLink || product.myntraLink}
-          target="_blank"
-          rel="noopener noreferrer"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
-        >
+          >
             <span>Visit {product.brand}</span>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
-      )}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        )}
       </div>
     </div>
   </div>
@@ -591,6 +608,7 @@ export default function Home() {
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
   // Load user's wardrobe on session change
   useEffect(() => {
@@ -1745,10 +1763,23 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Full Body Photo Upload Section */}
-      <div className="space-y-8">
+      {/* Add SavedOutfits section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
+        <h2 className="text-2xl font-semibold mb-6">Saved Outfits</h2>
+        <SavedOutfits />
+      </div>
+
+      {/* Add OutfitCalendar section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
+        <h2 className="text-2xl font-semibold mb-6">Outfit Calendar</h2>
+        <OutfitCalendar />
+      </div>
+
+      {/* FullBodyPhotoUpload section at the bottom */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
         <FullBodyPhotoUpload />
       </div>
+
     </main>
   )
 }
