@@ -177,78 +177,97 @@ const ProductOverlay = ({
   );
 };
 
-const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => (
-  <div className="relative group">
-    <div className="aspect-square relative">
-      <div className="absolute inset-0">
-        <img
-          src={product.image || product.images?.[0]}
-          alt={product.name}
-          className="w-full h-full object-contain bg-gray-50"
-        />
-      </div>
-      <button
-        onClick={onDelete}
-        className="absolute top-2 left-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-        aria-label="Delete item"
-      >
-        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      </button>
-      <div className="absolute top-2 right-2 group/price">
-        <div className="bg-white shadow-md rounded-lg p-2 cursor-help">
-          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => {
+  // Format color text to be more user-friendly
+  const getColorText = (color?: string) => {
+    if (!color) return 'Unknown color';
+    // If it's a hex code, make it more readable
+    if (color.startsWith('#')) {
+      return `Color code: ${color}`;
+    }
+    // Otherwise return the color name
+    return color;
+  };
+  
+  const colorText = getColorText(product.color || product.colorTag || product.dominantColor);
+  
+  return (
+    <div className="relative group">
+      <div className="aspect-square relative">
+        <div className="absolute inset-0">
+          <img
+            src={product.image || product.images?.[0]}
+            alt={product.name}
+            className="w-full h-full object-contain bg-gray-50"
+          />
+        </div>
+        <button
+          onClick={onDelete}
+          className="absolute top-2 left-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="Delete item"
+        >
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
-          <div className="absolute right-0 top-full mt-2 w-auto min-w-max bg-white shadow-lg rounded-lg p-3 opacity-0 invisible group-hover/price:opacity-100 group-hover/price:visible transition-all duration-200 z-10">
-            <div className="flex flex-col gap-1">
-              <span className="font-bold text-gray-900">{product.price}</span>
-              {product.originalPrice && (
-                <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
-              )}
-              {product.discount && (
-                <span className="text-sm text-green-600">{product.discount}</span>
-              )}
+        </button>
+        <div className="absolute top-2 right-2 group/price">
+          <div className="bg-white shadow-md rounded-lg p-2 cursor-help">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+            </svg>
+            <div className="absolute right-0 top-full mt-2 w-auto min-w-max bg-white shadow-lg rounded-lg p-3 opacity-0 invisible group-hover/price:opacity-100 group-hover/price:visible transition-all duration-200 z-10">
+              <div className="flex flex-col gap-1">
+                <span className="font-bold text-gray-900">{product.price}</span>
+                {product.originalPrice && (
+                  <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
+                )}
+                {product.discount && (
+                  <span className="text-sm text-green-600">{product.discount}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div className="p-4 bg-white">
-      <div className="flex items-center gap-2 mb-1">
-        {/* Color Square */}
-        {(product.color || product.colorTag || product.dominantColor) && (
-          <div 
-            className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0" 
-            style={{ 
-              backgroundColor: product.color || product.colorTag || product.dominantColor || 'transparent',
-              cursor: 'help'
-            }}
-            title={`Color: ${product.color || product.colorTag || product.dominantColor}`}
-          />
-        )}
-        <h3 className="font-semibold">{product.brand}</h3>
+      <div className="p-4 bg-white">
+        <div className="flex items-center gap-2 mb-1">
+          {/* Color Square with custom tooltip */}
+          {(product.color || product.colorTag || product.dominantColor) && (
+            <div className="relative group/color">
+              <div 
+                className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0" 
+                style={{ 
+                  backgroundColor: product.color || product.colorTag || product.dominantColor || 'transparent'
+                }}
+              />
+              {/* Custom tooltip */}
+              <div className="absolute left-0 bottom-full mb-1 w-auto min-w-max bg-black text-white text-xs rounded px-2 py-1 opacity-0 invisible group-hover/color:opacity-100 group-hover/color:visible transition-all duration-200 z-10 whitespace-nowrap">
+                {colorText}
+              </div>
+            </div>
+          )}
+          <h3 className="font-semibold">{product.brand}</h3>
+        </div>
+        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
+        <div className="flex flex-col gap-2">
+          {(product.productLink || product.myntraLink) && (
+            <a
+              href={product.productLink || product.myntraLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
+            >
+              <span>Visit {product.brand}</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          )}
+        </div>
       </div>
-      <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
-      <div className="flex flex-col gap-2">
-        {(product.productLink || product.myntraLink) && (
-          <a
-            href={product.productLink || product.myntraLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
-          >
-            <span>Visit {product.brand}</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        )}
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Add a helper function to categorize items
 const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
