@@ -1,4 +1,4 @@
-import { ExtractedWardrobeItem } from './email-item-extractor';
+import { ExtractedProduct } from './unified-product-extractor';
 import { prisma } from './prisma';
 import { log } from './logger';
 import { categorizeItem } from './categorize-items';
@@ -11,7 +11,7 @@ export interface WardrobeAdditionResult {
   addedItems: number;
   duplicatesSkipped: number;
   addedWardrobeItems: any[]; // Array of created Prisma Wardrobe items
-  duplicateItems: ExtractedWardrobeItem[]; // Items skipped due to duplication
+  duplicateItems: ExtractedProduct[]; // Items skipped due to duplication
 }
 
 /**
@@ -19,7 +19,7 @@ export interface WardrobeAdditionResult {
  */
 export async function addItemsToWardrobe(
   userId: string,
-  items: ExtractedWardrobeItem[]
+  items: ExtractedProduct[]
 ): Promise<WardrobeAdditionResult> {
   log('Adding items to wardrobe', { userId, itemCount: items.length });
   
@@ -85,8 +85,6 @@ export async function addItemsToWardrobe(
           productLink: item.productLink || '',
           size: item.size || '',
           color: item.color || '',
-          dominantColor: item.dominantColor || null,
-          colorTag: item.colorTag || (item.color ? item.color.toLowerCase() : 'unknown'),
           source: 'email',
           sourceEmailId: item.emailId,
           sourceOrderId: item.orderId || '',
@@ -125,7 +123,7 @@ export async function addItemsToWardrobe(
 /**
  * Check if an item already exists in the wardrobe
  */
-function checkForDuplicate(newItem: ExtractedWardrobeItem, existingItems: any[]): boolean {
+function checkForDuplicate(newItem: ExtractedProduct, existingItems: any[]): boolean {
   return existingItems.some(existingItem => {
     // Check if brand and name match
     const brandMatch = (existingItem.brand === (newItem.brand || 'Unknown Brand'));

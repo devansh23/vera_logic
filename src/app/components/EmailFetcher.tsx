@@ -115,19 +115,19 @@ export default function EmailFetcher() {
   // Fetch items from a single email without adding to wardrobe
   const fetchEmailItems = async (emailId: string) => {
     setProcessingEmail(emailId);
-    setExtractionResult(null);
     setError(null);
     setErrorDetails(null);
     
     try {
-      const response = await fetch('/api/wardrobe/fetch-from-emails', {
+      const response = await fetch('/api/wardrobe/process-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           emailId,
-          retailer
+          retailer,
+          strategy: 'custom'
         })
       });
       
@@ -162,9 +162,7 @@ export default function EmailFetcher() {
           discount: item.discount || '',
           size: item.size || '',
           color: item.color || '',
-          productLink: item.productLink || '',
-          emailId: item.emailId || emailId,
-          retailer: item.retailer || retailer
+          productLink: item.productLink || ''
         }));
         
         setPendingItems(wardrobeItems);
@@ -187,14 +185,15 @@ export default function EmailFetcher() {
     setError(null);
     
     try {
-      const response = await fetch('/api/wardrobe/fetch-from-emails', {
+      const response = await fetch('/api/wardrobe/process-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           retailer,
-          maxEmails: 20 // Limit to avoid processing too many at once
+          maxResults: 20, // Limit to avoid processing too many at once
+          strategy: 'custom'
         })
       });
       
@@ -259,8 +258,6 @@ export default function EmailFetcher() {
         imageUrl: item.imageUrl,
         image: item.image || '',
         productLink: item.productLink || '',
-        emailId: item.emailId || '',
-        retailer: item.retailer || retailer,
         category: item.category
       }));
       

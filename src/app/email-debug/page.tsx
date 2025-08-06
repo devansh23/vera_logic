@@ -190,7 +190,7 @@ export default function EmailDebugPage() {
     
     try {
       // Use the production API endpoint
-      const response = await fetch('/api/wardrobe/add-from-emails-html', {
+      const response = await fetch('/api/wardrobe/process-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,6 +198,7 @@ export default function EmailDebugPage() {
         body: JSON.stringify({
           emailId: emailSelection.id,
           retailer: selectedRetailer,
+          strategy: 'custom'
         }),
       });
       

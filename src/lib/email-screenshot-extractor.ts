@@ -1,7 +1,7 @@
 import { Mistral } from '@mistralai/mistralai';
 import { log } from './logger';
 import { createHMPrompt, createMyntraPrompt, createZaraPrompt } from './email-extraction-prompts';
-import { ExtractedWardrobeItem } from './email-item-extractor';
+import { ExtractedProduct } from './unified-product-extractor';
 
 // Exported interface for extracted items
 export interface ExtractedItem {
