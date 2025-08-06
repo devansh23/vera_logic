@@ -51,11 +51,13 @@ export async function processItemImage(
   rawItemName: string,
   mimeType: string = 'image/jpeg'
 ): Promise<Buffer> {
+  console.log(`processItemImage called with itemName: "${rawItemName}", buffer size: ${imageBuffer.length} bytes`);
+  
   // Define mapping of clothing keywords to item types
   const keywordMap: Record<string, string[]> = {
     trousers: ['trousers', 'pants', 'jeans', 'slacks', 'chinos'],
     hoodie: ['hoodie', 'sweatshirt', 'sweater', 'jumper', 'pullover'],
-    shirt: ['shirt', 'button-up', 'button-down', 'jacquard', 'textured shirt'],
+    shirt: ['shirt', 'button-up', 'button-down', 'jacquard', 'textured shirt', 'overshirt', 'faux suede', 'comfort'],
     tshirt: ['t-shirt', 'tshirt', 'tee', 't shirt'],
     jacket: ['jacket', 'coat', 'blazer'],
     dress: ['dress', 'gown', 'frock'],
@@ -68,8 +70,8 @@ export async function processItemImage(
   const lowerName = rawItemName.toLowerCase();
   
   // Special case handling for hard-to-detect items
-  if (lowerName.includes('jacquard') || lowerName.includes('ecru')) {
-    console.log('Detected special case: jacquard/ecru shirt');
+  if (lowerName.includes('jacquard') || lowerName.includes('ecru') || lowerName.includes('overshirt')) {
+    console.log('Detected special case: jacquard/ecru/overshirt shirt');
     return await attemptExtractWithType(imageBuffer, 'shirt', mimeType);
   }
   
@@ -79,12 +81,22 @@ export async function processItemImage(
   );
   
   // Log for debugging
-  console.log(`processItemImage: itemName=${rawItemName}, matched=${matched || 'none'}`);
+  console.log(`processItemImage: itemName="${rawItemName}", matched="${matched || 'none'}"`);
   
   // If no match found, return the original image
-  if (!matched) return imageBuffer;
+  if (!matched) {
+    console.log(`No keyword match found for "${rawItemName}", returning original image`);
+    return imageBuffer;
+  }
 
-  return await attemptExtractWithType(imageBuffer, matched, mimeType);
+  try {
+    const result = await attemptExtractWithType(imageBuffer, matched, mimeType);
+    console.log(`Image processing completed for "${rawItemName}", result size: ${result.length} bytes`);
+    return result;
+  } catch (error) {
+    console.error(`Image processing failed for "${rawItemName}":`, error);
+    return imageBuffer;
+  }
 }
 
 /**

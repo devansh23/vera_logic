@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.className}>
-      <body className="min-h-screen bg-gradient-to-b from-white to-gray-100">
+      <body className="min-h-screen bg-gradient-to-b from-white to-gray-100" suppressHydrationWarning={true}>
         <Providers>
           <Navigation />
           <main className="flex min-h-screen flex-col items-center p-8">

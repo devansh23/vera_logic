@@ -10,7 +10,7 @@ import { ExtractedItem } from '@/types/email-extraction';
 import { extractZaraProductsFromHtml } from '@/lib/email-content-parser';
 import { processItemImage } from '@/lib/image-utils';
 import { extractHnMItems, extractMyntraItems } from '@/lib/email-item-extractor';
-
+import { extractZaraItems } from '@/lib/email-item-extractor';
 import fetch from 'node-fetch';
 
 export async function POST(req: NextRequest) {
@@ -79,28 +79,26 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
   try {
     const items = await extractItemsFromHtml(
       email.body.html, 
-      retailer,
-      emailId,
-      email.subject
+      retailer
     );
     
     // Process each item to handle image extraction
     const processedItems = await Promise.all(items.map(async (item) => {
-      if (!item.imageUrl) {
+      if (!item.image) {
         console.warn('No image URL found for item:', item.name);
         return item; // Skip processing if no image URL
       }
       
       try {
-        console.log(`Processing image for item: ${item.name}, URL: ${item.imageUrl}`);
+        console.log(`Processing image for item: ${item.name}, URL: ${item.image}`);
         
         // Validate the image URL
-        if (!item.imageUrl.startsWith('http')) {
-          console.warn(`Invalid image URL for ${item.name}: ${item.imageUrl}`);
+        if (!item.image.startsWith('http')) {
+          console.warn(`Invalid image URL for ${item.name}: ${item.image}`);
           return item;
         }
         
-        const response = await fetch(item.imageUrl);
+        const response = await fetch(item.image);
         if (!response.ok) {
           console.warn(`Failed to fetch image for ${item.name}: ${response.status} ${response.statusText}`);
           return item; // Return item without processed image
@@ -128,7 +126,7 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
         
         // For Zara items, also log the original image URL for debugging
         if (retailer.toLowerCase() === 'zara') {
-          console.log(`Zara item "${item.name}" - Original URL: ${item.imageUrl}, Processed size: ${processedImageBuffer.length} bytes`);
+          console.log(`Zara item "${item.name}" - Original URL: ${item.image}, Processed size: ${processedImageBuffer.length} bytes`);
         }
         
         return { ...item, image: processedImage };
@@ -310,16 +308,9 @@ async function processMultipleEmails(userId: string, retailer: string, maxEmails
  */
 export async function extractItemsFromHtml(
   htmlContent: string, 
-  retailer: string,
-  emailId?: string,
-  emailSubject?: string
+  retailer: string
 ): Promise<ExtractedItem[]> {
-  log('Extracting items from HTML content', { 
-    contentLength: htmlContent.length, 
-    retailer, 
-    emailId: emailId || 'unknown',
-    emailSubject: emailSubject || 'unknown'
-  });
+  log('Extracting items from HTML content', { contentLength: htmlContent.length, retailer });
   
   // Step 1: Try custom parsers first
   let items: ExtractedItem[] = [];
@@ -338,24 +329,24 @@ export async function extractItemsFromHtml(
       imageUrl: product.images?.[0] || '',
       productLink: product.productLink || '',
       retailer: 'Zara',
-      emailId: emailId || 'unknown',
+      emailId: 'mock-email-id',
       orderId: undefined,
       reference: product.reference
     }));
   } else if (retailer.toLowerCase().includes('h&m')) {
     log('Using custom H&M parser');
     const mockEmail = {
-      id: emailId || 'unknown',
-      threadId: 'unknown',
-      labelIds: ['unknown'],
-      snippet: 'unknown',
-      historyId: 'unknown',
-      internalDate: 'unknown',
+      id: 'mock-email-id',
+      threadId: 'mock-thread-id',
+      labelIds: ['mock-label'],
+      snippet: 'mock snippet',
+      historyId: 'mock-history-id',
+      internalDate: 'mock-date',
       sizeEstimate: 1000,
-      from: 'unknown@hm.com',
-      to: 'unknown@user.com',
+      from: 'mock@hm.com',
+      to: 'mock@user.com',
       date: new Date(),
-      subject: emailSubject || 'unknown',
+      subject: 'mock subject',
       body: { html: htmlContent }
     };
     const extractedItems = await extractHnMItems(mockEmail);
@@ -367,7 +358,6 @@ export async function extractItemsFromHtml(
       discount: item.discount,
       size: item.size,
       color: item.color,
-      image: item.imageUrl, // Map imageUrl to image field
       imageUrl: item.imageUrl,
       productLink: item.productLink,
       retailer: item.retailer,
@@ -378,17 +368,17 @@ export async function extractItemsFromHtml(
   } else if (retailer.toLowerCase() === 'myntra') {
     log('Using custom Myntra parser');
     const mockEmail = {
-      id: emailId || 'unknown',
-      threadId: 'unknown',
-      labelIds: ['unknown'],
-      snippet: 'unknown',
-      historyId: 'unknown',
-      internalDate: 'unknown',
+      id: 'mock-email-id',
+      threadId: 'mock-thread-id',
+      labelIds: ['mock-label'],
+      snippet: 'mock snippet',
+      historyId: 'mock-history-id',
+      internalDate: 'mock-date',
       sizeEstimate: 1000,
-      from: 'unknown@myntra.com',
-      to: 'unknown@user.com',
+      from: 'mock@myntra.com',
+      to: 'mock@user.com',
       date: new Date(),
-      subject: emailSubject || 'unknown',
+      subject: 'mock subject',
       body: { html: htmlContent }
     };
     const extractedItems = await extractMyntraItems(mockEmail);
@@ -400,7 +390,6 @@ export async function extractItemsFromHtml(
       discount: item.discount,
       size: item.size,
       color: item.color,
-      image: item.imageUrl, // Map imageUrl to image field
       imageUrl: item.imageUrl,
       productLink: item.productLink,
       retailer: item.retailer,
@@ -457,7 +446,7 @@ Please respond with a JSON array of clothing items in this exact format:
 
 Only include items that are actually clothing products. If no items are found, return an empty array [].`;
 
-      const response = await client.chat.complete({
+      const response = await client.chat({
         model: 'mistral-large-latest',
         messages: [
           {

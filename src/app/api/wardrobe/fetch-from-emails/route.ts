@@ -130,63 +130,35 @@ async function processSingleEmail(userId: string, emailId: string, retailer: str
       });
     }
     
-    // Process each item with categorization and image processing
-    const processedItems = await Promise.all(items.map(async (item, index) => {
-      // Determine category for the item
-      const category = categorizeItem({
-        name: item.name,
-        brand: item.brand || 'Unknown Brand',
-        color: item.color || '',
-        sourceRetailer: retailer
-      });
-
-      // Process image if available
-      let processedImage = item.image;
-      let imageBuffer = null;
-      if (item.image) {
-        try {
-          imageBuffer = await fetchImageAsBuffer(item.image);
-          if (imageBuffer) {
-            const processedImageBuffer = await processItemImage(imageBuffer, item.name);
-            processedImage = `data:image/jpeg;base64,${processedImageBuffer.toString('base64')}`;
-          }
-        } catch (error) {
-          log('Image processing failed', { error, itemName: item.name });
-          // Keep original image on failure
-        }
-      }
-
-      // Get color information
-      const { dominantColor, colorTag } = await getColorInfo({
-        rawColor: item.color,
-        imageBuffer,
-      });
-
-      return {
-        ...item,
-        id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
-        category,
-        image: processedImage,
-        imageUrl: processedImage, // Set both image and imageUrl for consistency
-        emailId,
-        retailer,
-        dominantColor,
-        colorTag
-      };
-    }));
-    
-    log('Items processed with categories and images', { count: processedItems.length, emailId });
+    log('Successfully extracted items from email', { emailId, itemCount: items.length });
     
     return NextResponse.json({
-      success: processedItems.length > 0,
-      message: `${processedItems.length} items found in email`,
-      items: processedItems
+      success: true,
+      message: `${items.length} items found in email`,
+      totalItemsFound: items.length,
+      items: items
     });
   } catch (error) {
-    log('Error processing HTML content', { error, emailId });
+    log('Error processing single email', { error, emailId, retailer });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to process email HTML content';
+    if (error instanceof Error) {
+      if (error.message.includes('Mistral API key not found')) {
+        errorMessage = 'AI processing not configured. Please add Mistral API key for better extraction.';
+      } else if (error.message.includes('Failed to parse JSON')) {
+        errorMessage = 'Failed to parse AI response. Using fallback extraction.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return NextResponse.json({
-      error: 'Failed to process email HTML content',
-      details: error instanceof Error ? error.message : String(error)
+      success: false,
+      message: errorMessage,
+      totalItemsFound: 0,
+      items: [],
+      error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

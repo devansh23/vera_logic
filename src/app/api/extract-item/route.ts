@@ -155,8 +155,44 @@ export async function POST(request: NextRequest) {
     // Check if API key is available
     if (!ROBOFLOW_API_KEY) {
       console.error('Roboflow API key not found');
-      // Create a mock response for development purposes
-      return mockCroppedImageResponse();
+      // Instead of mock response, use manual fallback cropping
+      console.log('Using manual fallback cropping since Roboflow API key is missing');
+      
+      const formData = await request.formData();
+      const image = formData.get('image');
+      const itemName = formData.get('itemName');
+
+      if (!image || !itemName) {
+        return NextResponse.json(
+          { error: 'Missing required fields: image and itemName' },
+          { status: 400 }
+        );
+      }
+
+      if (!(image instanceof Blob)) {
+        return NextResponse.json(
+          { error: 'Image must be a file' },
+          { status: 400 }
+        );
+      }
+
+      const originalItemName = itemName.toString();
+      const itemNameStr = extractBaseItemType(originalItemName).toLowerCase();
+      const imageBuffer = Buffer.from(await image.arrayBuffer());
+      
+      console.log(`Manual fallback: Processing "${originalItemName}" as "${itemNameStr}"`);
+      
+      const manuallyProcessedImage = await manualFallbackCrop(imageBuffer, itemNameStr);
+      
+      return new NextResponse(manuallyProcessedImage, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/png',
+          'X-Crop-Method': 'manual-fallback-no-api-key',
+          'X-Original-Item-Name': originalItemName,
+          'X-Base-Item-Type': itemNameStr
+        },
+      });
     }
     
     console.log('API Key present:', !!ROBOFLOW_API_KEY);
@@ -267,7 +303,10 @@ export async function POST(request: NextRequest) {
           status: 200,
           headers: {
             'Content-Type': 'image/png',
-            'X-Crop-Method': 'manual-fallback',
+            'X-Crop-Method': 'roboflow-detection',
+            'X-Detection-Class': 'N/A', // No specific class for no detection
+            'X-Detection-Confidence': '0.0',
+            'X-Crop-Box': JSON.stringify({ x: 0, y: 0, width: 0, height: 0 }),
             'X-Original-Item-Name': originalItemName,
             'X-Base-Item-Type': itemNameStr
           },
@@ -709,13 +748,14 @@ async function manualFallbackCrop(imageBuffer: Buffer, itemType: string) {
     // So we'll crop a percentage of the image based on item type
     const itemType_lower = itemType.toLowerCase();
     
-    if (itemType_lower.includes('shirt') || itemType_lower.includes('top') || itemType_lower.includes('tshirt')) {
-      // For shirts, focus on the upper body area
+    if (itemType_lower.includes('shirt') || itemType_lower.includes('top') || itemType_lower.includes('tshirt') || itemType_lower.includes('overshirt')) {
+      // For shirts and overshirts, focus on the upper body area
+      // Zara overshirts are typically shown from chest up
       cropParams = {
-        left: Math.floor(imageWidth * 0.1),
-        top: Math.floor(imageHeight * 0.1),
-        width: Math.floor(imageWidth * 0.8),
-        height: Math.floor(imageHeight * 0.7)
+        left: Math.floor(imageWidth * 0.05),
+        top: Math.floor(imageHeight * 0.05),
+        width: Math.floor(imageWidth * 0.9),
+        height: Math.floor(imageHeight * 0.8)
       };
     } else if (itemType_lower.includes('trouser') || itemType_lower.includes('pant') || itemType_lower.includes('jean')) {
       // For pants, focus on the central area
@@ -741,6 +781,14 @@ async function manualFallbackCrop(imageBuffer: Buffer, itemType: string) {
         width: Math.floor(imageWidth * 0.8),
         height: Math.floor(imageHeight * 0.9)
       };
+    } else if (itemType_lower.includes('hoodie') || itemType_lower.includes('sweater') || itemType_lower.includes('sweatshirt')) {
+      // For hoodies and sweaters, focus on the upper body
+      cropParams = {
+        left: Math.floor(imageWidth * 0.1),
+        top: Math.floor(imageHeight * 0.1),
+        width: Math.floor(imageWidth * 0.8),
+        height: Math.floor(imageHeight * 0.75)
+      };
     } else {
       // For other items, use a conservative crop
       cropParams = {
@@ -763,6 +811,7 @@ async function manualFallbackCrop(imageBuffer: Buffer, itemType: string) {
     return croppedImageBuffer;
   } catch (error) {
     console.error('Error in manual fallback cropping:', error);
-    return imageBuffer; // Return original if cropping fails
+    // Return the original image if cropping fails
+    return imageBuffer;
   }
 } 
