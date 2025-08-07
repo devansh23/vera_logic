@@ -24,6 +24,8 @@ export interface ExtractedItem {
 export const debugOcrTexts = new Map<string, string>();
 export const debugScreenshots = new Map<string, Buffer>();
 
+import { prisma } from './prisma';
+
 /**
  * Extract items from text content using AI
  */
