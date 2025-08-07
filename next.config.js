@@ -11,8 +11,6 @@ const nextConfig = {
     // Disable TypeScript checking during builds
     ignoreBuildErrors: true,
   },
-  // Disable linting completely
-  swcMinify: true,
   images: {
     remotePatterns: [
       {

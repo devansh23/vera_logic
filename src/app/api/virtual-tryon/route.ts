@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -63,60 +63,40 @@ export async function POST(request: Request) {
 
     // Initialize Gemini
     console.log('Initializing Gemini...');
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenerativeAI(apiKey);
     console.log('Gemini initialized');
 
-    // Prepare the prompt
-    const prompt = `Generate a realistic image of the person in the first image wearing all the clothing items shown in the subsequent images. 
-    The clothing items should be properly fitted and positioned on the person's body.
-    Maintain the person's pose and background while accurately applying the clothing items.
-    Ensure the final image looks natural and realistic.`;
+    // Get a model to generate content
+    console.log('Getting model...');
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-pro" });
+    console.log('Model retrieved');
 
-    // Generate content
-    console.log('Generating content...');
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp-image-generation",
-      contents: [
-        { text: prompt },
-        userImagePart,
-        ...clothingImageParts
-      ],
-      config: {
-        responseModalities: ["Text", "Image"]
-      }
-    });
+    // Prepare the request content
+    const textPart = `Analyze this virtual try-on of clothing items and provide feedback on:
+1. Fit and sizing
+2. Style compatibility
+3. Color coordination
+4. Overall look assessment
+5. Suggestions for improvement
+
+Please be constructive and helpful in your feedback.`;
+
+    const imageParts = [userImagePart, ...clothingImageParts];
+
+    console.log('Sending request to Gemini...');
+    const response = await model.generateContent([textPart, ...imageParts]);
+    console.log('Response received from Gemini');
+
+    const result = response.response;
+    const feedback = result.text();
 
     // Log full response structure
-    console.log('Full response structure:', JSON.stringify(response, null, 2));
+    console.log('Full Gemini response:', JSON.stringify(response, null, 2));
 
-    // Process the response parts
-    let generatedImage: string | null = null;
-    let textResponse: string | null = null;
-
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.text) {
-          textResponse = part.text;
-          console.log('Text response received:', textResponse);
-        } else if (part.inlineData?.data) {
-          generatedImage = part.inlineData.data;
-          console.log('Image data received');
-        }
-      }
-    }
-
-    if (!generatedImage) {
-      console.error('No image generated in response');
-      return NextResponse.json(
-        { error: 'Failed to generate image' },
-        { status: 500 }
-      );
-    }
-
-    // Return the generated image
-    return NextResponse.json({ 
-      image: generatedImage,
-      text: textResponse 
+    return NextResponse.json({
+      success: true,
+      feedback: feedback,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error in virtual try-on:', error);
