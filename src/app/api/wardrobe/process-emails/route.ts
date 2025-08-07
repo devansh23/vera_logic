@@ -28,6 +28,8 @@ export interface ProcessEmailsResponse {
   products: any[];
   errors: string[];
   processingTime: number;
+  duplicatesSkipped?: number;
+  duplicateItems?: any[];
 }
 
 export async function POST(request: NextRequest) {
@@ -50,9 +52,9 @@ export async function POST(request: NextRequest) {
       retailer,
       strategy = 'auto',
       addToWardrobe = false,
-      maxEmails = 10,
-      onlyUnread = true,
-      daysBack = 30
+      maxEmails = 100,
+      onlyUnread = false,
+      daysBack = 1500
     } = body;
 
     log('Processing emails request', {
@@ -156,31 +158,23 @@ export async function POST(request: NextRequest) {
     // Step 4: Add to wardrobe if requested
     if (addToWardrobe && results.products.length > 0) {
       try {
-        const wardrobeItems = results.products.map(product => ({
-          userId: session.user.id,
-          brand: product.brand || 'Unknown',
-          name: product.name,
-          price: product.price || '',
-          originalPrice: product.originalPrice || '',
-          discount: product.discount || '',
-          image: product.processedImageUrl || product.imageUrl || '',
-          productLink: product.productLink || '',
-          size: product.size || '',
-          color: product.color || '',
-          source: 'email',
-          sourceEmailId: product.emailId,
-          sourceRetailer: product.retailer,
-          category: product.category || 'Uncategorized',
-          dominantColor: product.dominantColor,
-          colorTag: product.colorTag
-        }));
+        // Use the improved wardrobe integration with proper deduplication
+        const { addItemsToWardrobe } = await import('@/lib/wardrobe-integration');
+        
+        const wardrobeResult = await addItemsToWardrobe(
+          session.user.id,
+          results.products
+        );
 
-        await prisma.wardrobe.createMany({
-          data: wardrobeItems,
-          skipDuplicates: true
+        log('Products added to wardrobe', { 
+          totalItems: wardrobeResult.totalItems,
+          addedItems: wardrobeResult.addedItems,
+          duplicatesSkipped: wardrobeResult.duplicatesSkipped
         });
 
-        log('Products added to wardrobe', { count: wardrobeItems.length });
+        // Add deduplication info to response
+        results.duplicatesSkipped = wardrobeResult.duplicatesSkipped;
+        results.duplicateItems = wardrobeResult.duplicateItems;
       } catch (error) {
         results.errors.push(`Failed to add products to wardrobe: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }

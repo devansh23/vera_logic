@@ -85,6 +85,9 @@ model Wardrobe {
   updatedAt      DateTime     @updatedAt
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems    OutfitItem[]
+
+  // Add unique constraint for deduplication based on brand, name, and size
+  @@unique([userId, brand, name, size])
 }
 
 model Outfit {

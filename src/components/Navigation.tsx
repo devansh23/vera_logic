@@ -32,16 +32,40 @@ export default function Navigation() {
               </Link>
               
               {session && (
-                <Link 
-                  href="/outfit-planner" 
-                  className={`inline-flex items-center px-1 pt-1 h-16 border-b-2 text-sm font-medium ${
-                    pathname === '/outfit-planner' 
-                      ? 'border-blue-500 text-gray-900 font-bold' 
-                      : 'border-transparent text-purple-600 hover:border-purple-300 hover:text-purple-700'
-                  }`}
-                >
-                  Outfit Planner
-                </Link>
+                <>
+                  <Link 
+                    href="/email-fetcher" 
+                    className={`inline-flex items-center px-1 pt-1 h-16 border-b-2 text-sm font-medium ${
+                      pathname === '/email-fetcher' 
+                        ? 'border-blue-500 text-gray-900' 
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                  >
+                    Import from Email
+                  </Link>
+                  
+                  <Link 
+                    href="/outfit-planner" 
+                    className={`inline-flex items-center px-1 pt-1 h-16 border-b-2 text-sm font-medium ${
+                      pathname === '/outfit-planner' 
+                        ? 'border-blue-500 text-gray-900 font-bold' 
+                        : 'border-transparent text-purple-600 hover:border-purple-300 hover:text-purple-700'
+                    }`}
+                  >
+                    Outfit Planner
+                  </Link>
+                  
+                  <Link 
+                    href="/settings" 
+                    className={`inline-flex items-center px-1 pt-1 h-16 border-b-2 text-sm font-medium ${
+                      pathname === '/settings' 
+                        ? 'border-blue-500 text-gray-900' 
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                  >
+                    Settings
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -78,12 +102,26 @@ export default function Navigation() {
           {/* Mobile menu button */}
           <div className="flex items-center sm:hidden">
             {session && (
-              <Link
-                href="/outfit-planner"
-                className="mr-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
-              >
-                Outfits
-              </Link>
+              <>
+                <Link
+                  href="/email-fetcher"
+                  className="mr-2 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                >
+                  Email
+                </Link>
+                <Link
+                  href="/outfit-planner"
+                  className="mr-2 px-3 py-1 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700"
+                >
+                  Outfits
+                </Link>
+                <Link
+                  href="/settings"
+                  className="mr-2 px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700"
+                >
+                  Settings
+                </Link>
+              </>
             )}
             <button
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"

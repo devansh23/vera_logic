@@ -119,40 +119,54 @@ export default function EmailFetcher() {
     setErrorDetails(null);
     
     try {
+      console.log('🔍 Processing single email:', emailId);
+      
       const response = await fetch('/api/wardrobe/process-emails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          emailId,
+          emails: [emailId],     // ✅ Fixed: Array of email IDs
           retailer,
-          strategy: 'custom'
+          strategy: 'custom',
+          addToWardrobe: false   // ✅ Added: Don't add to wardrobe automatically
         })
       });
       
       const data = await response.json();
+      console.log('📧 API Response:', data);
       
       if (!response.ok) {
         throw new Error(data.error || `Failed to process email: ${response.status}`);
       }
       
-      // Check for detailed error message
-      if (data.details) {
-        setErrorDetails(data.details);
-      }
+      // ✅ Fix: Map API response to component expectations
+      const mappedData = {
+        success: data.success,
+        message: data.message,
+        totalItemsFound: data.totalProducts || 0,  // ✅ Map totalProducts to totalItemsFound
+        itemsAdded: data.itemsAdded,
+        items: data.products || [],                // ✅ Map products to items
+        debugKey: data.debugKey
+      };
       
-      setExtractionResult(data);
+      console.log('🔄 Mapped Data:', mappedData);
+      console.log('📦 Items found:', mappedData.items.length);
+      
+      setExtractionResult(mappedData);
       
       // Show the result for this specific email
       setSelectedEmail(emailId);
 
       // If items were found, show the confirmation modal
-      if (data.items && data.items.length > 0) {
+      if (mappedData.items && mappedData.items.length > 0) {
+        console.log('✅ Items found, showing confirmation modal');
+        
         // Map the items to the format expected by the confirmation modal
-        const wardrobeItems: WardrobeItem[] = data.items.map((item: any) => ({
-          id: item.id,
-          name: item.name,
+        const wardrobeItems: WardrobeItem[] = mappedData.items.map((item: any) => ({
+          id: item.id || `temp-${Date.now()}-${Math.random()}`,
+          name: item.name || 'Unknown Item',
           brand: item.brand || '',
           category: item.category || '',
           imageUrl: item.imageUrl || '',
@@ -165,8 +179,12 @@ export default function EmailFetcher() {
           productLink: item.productLink || ''
         }));
         
+        console.log('👕 Wardrobe Items:', wardrobeItems);
         setPendingItems(wardrobeItems);
         setShowConfirmation(true);
+        console.log('🎯 Modal should be visible now');
+      } else {
+        console.log('❌ No items found, modal not shown');
       }
     } catch (err) {
       console.error('Error processing email:', err);
@@ -185,6 +203,8 @@ export default function EmailFetcher() {
     setError(null);
     
     try {
+      console.log('🔍 Processing all emails for retailer:', retailer);
+      
       const response = await fetch('/api/wardrobe/process-emails', {
         method: 'POST',
         headers: {
@@ -192,8 +212,11 @@ export default function EmailFetcher() {
         },
         body: JSON.stringify({
           retailer,
-          maxResults: 20, // Limit to avoid processing too many at once
-          strategy: 'custom'
+          maxEmails: 50,         // ✅ Fixed: Your specified value
+          strategy: 'custom',
+          addToWardrobe: false,  // ✅ Added: Don't add to wardrobe automatically
+          onlyUnread: false,     // ✅ Added: Your specified value
+          daysBack: 1500         // ✅ Added: Your specified value
         })
       });
       
@@ -203,14 +226,31 @@ export default function EmailFetcher() {
       }
       
       const result = await response.json();
-      setExtractionResult(result);
+      console.log('📧 Batch API Response:', result);
+      
+      // ✅ Fix: Map API response to component expectations
+      const mappedResult = {
+        success: result.success,
+        message: result.message,
+        totalItemsFound: result.totalProducts || 0,  // ✅ Map totalProducts to totalItemsFound
+        itemsAdded: result.itemsAdded,
+        items: result.products || [],                // ✅ Map products to items
+        debugKey: result.debugKey
+      };
+      
+      console.log('🔄 Mapped Batch Result:', mappedResult);
+      console.log('📦 Items found:', mappedResult.items.length);
+      
+      setExtractionResult(mappedResult);
 
       // If items were found, show the confirmation modal
-      if (result.items && result.items.length > 0) {
+      if (mappedResult.items && mappedResult.items.length > 0) {
+        console.log('✅ Items found, showing confirmation modal');
+        
         // Map the items to the format expected by the confirmation modal
-        const wardrobeItems: WardrobeItem[] = result.items.map((item: any) => ({
-          id: item.id,
-          name: item.name,
+        const wardrobeItems: WardrobeItem[] = mappedResult.items.map((item: any) => ({
+          id: item.id || `temp-${Date.now()}-${Math.random()}`,
+          name: item.name || 'Unknown Item',
           brand: item.brand || '',
           category: item.category || '',
           imageUrl: item.imageUrl || '',
@@ -225,8 +265,12 @@ export default function EmailFetcher() {
           retailer: item.retailer || retailer
         }));
         
+        console.log('👕 Wardrobe Items:', wardrobeItems);
         setPendingItems(wardrobeItems);
         setShowConfirmation(true);
+        console.log('🎯 Modal should be visible now');
+      } else {
+        console.log('❌ No items found, modal not shown');
       }
     } catch (err) {
       console.error('Error processing emails:', err);
@@ -239,38 +283,35 @@ export default function EmailFetcher() {
   // Save confirmed items to wardrobe
   const handleConfirmItems = async (items: WardrobeItem[]) => {
     try {
-      // First, fetch existing items from the wardrobe
-      const fetchResponse = await fetch('/api/wardrobe');
-      if (!fetchResponse.ok) {
-        throw new Error('Failed to fetch current wardrobe data');
-      }
-      const existingItems = await fetchResponse.json();
+      console.log('💾 Saving items to wardrobe:', items.length);
       
-      // Convert new items to the format expected by the API
-      const newWardrobeItems = items.map(item => ({
-        brand: item.brand,
-        name: item.name,
-        price: item.price || '',
-        originalPrice: item.originalPrice || '',
-        discount: item.discount || '',
-        size: item.size || '',
-        color: item.color || '',
-        imageUrl: item.imageUrl,
-        image: item.image || '',
-        productLink: item.productLink || '',
-        category: item.category
-      }));
-      
-      // Merge existing items with new items
-      const allItems = [...existingItems, ...newWardrobeItems];
-      
-      // Call the API to save all items
-      const response = await fetch('/api/wardrobe/save', {
+      // Use the new add-items endpoint that handles deduplication properly
+      const response = await fetch('/api/wardrobe/add-items', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ items: allItems }),
+        body: JSON.stringify({ 
+          items: items.map(item => ({
+            brand: item.brand || '',
+            name: item.name || '',
+            price: item.price || '',
+            originalPrice: item.originalPrice || '',
+            discount: item.discount || '',
+            size: item.size || '',
+            color: item.color || '',
+            imageUrl: item.imageUrl || '',
+            image: item.image || '',
+            productLink: item.productLink || '',
+            category: item.category || '',
+            source: 'email',
+            sourceEmailId: item.sourceEmailId || '',
+            sourceRetailer: item.sourceRetailer || retailer,
+            retailer: item.sourceRetailer || retailer,
+            emailId: item.sourceEmailId || '',
+            orderId: item.sourceOrderId || ''
+          }))
+        }),
       });
       
       const data = await response.json();
@@ -279,9 +320,11 @@ export default function EmailFetcher() {
         throw new Error(data.error || 'Failed to add items to wardrobe');
       }
       
+      console.log('✅ Wardrobe save result:', data);
+      
       toast({
         title: "Items Added to Wardrobe",
-        description: `Successfully added ${items.length} items to your wardrobe.`,
+        description: `Successfully added ${data.addedItems || items.length} items to your wardrobe.${data.duplicatesSkipped ? ` ${data.duplicatesSkipped} duplicates were skipped.` : ''}`,
       });
       
       // Close the confirmation modal
@@ -320,6 +363,13 @@ export default function EmailFetcher() {
   const handleGmailConnectError = (errorMessage: string) => {
     setError(`Gmail connection error: ${errorMessage}`);
   };
+
+  // Debug modal state
+  console.log('🔍 Modal Debug:', { 
+    showConfirmation, 
+    pendingItemsCount: pendingItems.length,
+    extractionResult: extractionResult?.totalItemsFound 
+  });
 
   return (
     <div className="space-y-6">

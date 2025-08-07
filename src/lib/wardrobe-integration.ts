@@ -122,15 +122,17 @@ export async function addItemsToWardrobe(
 
 /**
  * Check if an item already exists in the wardrobe
+ * Updated to include size in the duplicate check
  */
 function checkForDuplicate(newItem: ExtractedProduct, existingItems: any[]): boolean {
   return existingItems.some(existingItem => {
-    // Check if brand and name match
+    // Check if brand, name, and size match
     const brandMatch = (existingItem.brand === (newItem.brand || 'Unknown Brand'));
     const nameMatch = existingItem.name === newItem.name;
+    const sizeMatch = (existingItem.size || '') === (newItem.size || '');
     
-    // If both brand and name match, consider it a duplicate
-    return brandMatch && nameMatch;
+    // If brand, name, and size all match, consider it a duplicate
+    return brandMatch && nameMatch && sizeMatch;
   });
 }
 
