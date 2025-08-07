@@ -4,9 +4,9 @@ import { log } from './logger';
 // Custom API error class that includes status code and optional context
 export class ApiError extends Error {
   status: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
-  constructor(message: string, status: number = 500, context?: Record<string, any>) {
+  constructor(message: string, status: number = 500, context?: Record<string, unknown>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -19,7 +19,7 @@ interface ErrorResponse {
   success: false;
   error: string;
   details?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   code?: string;
 }
 
@@ -35,7 +35,7 @@ export function createErrorResponse(
   let errorMessage = 'An unexpected error occurred';
   let errorStatus = status;
   let errorDetails: string | undefined = undefined;
-  let errorContext: Record<string, any> | undefined = undefined;
+  let errorContext: Record<string, unknown> | undefined = undefined;
   let errorCode: string | undefined = undefined;
 
   // Handle different error types
@@ -47,7 +47,7 @@ export function createErrorResponse(
     errorMessage = error.message;
     errorDetails = error.stack;
     // Extract error code if present (e.g., ECONNREFUSED, PRISMA_ERROR, etc.)
-    errorCode = (error as any).code;
+    errorCode = (error as unknown as Record<string, unknown>).code as string;
   } else if (typeof error === 'string') {
     errorMessage = error;
   }
@@ -89,9 +89,9 @@ export function createErrorResponse(
  * @returns A wrapped handler with standardized error handling
  */
 export function withErrorHandler(
-  handler: (req: NextRequest, params?: any) => Promise<NextResponse>
+  handler: (req: NextRequest, params?: Record<string, unknown>) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest, params?: any): Promise<NextResponse> => {
+  return async (req: NextRequest, params?: Record<string, unknown>): Promise<NextResponse> => {
     try {
       return await handler(req, params);
     } catch (error) {
@@ -101,18 +101,13 @@ export function withErrorHandler(
 }
 
 /**
- * Helper function to handle common validation errors
- * @param condition Condition to validate
- * @param message Error message if validation fails
- * @param status HTTP status code to return
- * @param context Additional context to include in the error
- * @throws ApiError if validation fails
+ * Validates a condition and throws an ApiError if false
  */
 export function validateOrThrow(
   condition: boolean,
   message: string,
   status: number = 400,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): void {
   if (!condition) {
     throw new ApiError(message, status, context);
@@ -120,31 +115,22 @@ export function validateOrThrow(
 }
 
 /**
- * Helper function to handle not found errors
- * @param message Error message
- * @param context Additional context to include in the error
- * @throws ApiError with 404 status
+ * Throws a 404 Not Found error
  */
-export function throwNotFound(message: string = 'Resource not found', context?: Record<string, any>): never {
+export function throwNotFound(message: string = 'Resource not found', context?: Record<string, unknown>): never {
   throw new ApiError(message, 404, context);
 }
 
 /**
- * Helper function to handle unauthorized errors
- * @param message Error message
- * @param context Additional context to include in the error
- * @throws ApiError with 401 status
+ * Throws a 401 Unauthorized error
  */
-export function throwUnauthorized(message: string = 'Unauthorized', context?: Record<string, any>): never {
+export function throwUnauthorized(message: string = 'Unauthorized', context?: Record<string, unknown>): never {
   throw new ApiError(message, 401, context);
 }
 
 /**
- * Helper function to handle forbidden errors
- * @param message Error message
- * @param context Additional context to include in the error
- * @throws ApiError with 403 status
+ * Throws a 403 Forbidden error
  */
-export function throwForbidden(message: string = 'Forbidden', context?: Record<string, any>): never {
+export function throwForbidden(message: string = 'Forbidden', context?: Record<string, unknown>): never {
   throw new ApiError(message, 403, context);
 } 

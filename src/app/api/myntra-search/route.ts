@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

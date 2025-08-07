@@ -22,6 +22,7 @@ export interface ExtractedItem {
 
 // For storing debug information
 export const debugOcrTexts = new Map<string, string>();
+export const debugScreenshots = new Map<string, Buffer>();
 
 /**
  * Extract items from text content using AI

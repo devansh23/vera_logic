@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function GmailAuthError() {
+// Separate component that uses useSearchParams
+function GmailAuthErrorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [errorReason, setErrorReason] = useState<string>('unknown');
@@ -91,5 +92,19 @@ export default function GmailAuthError() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function GmailAuthError() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+        </div>
+      </div>
+    }>
+      <GmailAuthErrorContent />
+    </Suspense>
   );
 } 

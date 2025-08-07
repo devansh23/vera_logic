@@ -68,4 +68,29 @@ export async function addOrderItemsToWardrobe(
   }
   
   return wardrobeItemIds;
+}
+
+/**
+ * Update email processing history
+ * @param userId User ID
+ * @param status Processing status information
+ */
+export async function updateEmailProcessingHistory(
+  userId: string,
+  status: {
+    emailsFound?: number;
+    emailsProcessed?: number;
+    ordersCreated?: number;
+    failedEmails?: number;
+    errorMessage?: string;
+    lastProcessedId?: string;
+  }
+): Promise<void> {
+  try {
+    // This is a placeholder implementation
+    // In a full implementation, you would update a processing status table
+    log('Email processing history updated', { userId, status });
+  } catch (error) {
+    log('Failed to update email processing history', { error, userId });
+  }
 } 

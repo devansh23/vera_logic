@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer';
 import { categorizeItem } from './categorize-items';
 import { WardrobeItem } from '@/types/wardrobe';
 
@@ -146,35 +146,30 @@ export async function scrapeProduct(url: string): Promise<Product> {
   }
 
   try {
-    // First try with Puppeteer for dynamic content
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    // Use fetch instead of puppeteer for now
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+      }
     });
-    
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    
-    try {
-      await page.goto(url, { 
-        waitUntil: 'networkidle0',
-        timeout: 30000 // 30 seconds timeout
-      });
-    } catch (error) {
-      console.error('Navigation error:', error);
-      throw new Error('Failed to load the product page. Please check the URL and try again.');
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch the page: ${response.status} ${response.statusText}`);
     }
 
-    const html = await page.content();
-    await browser.close();
-
-    // Parse HTML with Cheerio
+    const html = await response.text();
     const $ = cheerio.load(html);
 
     // Extract basic information
     const name = $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') || 
-                $('title').text().trim();
+                $('title').text().trim() ||
+                'Unknown Product';
 
     const brand = extractBrandFromUrl(url);
 
@@ -190,7 +185,7 @@ export async function scrapeProduct(url: string): Promise<Product> {
       price,
       productLink: url,
       dateAdded: new Date(),
-      id: url.split('/').pop() || '',
+      id: url.split('/').pop() || Date.now().toString(),
       sourceRetailer: brand
     };
 
@@ -208,8 +203,10 @@ export async function scrapeProduct(url: string): Promise<Product> {
     // Try product images
     $('img').each((_, el) => {
       const src = $(el).attr('src');
-      if (src && (src.includes('product') || src.includes('catalog'))) {
-        images.push(src);
+      if (src && (src.includes('product') || src.includes('catalog') || src.includes('assets'))) {
+        // Make sure it's a full URL
+        const fullSrc = src.startsWith('http') ? src : new URL(src, url).href;
+        images.push(fullSrc);
       }
     });
 
@@ -217,6 +214,9 @@ export async function scrapeProduct(url: string): Promise<Product> {
     if (images.length > 0) {
       product.image = images[0];
       product.images = images;
+    } else {
+      // Fallback placeholder image
+      product.image = 'https://via.placeholder.com/300x300?text=No+Image';
     }
 
     // Extract description
@@ -237,9 +237,9 @@ export async function scrapeProduct(url: string): Promise<Product> {
       sourceRetailer: product.sourceRetailer
     });
 
-    // Validate required fields
-    if (!product.name || !product.image) {
-      throw new Error('Could not identify the product. Please try a different URL or a more popular retailer.');
+    // Basic validation - just ensure we have a name
+    if (!product.name || product.name === 'Unknown Product') {
+      throw new Error('Could not extract product information from this page. Please try a direct product page URL.');
     }
 
     return product;

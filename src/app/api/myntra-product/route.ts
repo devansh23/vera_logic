@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer';
 import { scrapeProduct } from '@/lib/scrape-product';
 import { processItemImage } from '@/lib/image-utils';
 

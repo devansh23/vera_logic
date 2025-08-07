@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect, useSearchParams } from 'next/navigation';
 import OutfitPlanner from '@/components/outfit-planner/OutfitPlanner';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 
-export default function OutfitPlannerPage() {
-  const { data: session, status } = useSession();
+// Separate component that uses useSearchParams
+function OutfitPlannerContent() {
   const [activeTab, setActiveTab] = useState<'create' | 'saved' | 'calendar'>('create');
   const searchParams = useSearchParams();
   
@@ -21,23 +21,7 @@ export default function OutfitPlannerPage() {
       setActiveTab('create');
     }
   }, [editId]);
-  
-  // Show loading state
-  if (status === "loading") {
-    return (
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
-        <div className="text-center">Loading...</div>
-      </div>
-    );
-  }
-  
-  // Redirect to home if not logged in
-  if (status === "unauthenticated") {
-    redirect('/');
-    return null;
-  }
-  
+
   return (
     <div className="container mx-auto py-6 h-[calc(100vh-64px)]">
       <div className="flex justify-between items-center mb-6">
@@ -84,5 +68,36 @@ export default function OutfitPlannerPage() {
         <OutfitCalendar />
       )}
     </div>
+  );
+}
+
+export default function OutfitPlannerPage() {
+  const { data: session, status } = useSession();
+  
+  // Show loading state
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto py-6">
+        <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+  
+  // Redirect to home if not logged in
+  if (status === "unauthenticated") {
+    redirect('/');
+    return null;
+  }
+  
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-6">
+        <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
+        <div className="text-center">Loading...</div>
+      </div>
+    }>
+      <OutfitPlannerContent />
+    </Suspense>
   );
 }
