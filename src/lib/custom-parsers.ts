@@ -141,8 +141,8 @@ class HMParser extends BaseParser {
                          email.body.html.match(/order\s*(?:number|#)?\s*:?\s*([A-Za-z0-9-_]+)/i);
     const orderId = orderIdMatch ? orderIdMatch[1] : '';
     
-    // Find all product rows (each product is in a tr with class pl-articles-table-row)
-    const productRows = document.querySelectorAll('tr.pl-articles-table-row');
+    // Primary: legacy structure
+    let productRows = document.querySelectorAll('tr.pl-articles-table-row');
     
     productRows.forEach((row, index) => {
       try {
@@ -227,6 +227,103 @@ class HMParser extends BaseParser {
         log('Error parsing H&M product row', { error, index });
       }
     });
+
+    // Fallback: forwarded email structure (anchors with product links wrapped by parcel-api forwards)
+    if (products.length === 0) {
+      const seenKeys = new Set<string>();
+      const anchors = Array.from(document.querySelectorAll('a[href*="parcel-api.delivery.hm.com/click"]')) as HTMLAnchorElement[];
+
+      const extractProductUrl = (href: string): string => {
+        try {
+          const decodedHref = decodeURIComponent(href);
+          // Try to extract the "to=" param which itself is URL-encoded/base64-ish content containing the real URL
+          const toParamMatch = decodedHref.match(/[?&]to=([^&]+)/i);
+          if (toParamMatch) {
+            const toParam = decodeURIComponent(toParamMatch[1]);
+            const urlMatch = toParam.match(/https?:\/\/[^\s"']*productpage\.[^\s"']+/i);
+            if (urlMatch) return urlMatch[0];
+          }
+          // Fallback: scan whole decoded href
+          const directMatch = decodedHref.match(/https?:\/\/[^\s"']*productpage\.[^\s"']+/i);
+          return directMatch ? directMatch[0] : href;
+        } catch {
+          return href;
+        }
+      };
+
+      anchors.forEach((a, index) => {
+        try {
+          // Candidate must contain a details table with Art. No., Color, Size, Quantity
+          const detailsTable = a.querySelector('table');
+          const detailsText = (detailsTable?.textContent || '').toLowerCase();
+          const looksLikeProduct = detailsTable && detailsText.includes('art. no') && detailsText.includes('color') && detailsText.includes('size');
+          if (!looksLikeProduct) return;
+
+          // Name: first dark font inside anchor
+          const nameEl = a.querySelector('font[style*="color:#222222"][style*="text-decoration:none"], font[style*="color:#222222"]');
+          const productName = this.cleanText(nameEl?.textContent || '');
+          if (!productName) return;
+
+          // Product link (decode parcel forward)
+          const productLink = extractProductUrl(a.getAttribute('href') || '');
+
+          // Container row and product image
+          const containerTr = a.closest('tr');
+          const img = containerTr?.querySelector('img[src*="assets.hm.com/articles/"]') as HTMLImageElement | null;
+          const imageUrl = img?.getAttribute('src') || '';
+
+          // Price from any nearby font containing a rupee amount
+          let price = '';
+          const priceFont = Array.from(a.querySelectorAll('font')).find(f => /₹|Rs\.?|INR/i.test(f.textContent || ''));
+          if (priceFont) {
+            const m = (priceFont.textContent || '').match(/([₹RsINR\.]\s*)?([\d,]+(?:\.\d+)?)/i);
+            if (m) price = m[2];
+          }
+
+          // Detail rows
+          let artNo = '', color = '', size = '', quantity = '1';
+          if (detailsTable) {
+            const rows = Array.from(detailsTable.querySelectorAll('tr'));
+            rows.forEach(r => {
+              const cells = r.querySelectorAll('td');
+              if (cells.length >= 2) {
+                const label = (cells[0].textContent || '').trim().toLowerCase();
+                const value = (cells[1].textContent || '').trim();
+                if (label.includes('art. no')) artNo = value;
+                else if (label.includes('color')) color = value;
+                else if (label.includes('size')) size = value;
+                else if (label.includes('quantity')) quantity = value;
+              }
+            });
+          }
+
+          const key = artNo || productLink || productName;
+          if (seenKeys.has(key)) return;
+          seenKeys.add(key);
+
+          const product: ExtractedProduct = {
+            name: productName,
+            brand: 'H&M',
+            price: price ? `₹${price}` : '',
+            originalPrice: '',
+            discount: '',
+            size,
+            color,
+            imageUrl,
+            productLink,
+            quantity: parseInt(quantity) || 1,
+            retailer: 'H&M',
+            emailId: email.id,
+            orderId,
+            reference: artNo
+          };
+
+          products.push(product);
+        } catch (error) {
+          log('Error parsing H&M forwarded product block', { error, index });
+        }
+      });
+    }
     
     log('H&M parser results', { emailId: email.id, productCount: products.length });
     return products;

@@ -7,6 +7,13 @@ import { log } from '@/lib/logger';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
+  // Disable debug endpoints in production unless explicitly enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEBUG_ENDPOINTS !== 'true') {
+    return NextResponse.json({ 
+      error: 'Debug endpoints are disabled in production' 
+    }, { status: 403 });
+  }
+
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
@@ -40,8 +47,10 @@ export async function GET(req: NextRequest) {
           htmlLength: email.body?.html?.length || 0,
           hasText: Boolean(email.body?.text),
           textLength: email.body?.text?.length || 0,
-          // Include a sample of the HTML content
-          htmlSample: email.body?.html?.substring(0, 500) + '...'
+          // Include a sample of the HTML content (only in development)
+          htmlSample: process.env.NODE_ENV === 'development' 
+            ? email.body?.html?.substring(0, 500) + '...'
+            : '[HTML_CONTENT_HIDDEN_IN_PRODUCTION]'
         };
 
         return NextResponse.json({
@@ -52,7 +61,9 @@ export async function GET(req: NextRequest) {
         log('Debug: Error fetching specific email', { error, emailId });
         return NextResponse.json({
           error: 'Failed to fetch email',
-          details: error instanceof Error ? error.message : String(error)
+          details: process.env.NODE_ENV === 'development' 
+            ? (error instanceof Error ? error.message : String(error))
+            : 'Internal server error'
         }, { status: 500 });
       }
     }
@@ -61,21 +72,14 @@ export async function GET(req: NextRequest) {
     log('Debug: Listing emails', { retailer });
     try {
       const query = retailer.toLowerCase().includes('myntra')
-        ? 'from:myntra subject:order confirmation'
-        : retailer.toLowerCase().includes('h&m')
-          ? 'from:h&m subject:order confirmation'
-          : `from:${retailer} subject:order confirmation`;
-
-      const result = await listEmails(session.user.id, {
-        q: query,
-        maxResults: 10
-      });
+        ? 'from:myntra.com'
+        : `from:${retailer.toLowerCase()}`;
+      
+      const result = await listEmails(session.user.id, { q: query, maxResults: 10 });
       
       return NextResponse.json({
-        message: 'Emails listed successfully',
-        query,
-        count: result.messages.length,
-        emails: result.messages.map(email => ({
+        message: `Found ${result.messages.length} emails from ${retailer}`,
+        emails: result.messages.map((email: any) => ({
           id: email.id,
           subject: email.subject,
           from: email.from,
@@ -87,14 +91,18 @@ export async function GET(req: NextRequest) {
       log('Debug: Error listing emails', { error, retailer });
       return NextResponse.json({
         error: 'Failed to list emails',
-        details: error instanceof Error ? error.message : String(error)
+        details: process.env.NODE_ENV === 'development' 
+          ? (error instanceof Error ? error.message : String(error))
+          : 'Internal server error'
       }, { status: 500 });
     }
   } catch (error) {
-    log('Debug: Unexpected error in test-gmail-api', { error });
+    log('Debug: Unexpected error', { error });
     return NextResponse.json({
-      error: 'An unexpected error occurred',
-      details: error instanceof Error ? error.message : String(error)
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' 
+        ? (error instanceof Error ? error.message : String(error))
+        : 'An unexpected error occurred'
     }, { status: 500 });
   }
 } 

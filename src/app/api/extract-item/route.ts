@@ -3,7 +3,8 @@ import sharp from 'sharp';
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 
-const ROBOFLOW_API_KEY = process.env.NEXT_PUBLIC_ROBOFLOW_API_KEY;
+// Use server-side only environment variable (removed NEXT_PUBLIC_ prefix)
+const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY;
 
 interface RoboflowPrediction {
   class: string;

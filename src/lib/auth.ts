@@ -4,7 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
 export const authOptions: AuthOptions = {
-  debug: true,
+  debug: process.env.NODE_ENV !== 'production',
   secret: process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma),
   session: {
@@ -30,10 +30,14 @@ export const authOptions: AuthOptions = {
   },
   callbacks: {
     session: async ({ session, user }) => {
-      console.log('Session callback - User:', user);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Session callback - User:', user);
+      }
       if (session?.user) {
         session.user.id = user.id;
-        console.log('Updated session with user ID:', session);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Updated session with user ID:', session);
+        }
       }
       return session;
     },

@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { debugScreenshots } from '@/lib/email-screenshot-extractor';
-import { withErrorHandler, throwUnauthorized, ApiError } from '@/lib/api-error-handler';
+import { withErrorHandler, ApiError, throwUnauthorized } from '@/lib/api-error-handler';
 
 export const runtime = 'nodejs';
 
 async function downloadScreenshotHandler(request: NextRequest) {
+  // Disable debug endpoints in production unless explicitly enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEBUG_ENDPOINTS !== 'true') {
+    throw new ApiError('Debug endpoints are disabled in production', 403);
+  }
+
   // Check user authentication
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {

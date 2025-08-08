@@ -94,12 +94,17 @@ async function processMyntraEmailsHandler(request: NextRequest) {
   // Get emails with retry for transient failures
   const { messages: emails } = await withRetry(
     async () => {
-      // Prepare search query for Myntra and H&M emails
+      // Prepare forward-friendly search query for Myntra, H&M, and Zara emails
+      const orderKeywords = 'subject:("order confirmation" OR "order confirmed" OR "your order" OR receipt)';
+      const brandTokens = '(myntra OR myntra.com OR "H&M" OR hm.com OR www2.hm.com OR delivery.hm.com OR zara OR zara.com)';
+      const fwdTokens = 'subject:(FW OR Fwd OR FWD)';
+
       const searchOptions: EmailSearchOptions = {
         maxResults: max,
         afterDate: searchFromDate,
-        q: 'from:myntra.com OR subject:myntra OR from:hm.com OR from:delivery.hm.com OR subject:H&M OR from:zara.com OR subject:zara',
+        q: `(((${brandTokens}) AND ((${orderKeywords}) OR ${fwdTokens})) OR from:myntra.com OR from:hm.com OR from:delivery.hm.com OR from:zara.com)`,
         onlyUnread: onlyUnread,
+        includeSpamTrash: true,
       };
       
       // List emails matching the search criteria
@@ -162,47 +167,19 @@ async function processMyntraEmailsHandler(request: NextRequest) {
           userId: session.user.id,
           emailId: email.id,
         },
+        select: { id: true },
       });
 
       if (existingOrder) {
-        log('Email already processed', { emailId: email.id });
-        
-        // Get wardrobe items for this order if any
-        const wardrobeItems = await prisma.wardrobe.findMany({
-          where: {
-            userId: session.user.id,
-            productLink: existingOrder.orderId, // Using orderId as reference
-          },
-          select: {
-            id: true
-          }
-        });
-        
-        const orderData: ProcessedOrder = {
-          id: existingOrder.id,
-          orderId: existingOrder.orderId,
-          orderDate: existingOrder.orderDate || undefined,
-          totalAmount: existingOrder.totalAmount || undefined,
-          currency: existingOrder.currency || undefined,
-          retailer: existingOrder.retailer,
-          items: existingOrder.items as any[],
-          status: existingOrder.status,
-          emailId: email.id,
-          emailDate: email.date,
-          processed: true,
-          wardrobeItemsAdded: wardrobeItems.map(item => item.id)
-        };
-        
-        // Add email details if requested
-        if (includeEmailDetails) {
-          orderData.emailSubject = email.subject;
-          orderData.emailFrom = email.from;
-          orderData.emailSnippet = email.snippet;
-        }
-        
-        processedOrders.push(orderData);
+        log('Email already processed, skipping', emailContext);
         continue;
       }
+
+      // Process email into products and add to wardrobe
+      const { products, addedWardrobeItems } = await EmailProcessor.processEmail(email, {
+        userId: session.user.id,
+        includeEmailDetails,
+      });
 
       // Determine which retailer this email is from
       if (EmailProcessor.isMyntraEmail(email)) {

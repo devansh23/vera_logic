@@ -25,21 +25,28 @@ const prismaClientSingleton = () => {
     errorFormat: 'pretty'
   });
   
-  // Add detailed query logging in development environment
-  if (process.env.NODE_ENV !== 'production') {
+  // Add detailed query logging ONLY in development environment
+  if (process.env.NODE_ENV === 'development') {
     client.$on('query', (e) => {
       console.log('Prisma Query:', e.query);
-      console.log('Prisma Params:', e.params);
+      // Only log params in development and avoid logging sensitive data
+      const sanitizedParams = e.params ? '[PARAMS_HIDDEN_FOR_SECURITY]' : '[]';
+      console.log('Prisma Params:', process.env.NODE_ENV === 'development' ? e.params : sanitizedParams);
       console.log('Prisma Duration:', `${e.duration}ms`);
     });
   }
   
-  // Add error handling
+  // Add error handling with security considerations
   client.$use(async (params, next) => {
     try {
       return await next(params);
     } catch (error) {
-      console.error(`Prisma Error in ${params.model}.${params.action}:`, error);
+      // In production, avoid logging sensitive error details
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`Prisma Error in ${params.model}.${params.action}:`, error);
+      } else {
+        console.error(`Prisma Error in ${params.model}.${params.action}: Database operation failed`);
+      }
       throw error;
     }
   });
@@ -49,13 +56,6 @@ const prismaClientSingleton = () => {
 
 export const prisma = global.prisma || prismaClientSingleton()
 
-// Disconnect from the database on exit in non-production environments
-// This helps free up connections when the server is shut down
 if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma
-  
-  // Handle application shutdown to properly close connections
-  process.on('beforeExit', async () => {
-    await global.prisma?.$disconnect()
-  })
+  global.prisma = prisma;
 } 

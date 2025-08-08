@@ -53,8 +53,8 @@ async function fetchEmailsHandler(request: NextRequest) {
     .map(keyword => `subject:(${keyword})`)
     .join(' OR ');
 
-  // Build retailer-specific search query combined with confirmation keywords
-  const searchQuery = normalizedRetailer === 'myntra'
+  // Primary: retailer sender + specific subject heuristics
+  const primaryQuery = normalizedRetailer === 'myntra'
     ? `from:myntra.com subject:"Your Myntra order item has been shipped"`
     : normalizedRetailer === 'h&m' || normalizedRetailer === 'hm'
     ? `from:delivery.hm.com subject:"Order Confirmation"`
@@ -62,20 +62,52 @@ async function fetchEmailsHandler(request: NextRequest) {
     ? `from:noreply@zara.com subject:"Thank you for your purchase"`
     : `from:${retailer} AND (${confirmationKeywordQuery})`;
 
+  // Forward-friendly: brand tokens + order keywords + Fwd/FW, search anywhere
+  const brandTokens = normalizedRetailer === 'myntra'
+    ? '(myntra OR myntra.com)'
+    : (normalizedRetailer === 'h&m' || normalizedRetailer === 'hm')
+    ? '("H&M" OR hm.com OR www2.hm.com OR delivery.hm.com)'
+    : normalizedRetailer === 'zara'
+    ? '(zara OR zara.com)'
+    : `(${retailer})`;
+  // Require brand tokens together with order keywords or Fwd markers
+  const forwardQuery = `in:anywhere ((${brandTokens}) AND ((${confirmationKeywordQuery}) OR subject:(FW OR Fwd OR FWD)))`;
+
   try {
-    const emailsResponse = await GmailService.listEmails(session.user.id, {
-      q: searchQuery,
-      maxResults: 10,
+    // Query both in parallel and merge
+    const [primaryRes, forwardRes] = await Promise.all([
+      GmailService.listEmails(session.user.id, { q: primaryQuery, maxResults: 15 }),
+      GmailService.listEmails(session.user.id, { q: forwardQuery, maxResults: 15, includeSpamTrash: true }),
+    ]);
+
+    const all = [...(primaryRes.messages || []), ...(forwardRes.messages || [])];
+
+    // De-duplicate by id
+    const dedupMap = new Map<string, typeof all[number]>();
+    for (const m of all) {
+      if (m && m.id && !dedupMap.has(m.id)) dedupMap.set(m.id, m);
+    }
+    const deduped = Array.from(dedupMap.values());
+
+    // Sort by date desc (fallback to internalDate if needed)
+    deduped.sort((a, b) => {
+      const ad = a.date ? a.date.getTime() : (a.internalDate ? parseInt(a.internalDate) : 0);
+      const bd = b.date ? b.date.getTime() : (b.internalDate ? parseInt(b.internalDate) : 0);
+      return bd - ad;
     });
 
-    log('Fetched emails', {
-      count: emailsResponse.messages.length,
+    // Cap results
+    const limited = deduped.slice(0, 10);
+
+    log('Fetched emails (merged primary + forward)', {
       retailer,
-      userId: session.user.id
+      primaryCount: primaryRes.messages.length,
+      forwardCount: forwardRes.messages.length,
+      combinedCount: limited.length,
+      userId: session.user.id,
     });
 
-    // Return the messages directly in a flattened structure
-    return NextResponse.json({ messages: emailsResponse.messages });
+    return NextResponse.json({ messages: limited });
   } catch (error) {
     log('Error fetching emails', { error, retailer, userId: session.user.id });
     if (error instanceof ApiError) {

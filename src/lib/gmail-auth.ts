@@ -12,13 +12,34 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify'
 ];
 
+function resolveRedirectUri(): string {
+  // Primary: explicit Gmail redirect env
+  const explicit = process.env.GMAIL_REDIRECT_URI;
+  // Secondary: derive from NEXTAUTH_URL
+  const baseFromNextAuth = process.env.NEXTAUTH_URL;
+  // Tertiary: derive from Vercel provided host
+  const baseFromVercel = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined;
+
+  // Prefer explicit value if present and not obviously localhost in production
+  if (explicit && (process.env.NODE_ENV !== 'production' || !explicit.includes('localhost'))) {
+    return explicit;
+  }
+
+  const base = baseFromNextAuth || baseFromVercel;
+  if (base) {
+    return `${base.replace(/\/$/, '')}/api/auth/gmail/callback`;
+  }
+
+  throw new Error('Unable to resolve Gmail redirect URI. Set GMAIL_REDIRECT_URI or NEXTAUTH_URL in environment.');
+}
+
 /**
  * Creates and configures a new OAuth2 client
  */
 export function getOAuth2Client(): OAuth2Client {
   const clientId = process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
+  const redirectUri = resolveRedirectUri();
 
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error('Missing required environment variables for Gmail authentication');
@@ -31,6 +52,7 @@ export function getOAuth2Client(): OAuth2Client {
  * Generates the authorization URL for Gmail OAuth
  */
 export function generateAuthUrl(userId: string, email?: string): string {
+  const redirectUri = resolveRedirectUri();
   const oauth2Client = getOAuth2Client();
   
   const options: any = {
@@ -38,7 +60,8 @@ export function generateAuthUrl(userId: string, email?: string): string {
     scope: SCOPES,
     prompt: 'consent',  // Always show the consent screen
     state: userId,      // Pass the user ID as state to retrieve it after authorization
-    include_granted_scopes: true // Include any previously granted scopes
+    include_granted_scopes: true, // Include any previously granted scopes
+    redirect_uri: redirectUri,
   };
   
   // If we have the user's email, use it as a login hint
@@ -81,15 +104,11 @@ export async function getTokens(code: string): Promise<{
     return {
       access_token: tokens.access_token,
       refresh_token: refreshToken,
-      expiry_date: expiryDate
+      expiry_date: expiryDate,
     };
   } catch (error) {
     log('Error retrieving tokens', { error });
-    throw new ApiError(
-      'Failed to retrieve Gmail authorization tokens', 
-      500, 
-      { originalError: error instanceof Error ? error.message : 'Unknown error' }
-    );
+    throw new ApiError('Failed to retrieve Gmail tokens', 500);
   }
 }
 

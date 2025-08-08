@@ -127,7 +127,8 @@ async function attemptExtractWithType(
     // This handles both client and server-side contexts
     const apiBaseUrl = typeof window !== 'undefined' 
       ? window.location.origin  // Client-side
-      : process.env.NEXTAUTH_URL || 'http://localhost:3000'; // Server-side
+      : (process.env.NEXTAUTH_URL 
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
     
     // Make the request to the extract-item API using absolute URL
     const fetch = (await import('node-fetch')).default;

@@ -12,6 +12,7 @@ import {
   GmailConnectionStatus,
   GmailServiceTypes
 } from '@/types/gmail';
+import { normalizeSubject, unwrapForwardedContent } from './utils';
 
 // Export the Gmail class for direct use if needed
 export { gmail_v1 };
@@ -159,12 +160,19 @@ export async function getEmailById(
     const headers = message.payload.headers || [];
     const from = headers.find(h => h.name?.toLowerCase() === 'from')?.value || '';
     const to = headers.find(h => h.name?.toLowerCase() === 'to')?.value || '';
-    const subject = headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '';
+    const rawSubject = headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '';
+    const subjectNormalized = normalizeSubject(rawSubject);
+    const subject: string | undefined = subjectNormalized ? subjectNormalized : undefined;
     const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value;
     const date = dateHeader ? new Date(dateHeader) : undefined;
 
     // Extract email body and attachments
     const { textContent, htmlContent, attachments } = parseMessageParts(message.payload);
+
+    // Unwrap forwarded content heuristically
+    const unwrapped = unwrapForwardedContent({ html: htmlContent, text: textContent });
+    const bodyText: string | undefined = unwrapped.text ?? undefined;
+    const bodyHtml: string | undefined = unwrapped.html ?? undefined;
 
     // Construct email message object
     const emailMessage: InternalEmailMessage = {
@@ -181,8 +189,8 @@ export async function getEmailById(
       subject,
       date,
       body: {
-        text: textContent,
-        html: htmlContent,
+        text: bodyText,
+        html: bodyHtml,
       },
       attachments,
     };
@@ -259,20 +267,16 @@ export async function getAttachment(
 ): Promise<Buffer | null> {
   try {
     const gmail = await initializeGmailClient(userId);
-    
-    // Get the attachment
     const res = await gmail.users.messages.attachments.get({
       userId: 'me',
       messageId,
       id: attachmentId,
     });
 
-    if (!res.data.data) {
-      return null;
-    }
+    const data = res.data.data;
+    if (!data) return null;
 
-    // Decode base64 data
-    return Buffer.from(res.data.data, 'base64');
+    return Buffer.from(data, 'base64');
   } catch (error) {
     log('Error getting attachment', { error, userId, messageId, attachmentId });
     if (error instanceof ApiError) {
