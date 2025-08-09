@@ -166,14 +166,23 @@ export async function scrapeProduct(url: string): Promise<Product> {
     const $ = cheerio.load(html);
 
     // Extract basic information
-    const name = $('h1').first().text().trim() || 
+    // H&M specific selectors first
+    const hmName = $('.product-item-headline').first().text().trim();
+    const hmPrice = $('meta[property="product:price:amount"]').attr('content') ||
+                    $('[data-price="price"]').first().text().trim();
+    const hmImage = $('meta[property="og:image"]').attr('content') ||
+                    $('.product-detail-main-image-container img').attr('src');
+    const hmColor = $('[data-swatches] [aria-checked="true"]').attr('aria-label') ||
+                    $('[data-selected-color]').attr('data-selected-color') || '';
+
+    const name = hmName || $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') || 
                 $('title').text().trim() ||
                 'Unknown Product';
 
     const brand = extractBrandFromUrl(url);
 
-    const price = $('meta[property="product:price:amount"]').attr('content') ||
+    const price = hmPrice || $('meta[property="product:price:amount"]').attr('content') ||
                  $('meta[itemprop="price"]').attr('content') ||
                  $('.price-value').first().text().trim() ||
                  '';
@@ -193,7 +202,7 @@ export async function scrapeProduct(url: string): Promise<Product> {
     const images: string[] = [];
     
     // Try Open Graph image
-    const ogImage = $('meta[property="og:image"]').attr('content');
+    const ogImage = hmImage || $('meta[property="og:image"]').attr('content');
     if (ogImage) images.push(ogImage);
     
     // Try Schema.org image
@@ -225,7 +234,7 @@ export async function scrapeProduct(url: string): Promise<Product> {
                          '';
 
     // Extract color if available
-    product.color = $('[data-selected-color]').attr('data-selected-color') ||
+    product.color = hmColor || $('[data-selected-color]').attr('data-selected-color') ||
                    $('.color-name').first().text().trim() ||
                    '';
 

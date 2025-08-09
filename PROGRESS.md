@@ -175,4 +175,18 @@ A Next.js wardrobe management application that processes shopping emails from va
     - Detects parcel-api wrapped links and decodes the embedded `productpage.*` URL from the `to=` parameter.
     - Extracts product name, price, Art. No., color, size, and quantity from the anchor’s nested detail table, with image from the adjacent column.
     - Skips promos (e.g., "Complete the look") and de-duplicates by art number/product link.
-- Net result: Users can forward order confirmations to the connected Gmail and have items reliably fetched and parsed alongside normal retailer emails. 
+- Net result: Users can forward order confirmations to the connected Gmail and have items reliably fetched and parsed alongside normal retailer emails.
+
+### URL product add flow (August 9, 2025)
+
+- Implemented URL-based add for retailer product pages with confirmation modal.
+  - Supports Myntra and H&M product URLs; scrapes name, price, image, color, category.
+  - Confirmation modal allows editing brand/name/category before save.
+- Backend improvements
+  - `/api/wardrobe` now accepts `{ url }` and edited items (single or array).
+  - Duplicate-safe logic (unique on `userId, brand, name, size`) updates existing items instead of erroring.
+  - H&M scraper enhanced for reliability (selectors for name/price/image/color).
+- Performance improvements
+  - Added DB index `@@index([userId, dateAdded])` to speed wardrobe fetch ordering.
+  - UI stops refetching full wardrobe after save; appends returned items directly.
+- Status: URL fetch working for Myntra and H&M; category edits persist via modal. 

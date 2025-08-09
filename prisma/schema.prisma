@@ -88,6 +88,7 @@ model Wardrobe {
 
   // Add unique constraint for deduplication based on brand, name, and size
   @@unique([userId, brand, name, size])
+  @@index([userId, dateAdded])
 }
 
 model Outfit {

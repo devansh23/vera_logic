@@ -8,6 +8,8 @@ import FullBodyPhotoUpload from '@/components/FullBodyPhotoUpload';
 import { useWardrobe } from '@/contexts/WardrobeContext';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
+import { ConfirmationModal } from '@/components/ConfirmationFlow';
+import type { WardrobeItem as WardrobeItemType } from '@/types/wardrobe';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -721,6 +723,9 @@ export default function Home() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  // Confirmation modal state for URL-based add
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pendingItems, setPendingItems] = useState<WardrobeItemType[]>([]);
 
   // Load user's wardrobe on session change
   useEffect(() => {
@@ -842,42 +847,38 @@ export default function Home() {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await fetch('/api/wardrobe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        body: JSON.stringify({ url: productUrl }),
-        });
-        
-        if (!response.ok) {
-        throw new Error('Failed to add product');
+
+      // Fetch product details without creating, then show confirmation
+      const resp = await fetch(`/api/extractProductFromURL?url=${encodeURIComponent(productUrl)}`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch product details');
       }
-      
-      const data = await response.json();
-      // Debug logging to verify the data structure
-      console.log('Product data received:', data);
-      
-      // Make sure we're accessing the correct property (data.item)
-      if (!data.item) {
-        console.error('Expected data.item but got:', data);
-        throw new Error('Invalid response format from server');
-      }
-      
-      // Ensure we're properly appending to existing products
-      setProducts(prevProducts => {
-        // Create a new array with all previous products plus the new one
-        const updatedProducts = [...prevProducts, data.item];
-        console.log('Updated products count:', updatedProducts.length);
-        return updatedProducts;
-      });
-      
-      setInputValue('');
-      setShowProductOverlay(false);
+      const product = await resp.json();
+
+      // Map to WardrobeItem shape for the confirmation modal
+      const item: WardrobeItemType = {
+        id: `temp-${Date.now()}-${Math.random()}`,
+        name: product.name || 'Unknown Product',
+        brand: product.brand || 'Unknown',
+        price: product.price || '',
+        originalPrice: product.originalPrice || '',
+        discount: product.discount || '',
+        imageUrl: product.image || product.imageUrl || '',
+        image: product.image || product.imageUrl || '',
+        size: product.size || '',
+        color: product.color || '',
+        productLink: product.productLink || productUrl,
+        category: product.category || 'Uncategorized',
+        sourceRetailer: product.sourceRetailer || product.brand || 'Unknown',
+        userId: session.user.id,
+      } as WardrobeItemType;
+
+      setPendingItems([item]);
+      setShowConfirmation(true);
     } catch (error) {
-      console.error('Error adding product:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add product');
+      console.error('Error preparing product:', error);
+      setError(error instanceof Error ? error.message : 'Failed to prepare product');
     } finally {
       setIsLoading(false);
     }
@@ -1234,6 +1235,79 @@ export default function Home() {
     const updatedProducts = products.filter(product => !selectedItems.has(product.id));
     setProducts(updatedProducts);
       setSelectedItems(new Set());
+  };
+
+  // Confirm handler to persist pending items
+  const handleConfirmUrlItems = async (items: WardrobeItemType[]) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Persist edited items directly with chosen category and details
+      const payload = items.map((it) => ({
+        brand: it.brand || '',
+        name: it.name || '',
+        price: it.price || '',
+        originalPrice: it.originalPrice || '',
+        discount: it.discount || '',
+        size: it.size || '',
+        color: it.color || '',
+        imageUrl: it.imageUrl || it.image || '',
+        productLink: it.productLink || '',
+        category: it.category || 'Uncategorized',
+        source: 'url',
+        sourceRetailer: it.sourceRetailer || 'Unknown',
+      }));
+
+      const saveResp = await fetch('/api/wardrobe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload.length === 1 ? payload[0] : payload),
+      });
+      const created = await saveResp.json().catch(() => ([]));
+      if (!saveResp.ok) {
+        throw new Error(created?.error || created?.message || 'Failed to add product');
+      }
+
+      const createdItems = Array.isArray(created) ? created : [created];
+
+      // Map created wardrobe items to MyntraProduct for local state
+      const addedProducts: MyntraProduct[] = createdItems.map((saved: any) => ({
+        id: saved.id,
+        name: saved.name,
+        brand: saved.brand,
+        price: saved.price || '',
+        originalPrice: saved.originalPrice || '',
+        discount: saved.discount || '',
+        image: saved.image || '',
+        productLink: saved.productLink || '',
+        category: saved.category || 'Uncategorized',
+        size: saved.size || '',
+        color: saved.color || '',
+        sourceRetailer: saved.sourceRetailer || 'Unknown',
+        colorTag: saved.colorTag,
+        dominantColor: saved.dominantColor,
+        dateAdded: new Date().toISOString(),
+      }));
+
+      // Append without full refresh to keep UI snappy
+      setProducts((prev) => [...prev, ...addedProducts]);
+
+      setInputValue('');
+      setShowProductOverlay(false);
+      setShowConfirmation(false);
+      setPendingItems([]);
+    } catch (error) {
+      console.error('Error confirming URL items:', error);
+      setError(error instanceof Error ? error.message : 'Failed to add product');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setPendingItems([]);
   };
 
   return (
@@ -1892,6 +1966,15 @@ export default function Home() {
         <FullBodyPhotoUpload />
       </div>
 
+      {/* URL Add Confirmation Modal */}
+      {showConfirmation && (
+        <ConfirmationModal
+          items={pendingItems}
+          onConfirm={handleConfirmUrlItems}
+          onCancel={handleCancelConfirmation}
+          isWardrobe={true}
+        />
+      )}
     </main>
   )
 }

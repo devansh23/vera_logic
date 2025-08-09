@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const query = url.searchParams.get('q');
+  // Accept both `q` and `query` params for compatibility
+  const query = url.searchParams.get('q') || url.searchParams.get('query');
 
   if (!query) {
     return NextResponse.json({ error: 'Missing query parameter' }, { status: 400 });
