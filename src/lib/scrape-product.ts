@@ -3,6 +3,36 @@ import * as cheerio from 'cheerio';
 import { categorizeItem } from './categorize-items';
 import { WardrobeItem } from '@/types/wardrobe';
 
+// Reusable Puppeteer browser and simple in-memory cache for Zara HTML
+declare global {
+  // eslint-disable-next-line no-var
+  var __puppeteerBrowser: any | undefined;
+  // eslint-disable-next-line no-var
+  var __zaraHtmlCache: Map<string, { html: string; cachedAt: number }> | undefined;
+}
+
+async function getReusableBrowser() {
+  if (global.__puppeteerBrowser) return global.__puppeteerBrowser;
+  const puppeteer = await import('puppeteer');
+  global.__puppeteerBrowser = await puppeteer.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  });
+  return global.__puppeteerBrowser;
+}
+
+function getZaraCache(): Map<string, { html: string; cachedAt: number }> {
+  if (!global.__zaraHtmlCache) {
+    global.__zaraHtmlCache = new Map();
+  }
+  return global.__zaraHtmlCache;
+}
+
 interface Product extends Omit<WardrobeItem, 'id' | 'userId' | 'createdAt' | 'updatedAt'> {
   sizes?: string[];
   colors?: string[];
@@ -146,24 +176,149 @@ export async function scrapeProduct(url: string): Promise<Product> {
   }
 
   try {
-    // Use fetch instead of puppeteer for now
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
+    // First attempt: simple fetch
+    let html: string = '';
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Referer': 'https://www.google.com/'
+        }
+      });
+      if (response.ok) {
+        const text = await response.text();
+        // Detect Akamai interstitial
+        if (!/bm-verify|Akamai|_sec\/verify|interstitial|pow\":/.test(text)) {
+          html = text;
+        }
       }
-    });
+    } catch {}
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch the page: ${response.status} ${response.statusText}`);
+    // If blocked or missing content for Zara, fallback to Puppeteer
+    const hostname = new URL(url).hostname;
+    const isZara = hostname.includes('zara.com');
+
+    if (!html && isZara) {
+      // Cache check (TTL 6 hours)
+      const cache = getZaraCache();
+      const cached = cache.get(url);
+      const now = Date.now();
+      const ttlMs = 6 * 60 * 60 * 1000;
+      if (cached && (now - cached.cachedAt) < ttlMs) {
+        html = cached.html || '';
+      } else {
+        const browser = await getReusableBrowser();
+        const page = await browser.newPage();
+        try {
+          // Block heavy resources to accelerate
+          await page.setRequestInterception(true);
+          page.on('request', (req: any) => {
+            const type = req.resourceType?.();
+            if (type === 'image' || type === 'media' || type === 'font' || type === 'stylesheet') {
+              return req.abort();
+            }
+            return req.continue();
+          });
+
+          await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
+          await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://www.google.com/' });
+
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+          // Short, bounded delay to allow SSR/meta to arrive
+          await page.evaluate(() => new Promise<void>(resolve => setTimeout(resolve, 500)));
+
+          // If interstitial exists, try a second brief wait
+          const content = await page.content();
+          if (/bm-verify|Akamai|_sec\/verify|interstitial|pow\":/.test(content)) {
+            await page.evaluate(() => new Promise<void>(resolve => setTimeout(resolve, 1000)));
+          }
+
+          html = await page.content();
+          cache.set(url, { html, cachedAt: now });
+        } finally {
+          await page.close().catch(() => {});
+        }
+      }
     }
 
-    const html = await response.text();
+    if (!html) {
+      throw new Error('Page content could not be retrieved');
+    }
+
     const $ = cheerio.load(html);
+
+    // Zara-specific extraction via JSON-LD and meta tags
+    const isZaraFinal = isZara;
+
+    let zaraName = '';
+    let zaraPrice = '';
+    let zaraImage = '';
+    let zaraColor = '';
+    let zaraBrand = '';
+
+    if (isZaraFinal) {
+      $('script[type="application/ld+json"]').each((_, el) => {
+        const raw = $(el).contents().text();
+        try {
+          const parsed = JSON.parse(raw);
+          const nodes = Array.isArray(parsed) ? parsed : [parsed];
+          for (const node of nodes) {
+            const type = node && node['@type'];
+            const isProduct = (typeof type === 'string' && type.toLowerCase() === 'product') ||
+                              (Array.isArray(type) && type.map((t: string) => t.toLowerCase()).includes('product'));
+            if (!isProduct) continue;
+
+            if (!zaraName && node.name) zaraName = String(node.name).trim();
+            if (!zaraBrand && node.brand) {
+              if (typeof node.brand === 'string') zaraBrand = node.brand;
+              else if (typeof node.brand?.name === 'string') zaraBrand = node.brand.name;
+            }
+
+            const offers = node.offers;
+            const pickPrice = (o: any) => {
+              if (!o) return;
+              if (typeof o.price === 'number' || typeof o.price === 'string') {
+                const priceStr = String(o.price);
+                if (!zaraPrice) zaraPrice = extractPrice(priceStr) || priceStr;
+              }
+            };
+            if (offers) {
+              if (Array.isArray(offers)) pickPrice(offers[0]); else pickPrice(offers);
+            }
+
+            const images = node.image;
+            if (!zaraImage) {
+              if (Array.isArray(images) && images.length) zaraImage = String(images[0]);
+              else if (typeof images === 'string') zaraImage = images;
+            }
+
+            if (!zaraColor) {
+              const colorValue = node.color || node.colorName || (node.additionalProperty?.find?.((p: any) => (p.name || '').toLowerCase() === 'color')?.value);
+              if (typeof colorValue === 'string') zaraColor = colorValue;
+            }
+
+            break; // First Product node is sufficient
+          }
+        } catch {}
+      });
+
+      // Fallbacks for Zara
+      if (!zaraImage) {
+        zaraImage = $('meta[name="twitter:image"]').attr('content') || $('meta[property="og:image"]').attr('content') || '';
+      }
+      if (!zaraPrice) {
+        const twPrice = $('meta[name="twitter:data1"]').attr('content') || '';
+        if (twPrice) zaraPrice = extractPrice(twPrice);
+      }
+      if (!zaraName) {
+        zaraName = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || '';
+      }
+    }
 
     // Extract basic information
     // H&M specific selectors first
@@ -175,14 +330,14 @@ export async function scrapeProduct(url: string): Promise<Product> {
     const hmColor = $('[data-swatches] [aria-checked="true"]').attr('aria-label') ||
                     $('[data-selected-color]').attr('data-selected-color') || '';
 
-    const name = hmName || $('h1').first().text().trim() || 
+    const name = (isZaraFinal && zaraName) || hmName || $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') || 
                 $('title').text().trim() ||
                 'Unknown Product';
 
-    const brand = extractBrandFromUrl(url);
+    const brand = (isZaraFinal && (zaraBrand || 'Zara')) || extractBrandFromUrl(url);
 
-    const price = hmPrice || $('meta[property="product:price:amount"]').attr('content') ||
+    const price = (isZaraFinal && zaraPrice) || hmPrice || $('meta[property="product:price:amount"]').attr('content') ||
                  $('meta[itemprop="price"]').attr('content') ||
                  $('.price-value').first().text().trim() ||
                  '';
@@ -194,28 +349,31 @@ export async function scrapeProduct(url: string): Promise<Product> {
       price,
       productLink: url,
       dateAdded: new Date(),
-      id: url.split('/').pop() || Date.now().toString(),
+      id: (url.match(/p(\d+)/i)?.[1]) || url.split('/').pop() || Date.now().toString(),
       sourceRetailer: brand
+    };
+
+    // Helper to absolutize URLs
+    const toAbsolute = (src?: string) => {
+      if (!src) return '';
+      if (src.startsWith('http')) return src;
+      if (src.startsWith('//')) return `https:${src}`;
+      try { return new URL(src, url).href; } catch { return src; }
     };
 
     // Extract images
     const images: string[] = [];
-    
-    // Try Open Graph image
-    const ogImage = hmImage || $('meta[property="og:image"]').attr('content');
-    if (ogImage) images.push(ogImage);
-    
-    // Try Schema.org image
+    const ogImage = (isZaraFinal && zaraImage) || hmImage || $('meta[property="og:image"]').attr('content');
+    if (ogImage) images.push(toAbsolute(ogImage));
+
     const schemaImage = $('meta[itemprop="image"]').attr('content');
-    if (schemaImage) images.push(schemaImage);
-    
-    // Try product images
+    if (schemaImage) images.push(toAbsolute(schemaImage));
+
     $('img').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && (src.includes('product') || src.includes('catalog') || src.includes('assets'))) {
-        // Make sure it's a full URL
-        const fullSrc = src.startsWith('http') ? src : new URL(src, url).href;
-        images.push(fullSrc);
+      const src = $(el).attr('src') || $(el).attr('data-src') || '';
+      if (!src) return;
+      if (src.includes('product') || src.includes('catalog') || src.includes('assets') || src.includes('zara') || src.includes('static')) {
+        images.push(toAbsolute(src));
       }
     });
 
@@ -234,7 +392,7 @@ export async function scrapeProduct(url: string): Promise<Product> {
                          '';
 
     // Extract color if available
-    product.color = hmColor || $('[data-selected-color]').attr('data-selected-color') ||
+    product.color = (isZaraFinal && zaraColor) || hmColor || $('[data-selected-color]').attr('data-selected-color') ||
                    $('.color-name').first().text().trim() ||
                    '';
 

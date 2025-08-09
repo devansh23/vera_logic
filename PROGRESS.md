@@ -190,3 +190,18 @@ A Next.js wardrobe management application that processes shopping emails from va
   - Added DB index `@@index([userId, dateAdded])` to speed wardrobe fetch ordering.
   - UI stops refetching full wardrobe after save; appends returned items directly.
 - Status: URL fetch working for Myntra and H&M; category edits persist via modal. 
+
+### Zara URL fetch fixes and performance (August 9, 2025)
+
+- Resolved Akamai interstitials blocking static fetches by adding a headless fallback for Zara pages.
+- Performance improvements for Zara:
+  - Reuse a single Puppeteer browser across requests.
+  - Block heavy resources (images, media, fonts, stylesheets) during navigation.
+  - Short, bounded waits instead of full page hydration.
+  - 6-hour in-memory HTML cache by URL.
+- Data extraction:
+  - Prefer JSON-LD Product data; fallback to `og:`/Twitter meta.
+  - Normalize absolute image URLs; stable product id from `pNNNNNNNN`.
+- Result:
+  - Cold hit ~5–6s; warm/cached hits faster.
+- Files touched: `src/lib/scrape-product.ts` (Zara path + performance), added `puppeteer` dependency. 
