@@ -34,14 +34,14 @@ export default function Navigation() {
               {session && (
                 <>
                   <Link 
-                    href="/email-fetcher" 
+                    href="/add" 
                     className={`inline-flex items-center px-1 pt-1 h-16 border-b-2 text-sm font-medium ${
-                      pathname === '/email-fetcher' 
+                      pathname === '/add' 
                         ? 'border-blue-500 text-gray-900' 
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
-                    Import from Email
+                    Add items
                   </Link>
                   
                   <Link 
@@ -104,10 +104,10 @@ export default function Navigation() {
             {session && (
               <>
                 <Link
-                  href="/email-fetcher"
+                  href="/add"
                   className="mr-2 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
                 >
-                  Email
+                  Add
                 </Link>
                 <Link
                   href="/outfit-planner"
