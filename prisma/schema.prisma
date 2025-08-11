@@ -50,6 +50,7 @@ model User {
   outfits           Outfit[]
   sessions          Session[]
   wardrobe          Wardrobe[]
+  packs             Pack[]
 }
 
 model VerificationToken {
@@ -85,6 +86,7 @@ model Wardrobe {
   updatedAt      DateTime     @updatedAt
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   outfitItems    OutfitItem[]
+  packItems      PackItem[]
 
   // Add unique constraint for deduplication based on brand, name, and size
   @@unique([userId, brand, name, size])
@@ -101,6 +103,7 @@ model Outfit {
   calendarEvents CalendarEvent[]
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   items          OutfitItem[]
+  packOutfits    PackOutfit[]
 }
 
 model OutfitItem {
@@ -132,4 +135,44 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt
   outfit    Outfit   @relation(fields: [outfitId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Pack {
+  id          String       @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packOutfits PackOutfit[]
+  packItems   PackItem[]
+
+  @@index([userId, createdAt])
+}
+
+model PackOutfit {
+  id       String @id @default(cuid())
+  packId   String
+  outfitId String
+
+  pack     Pack   @relation(fields: [packId], references: [id], onDelete: Cascade)
+  outfit   Outfit @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, outfitId], name: "packId_outfitId")
+  @@index([packId])
+  @@index([outfitId])
+}
+
+model PackItem {
+  id             String   @id @default(cuid())
+  packId         String
+  wardrobeItemId String
+
+  pack          Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
+  wardrobeItem  Wardrobe @relation(fields: [wardrobeItemId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, wardrobeItemId], name: "packId_wardrobeItemId")
+  @@index([packId])
+  @@index([wardrobeItemId])
 }

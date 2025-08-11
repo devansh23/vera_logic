@@ -242,3 +242,22 @@ A Next.js wardrobe management application that processes shopping emails from va
   - UI: `src/components/UploadWardrobeItems.tsx` (new), `src/components/ConfirmationFlow/ConfirmationModal.tsx` (toggle)
   - Page integration: `src/app/page.tsx` (CTA + onSaved append)
 - Status: Working end-to-end locally; build green. Next: optional color-aware names (e.g., "red shirt") via `getColorInfo`. 
+
+### Packs feature restored and surfaced on Home (August 11, 2025)
+
+- Restored Packs (packing lists) end-to-end
+  - Added Prisma models: `Pack`, `PackOutfit`, `PackItem` with relations and composite uniques (`packId_outfitId`, `packId_wardrobeItemId`)
+  - Generated and applied migration `20250811121617_add_packs`
+  - Regenerated Prisma Client; API routes compile against new models
+- UI
+  - Added a Packs section to the home page (`/`) with a list of existing packs and a “Create Pack” CTA
+  - Packs pages remain available: `/packs`, `/packs/new`, `/packs/[id]`, `/packs/[id]/edit`
+- API
+  - `/api/packs` supports GET (list/detail), POST (create), PUT (update), DELETE (remove)
+  - `/api/packs/[id]/outfits` and `/api/packs/[id]/items` add/remove outfits or items to a pack
+- Files touched
+  - DB/schema: `prisma/schema.prisma`, `prisma/migrations/20250811121617_add_packs/migration.sql`
+  - UI: `src/app/page.tsx` (Packs section), `src/components/packs/*`, `src/app/packs/*`
+  - API: `src/app/api/packs/*`
+- Notes
+  - Feature visible on the home page for signed-in users; also accessible directly at `/packs` 

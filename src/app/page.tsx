@@ -11,6 +11,7 @@ import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 import { ConfirmationModal } from '@/components/ConfirmationFlow';
 import type { WardrobeItem as WardrobeItemType } from '@/types/wardrobe';
 import UploadWardrobeItems from '@/components/UploadWardrobeItems';
+import { PacksList } from '@/components/packs/PacksList';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -1978,6 +1979,12 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
         <h2 className="text-2xl font-semibold mb-6">Outfit Calendar</h2>
         <OutfitCalendar />
+      </div>
+
+      {/* Packs section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
+        <h2 className="text-2xl font-semibold mb-6">Packs</h2>
+        <PacksList />
       </div>
 
       {/* FullBodyPhotoUpload section at the bottom */}
