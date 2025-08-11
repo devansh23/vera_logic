@@ -516,37 +516,45 @@ export default function EmailDebugPage() {
     
     try {
       // Call the API to add items to wardrobe
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: wardrobeItems }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add items to wardrobe');
+      // Send in manageable chunks to avoid oversized payloads
+      const chunk = <T,>(arr: T[], size: number) => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+
+      let totalAdded = 0;
+      for (const batch of chunk(wardrobeItems, 25)) {
+        const response = await fetch('/api/wardrobe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(batch),
+        });
+        const data = await response.json().catch(() => ({} as any));
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to add items to wardrobe');
+        }
+        if (Array.isArray(data)) {
+          totalAdded += data.length;
+        } else if (data && Array.isArray(data.items)) {
+          totalAdded += data.items.length;
+        }
       }
-      
+       
       // Update the save status for each item
       const updatedItems = extractedItems.map(item => {
-        const matchingItem = data.updatedItems?.find(
-          (addedItem: ApiResponseItem) => addedItem.name === item.name && addedItem.brand === item.brand
-        );
-        
-        return {
-          ...item,
-          saveStatus: matchingItem ? 'success' as const : 'error' as const,
-        };
+        // Best-effort: mark items with brand+name present in batch as success
+        const wasSent = wardrobeItems.find(w => w.name === item.name && w.brand === item.brand);
+        return { ...item, saveStatus: wasSent ? 'success' as const : 'error' as const };
       });
       
       setExtractedItems(updatedItems);
       
       toast({
         title: "Items Added to Wardrobe",
-        description: `Successfully added ${data.count} items to your wardrobe.`,
+        description: `Successfully added ${totalAdded} items to your wardrobe.`,
       });
     } catch (error) {
       console.error('Error adding items to wardrobe:', error);

@@ -293,63 +293,116 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
     setError(null);
     isAutosaving.current = true;
 
+    const deepCurrent = deepCopyItems(items);
+    const deepPrev = lastSavedState.current ? deepCopyItems(lastSavedState.current) : [];
+
+    const prevMap = new Map(deepPrev.map(i => [i.id, i]));
+    const currMap = new Map(deepCurrent.map(i => [i.id, i]));
+
+    const isTemp = (id?: string) => !id || id.startsWith('temp-');
+
+    const toCreate = deepCurrent.filter(i => isTemp(i.id) || !prevMap.has(i.id));
+    const toMaybeUpdate = deepCurrent.filter(i => !isTemp(i.id) && prevMap.has(i.id));
+    const toUpdate = toMaybeUpdate.filter(i => {
+      const prev = prevMap.get(i.id);
+      if (!prev) return false;
+      // reuse areItemsEqual but comparing singletons
+      return !areItemsEqual([i], [prev]);
+    });
+    const toDelete = deepPrev.filter(i => !currMap.has(i.id));
+
+    const chunk = <T,>(arr: T[], size: number) => {
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+
+    const runLimited = async <T,>(tasks: (() => Promise<T>)[], limit = 5) => {
+      const results: T[] = [];
+      let index = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(limit, tasks.length) }).map(async () => {
+          while (index < tasks.length) {
+            const currentIndex = index++;
+            results.push(await tasks[currentIndex]());
+          }
+        })
+      );
+      return results;
+    };
+
     const maxRetries = 3;
     let retryCount = 0;
     let success = false;
 
     while (retryCount < maxRetries && !success) {
       try {
-        // Make a deep copy of items to send
-        const itemsToSend = deepCopyItems(items);
-        
-        console.log('Saving wardrobe with', itemsToSend.length, 'items');
-        
-        const response = await fetch('/api/wardrobe/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ items: itemsToSend }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || errorData.details || 'Failed to save wardrobe');
+        // Creates
+        const createChunks = chunk(toCreate, 25);
+        for (const batch of createChunks) {
+          if (batch.length === 0) continue;
+          const response = await fetch('/api/wardrobe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(batch),
+          });
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create items');
+          }
+          await response.json().catch(() => ({}));
         }
 
-        const result = await response.json();
-        
-        // Update last save time
+        // Updates
+        await runLimited(
+          toUpdate.map(item => async () => {
+            const response = await fetch('/api/wardrobe', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item),
+            });
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || 'Failed to update item');
+            }
+            await response.json().catch(() => ({}));
+          }),
+          5
+        );
+
+        // Deletes
+        await runLimited(
+          toDelete.map(item => async () => {
+            if (!item.id) return null;
+            const response = await fetch(`/api/wardrobe?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+            if (!response.ok) {
+              const text = await response.text().catch(() => '');
+              throw new Error(text || 'Failed to delete item');
+            }
+            return null;
+          }),
+          5
+        );
+
+        // Refresh canonical state from server
+        await refreshItems();
+
+        // Update last save time/state flags
         lastSaveTime.current = Date.now();
         isDirty.current = false;
-        
-        // Only update state if something actually changed from server
-        if (result.updatedItems && !areItemsEqual(items, result.updatedItems)) {
-          console.log('Server returned changed items - updating state');
-          // Create deep copy of returned items
-          const deepCopiedItems = deepCopyItems(result.updatedItems);
-          // Update last saved state and set items
-          lastSavedState.current = deepCopiedItems;
-          setItems(deepCopiedItems);
-        } else {
-          console.log('No changes from server - keeping current state');
-          // Still update last saved state with current items
-          lastSavedState.current = deepCopyItems(items);
-        }
-        
+        lastSavedState.current = deepCopyItems(items);
+
         if (showMessage) {
           console.log('Wardrobe saved successfully');
         }
-        
+
         success = true;
       } catch (error) {
         retryCount++;
         console.error(`Error saving wardrobe (attempt ${retryCount}/${maxRetries}):`, error);
-        
         if (retryCount >= maxRetries) {
           setError(error instanceof Error ? error.message : 'Failed to save wardrobe after multiple attempts');
         } else {
-          // Wait between retries
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
@@ -373,20 +426,22 @@ export function WardrobeProvider({ children }: WardrobeProviderProps) {
       // Clear local state first
       setItems([]);
       
-      // Then save empty state to backend
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: [] }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to clear wardrobe');
+      // Fetch current items and delete them in batches
+      const currentResp = await fetch('/api/wardrobe');
+      if (!currentResp.ok) throw new Error('Failed to load wardrobe');
+      const currentItems: WardrobeItem[] = await currentResp.json();
+      const ids = currentItems.map(i => i.id).filter(Boolean) as string[];
+      const chunk = (arr: string[], size: number) => {
+        const out: string[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+      for (const batch of chunk(ids, 25)) {
+        await Promise.all(
+          batch.map(id => fetch(`/api/wardrobe?id=${encodeURIComponent(id)}`, { method: 'DELETE' }))
+        );
       }
-      
-      await response.json();
+      await refreshItems();
     } catch (error) {
       console.error('Error clearing wardrobe:', error);
       setError(error instanceof Error ? error.message : 'Failed to clear wardrobe');

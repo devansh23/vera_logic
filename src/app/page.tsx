@@ -1057,19 +1057,16 @@ export default function Home() {
       setError(null);
       
       // Update local state first
+      const currentProducts = products;
       setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
       
       // Save the updated state to the backend
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: products.filter((_, i) => i !== index) }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save wardrobe after deletion');
+      const itemToDelete = currentProducts[index];
+      if (itemToDelete?.id) {
+        const response = await fetch(`/api/wardrobe?id=${encodeURIComponent(itemToDelete.id)}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error('Failed to delete item');
+        }
       }
       
       setSaveSuccess('Item successfully removed from your wardrobe');
@@ -1100,18 +1097,15 @@ export default function Home() {
       // Empty the products array and save the empty state
       setProducts([]);
       
-      // Save the empty state to the database
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items: [] }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to clear wardrobe');
-      }
+      // Delete all via API
+      const currentResp = await fetch('/api/wardrobe');
+      if (!currentResp.ok) throw new Error('Failed to load wardrobe');
+      const currentItems = await currentResp.json();
+      await Promise.all(
+        currentItems.map((i: any) =>
+          i.id ? fetch(`/api/wardrobe?id=${encodeURIComponent(i.id)}`, { method: 'DELETE' }) : Promise.resolve()
+        )
+      );
       
       setSaveSuccess('All items successfully removed from your wardrobe');
       

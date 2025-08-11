@@ -145,8 +145,7 @@ export async function POST(request: Request) {
     log('POST /api/wardrobe/save - Updated/created items', { count: savedItems.length });
     return NextResponse.json({ 
       message: 'Wardrobe saved successfully',
-      count: savedItems.length,
-      updatedItems: savedItems
+      count: savedItems.length
     });
   } catch (error: any) {
     log('Error saving wardrobe', { error });
