@@ -261,3 +261,9 @@ A Next.js wardrobe management application that processes shopping emails from va
   - API: `src/app/api/packs/*`
 - Notes
   - Feature visible on the home page for signed-in users; also accessible directly at `/packs` 
+
+### Minor UI fixes (August 11, 2025)
+
+- Centered the home page hero and primary controls so the composition aligns to the middle of the page
+- Removed duplicate user avatar/name/Sign out row from the page body; auth controls are shown only in the header bar
+- No functional changes; visual polish only 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { redirect, useSearchParams } from 'next/navigation';
+import { redirect, useSearchParams, useRouter } from 'next/navigation';
 import OutfitPlanner from '@/components/outfit-planner/OutfitPlanner';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
@@ -11,6 +11,7 @@ import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 function OutfitPlannerContent() {
   const [activeTab, setActiveTab] = useState<'create' | 'saved' | 'calendar'>('create');
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   // Extract edit ID from URL params and add logging
   const editId = searchParams.get('edit');
@@ -56,6 +57,12 @@ function OutfitPlannerContent() {
             }`}
           >
             Calendar
+          </button>
+          <button
+            onClick={() => router.push('/packs')}
+            className="px-4 py-2 rounded-lg transition-colors bg-gray-100 hover:bg-gray-200"
+          >
+            Packs
           </button>
         </div>
       </div>

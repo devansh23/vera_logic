@@ -1331,641 +1331,631 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-8 place-items-center">
           {/* Existing content */}
           <div className="space-y-8">
-            <div className="flex flex-col items-center">
-              {session && (
-                <div className="self-end flex items-center gap-2 mb-4">
-                  {session?.user?.image && (
-                    <Image src={session.user.image} width={32} height={32} alt="User" className="rounded-full" />
-                  )}
-                  <span className="text-sm">{session.user.name}</span>
-                  <button className="text-sm text-purple-600 hover:underline" onClick={() => signOut()}>Sign Out</button>
-                </div>
-              )}
-              
-              <h1 className="text-4xl font-bold text-center text-purple-600 mb-2">
-              Organize Your Wardrobe, <br />Elevate Your Style
-              </h1>
-              <p className="text-center text-gray-600 mb-8 max-w-xl mx-auto">
-                Your personal wardrobe assistant that helps you manage, style, and optimize your clothing collection.
-              </p>
-              
-              {session ? (
-                <div className="relative max-w-2xl mx-auto mb-16">
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <a 
-                      href="/email-fetcher" 
-                      className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Import Items from Your Email
-                    </a>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-grow">
-                          <input
-                            type="text"
-                          placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          />
-                          <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              if (file.type.startsWith('image/')) {
-                                handleImageUpload(file);
-                              } else if (file.type === 'application/pdf') {
-                                handlePdfUpload(file);
-                              }
-                            }}
-                            className="hidden"
-                            ref={fileInputRef}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                            aria-label="Upload file"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                            </svg>
-                          </button>
-                        </div>
-                        <button 
-                          type="submit"
-                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
-                        disabled={isLoading}
-                        >
-                        {isLoading ? 'Loading...' : 'Add to Wardrobe'}
-                        </button>
-                    </div>
-
-                    {error && (
-                      <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
-                        {error}
-                      </div>
-                    )}
-                  </form>
-
-                  {imagePreview && (
-                    <div className="mt-4 p-4 border border-gray-200 rounded-lg">
-                      <div className="aspect-video relative overflow-hidden rounded-lg">
-                        <img
-                          src={imagePreview}
-                          alt="Uploaded screenshot"
-                          className="object-contain w-full h-full"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search Results Dropdown */}
-                  {searchResults.length > 0 && (
-                    <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[70vh] overflow-y-auto">
-                      <div className="p-4 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-800">Found {searchResults.length} Products</h2>
-                        {imagePreview && (
-                          <p className="text-sm text-gray-600 mt-1">Results based on uploaded image</p>
-                        )}
-                      </div>
-                      <div className="divide-y divide-gray-100">
-                        {searchResults.map((result, index) => (
-                          <div 
-                            key={index}
-                            className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                          >
-                            {result.image && (
-                              <div className="relative w-24 h-24 flex-shrink-0">
-                                <img 
-                                  src={result.image} 
-                                  alt={result.name}
-                                  className="w-full h-full object-cover rounded"
-                                />
-                                {index < 3 && (
-                                  <div className="absolute top-0 left-0 bg-purple-600 text-white px-2 py-1 text-xs rounded-br">
-                                    Top {index + 1}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-gray-900 truncate">{result.brand}</h3>
-                              <p className="text-sm text-gray-600 line-clamp-2">{result.name}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="font-semibold text-gray-900">{result.price}</span>
-                                {result.originalPrice && (
-                                  <span className="text-sm text-gray-500 line-through">{result.originalPrice}</span>
-                                )}
-                                {result.discount && (
-                                  <span className="text-sm text-green-600 font-medium">{result.discount}</span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <button 
-                                className="px-4 py-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
-                                onClick={() => handleProductSelect(result.url)}
-                                disabled={isLoading}
-                              >
-                                {isLoading ? 'Adding...' : 'Add to Wardrobe'}
-                              </button>
-                              <a 
-                                href={result.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors text-center"
-                              >
-                                View on Myntra
-                              </a>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center mt-8">
-                  <p className="mb-4 text-gray-600">Sign in to manage your wardrobe</p>
-                  <button 
-                    onClick={() => signIn('google')}
-                    className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
+            {/* Auth controls are shown in the header; no duplicate here */}
+            
+            <h1 className="text-4xl font-bold text-center text-purple-600 mb-2">
+            Organize Your Wardrobe, <br />Elevate Your Style
+            </h1>
+            <p className="text-center text-gray-600 mb-8 max-w-xl mx-auto">
+              Your personal wardrobe assistant that helps you manage, style, and optimize your clothing collection.
+            </p>
+            
+            {session ? (
+              <div className="relative max-w-2xl mx-auto mb-16">
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  <a 
+                    href="/email-fetcher" 
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
                   >
-                    <Image src="/google.svg" alt="Google" width={18} height={18} />
-                    Sign in with Google
-                  </button>
-                </div>
-              )}
-
-              {/* Your Wardrobe Section */}
-              {products.length > 0 && (
-                <div>
-                  <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-                    <div className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</div>
-                    <div className="flex items-center gap-3">
-                      {isSaving && (
-                        <span className="text-gray-500 flex items-center">
-                          <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Saving...
-                        </span>
-                      )}
-                      {saveSuccess && !isSaving && (
-                        <span className="text-green-600 flex items-center">
-                          <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {saveSuccess}
-                        </span>
-                      )}
-                      <span className="text-gray-500">{products.length} items</span>
-                      <button
-                        onClick={() => setShowDeleteAllConfirm(true)}
-                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors ml-4"
-                        aria-label="Delete all items"
-                      >
-                        Delete All
-                      </button>
-                      {/* Upload from photos CTA */}
-                      <UploadWardrobeItems onSaved={handleUploadedItemsSaved} />
-                    </div>
-                  </div>
-                  
-                  {/* Add sorting and filtering controls */}
-                  <div className="mb-6 space-y-4">
-                    {/* Search and main controls */}
-                    <div className="flex flex-col sm:flex-row gap-4">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Import Items from Your Email
+                  </a>
+                  <div className="flex flex-col sm:flex-row gap-4">
                       <div className="relative flex-grow">
                         <input
                           type="text"
-                          placeholder="Search your wardrobe by name, brand, color or size..."
-                          value={wardrobeFilter}
-                          onChange={(e) => setWardrobeFilter(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
+                          className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                          {wardrobeFilter && (
-                            <button
-                              onClick={() => setWardrobeFilter('')}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <select
-                          value={sortOption.type}
-                          onChange={(e) => setSortOption({ ...sortOption, type: e.target.value as 'date' | 'name' | 'price' })}
-                          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
-                        >
-                          <option value="date">Date</option>
-                          <option value="name">Name</option>
-                          <option value="price">Price</option>
-                        </select>
-
-                        <select
-                          value={sortOption.direction}
-                          onChange={(e) => setSortOption({ ...sortOption, direction: e.target.value as 'asc' | 'desc' })}
-                          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
-                        >
-                          <option value="asc">Ascending</option>
-                          <option value="desc">Descending</option>
-                        </select>
-
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.type.startsWith('image/')) {
+                              handleImageUpload(file);
+                            } else if (file.type === 'application/pdf') {
+                              handlePdfUpload(file);
+                            }
+                          }}
+                          className="hidden"
+                          ref={fileInputRef}
+                        />
                         <button
-                          onClick={() => setShowFilters(!showFilters)}
-                          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent flex items-center gap-2"
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                          aria-label="Upload file"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                           </svg>
-                          Filters
-                          {Object.values(filterOptions).some(v => Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity) && (
-                            <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                              Active
-                            </span>
-                          )}
                         </button>
+                      </div>
+                      <button 
+                        type="submit"
+                      className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
+                      disabled={isLoading}
+                      >
+                      {isLoading ? 'Loading...' : 'Add to Wardrobe'}
+                      </button>
+                  </div>
 
-                        {selectedItems.size > 0 && (
+                  {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
+                      {error}
+                    </div>
+                  )}
+                </form>
+
+                {imagePreview && (
+                  <div className="mt-4 p-4 border border-gray-200 rounded-lg">
+                    <div className="aspect-video relative overflow-hidden rounded-lg">
+                      <img
+                        src={imagePreview}
+                        alt="Uploaded screenshot"
+                        className="object-contain w-full h-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Results Dropdown */}
+                {searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[70vh] overflow-y-auto">
+                    <div className="p-4 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-800">Found {searchResults.length} Products</h2>
+                      {imagePreview && (
+                        <p className="text-sm text-gray-600 mt-1">Results based on uploaded image</p>
+                      )}
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {searchResults.map((result, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          {result.image && (
+                            <div className="relative w-24 h-24 flex-shrink-0">
+                              <img 
+                                src={result.image} 
+                                alt={result.name}
+                                className="w-full h-full object-cover rounded"
+                              />
+                              {index < 3 && (
+                                <div className="absolute top-0 left-0 bg-purple-600 text-white px-2 py-1 text-xs rounded-br">
+                                  Top {index + 1}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900 truncate">{result.brand}</h3>
+                            <p className="text-sm text-gray-600 line-clamp-2">{result.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="font-semibold text-gray-900">{result.price}</span>
+                              {result.originalPrice && (
+                                <span className="text-sm text-gray-500 line-through">{result.originalPrice}</span>
+                              )}
+                              {result.discount && (
+                                <span className="text-sm text-green-600 font-medium">{result.discount}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <button 
+                              className="px-4 py-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
+                              onClick={() => handleProductSelect(result.url)}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? 'Adding...' : 'Add to Wardrobe'}
+                            </button>
+                            <a 
+                              href={result.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors text-center"
+                            >
+                              View on Myntra
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center mt-8">
+                <p className="mb-4 text-gray-600">Sign in to manage your wardrobe</p>
+                <button 
+                  onClick={() => signIn('google')}
+                  className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  <Image src="/google.svg" alt="Google" width={18} height={18} />
+                  Sign in with Google
+                </button>
+              </div>
+            )}
+
+            {/* Your Wardrobe Section */}
+            {products.length > 0 && (
+              <div>
+                <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+                  <div className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</div>
+                  <div className="flex items-center gap-3">
+                    {isSaving && (
+                      <span className="text-gray-500 flex items-center">
+                        <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </span>
+                    )}
+                    {saveSuccess && !isSaving && (
+                      <span className="text-green-600 flex items-center">
+                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {saveSuccess}
+                      </span>
+                    )}
+                    <span className="text-gray-500">{products.length} items</span>
+                    <button
+                      onClick={() => setShowDeleteAllConfirm(true)}
+                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors ml-4"
+                      aria-label="Delete all items"
+                    >
+                      Delete All
+                    </button>
+                    {/* Upload from photos CTA */}
+                    <UploadWardrobeItems onSaved={handleUploadedItemsSaved} />
+                  </div>
+                </div>
+                
+                {/* Add sorting and filtering controls */}
+                <div className="mb-6 space-y-4">
+                  {/* Search and main controls */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-grow">
+                      <input
+                        type="text"
+                        placeholder="Search your wardrobe by name, brand, color or size..."
+                        value={wardrobeFilter}
+                        onChange={(e) => setWardrobeFilter(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                        {wardrobeFilter && (
                           <button
-                            onClick={() => setShowDeleteConfirm(null)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2"
+                            onClick={() => setWardrobeFilter('')}
+                            className="text-gray-400 hover:text-gray-600"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                            Delete Selected ({selectedItems.size})
                           </button>
                         )}
                       </div>
                     </div>
 
-                    {/* Filter panel */}
-                    {showFilters && (
-                      <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {/* Categories */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
-                            <select
-                              multiple
-                              value={filterOptions.categories}
-                              onChange={(e) => setFilterOptions(prev => ({
-                                ...prev,
-                                categories: Array.from(e.target.selectedOptions, option => option.value)
-                              }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                            >
-                              {getUniqueValues(products, 'category').map(category => (
-                                <option key={category?.toString() || 'uncategorized'} value={category || 'Uncategorized'}>
-                                  {category || 'Uncategorized'}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={sortOption.type}
+                        onChange={(e) => setSortOption({ ...sortOption, type: e.target.value as 'date' | 'name' | 'price' })}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                      >
+                        <option value="date">Date</option>
+                        <option value="name">Name</option>
+                        <option value="price">Price</option>
+                      </select>
 
-                          {/* Brands */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Brands</label>
-                            <select
-                              multiple
-                              value={filterOptions.brands}
-                              onChange={(e) => setFilterOptions(prev => ({
-                                ...prev,
-                                brands: Array.from(e.target.selectedOptions, option => option.value)
-                              }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                            >
-                              {getUniqueValues(products, 'brand').map(brand => (
-                                <option key={brand?.toString() || 'unknown'} value={brand || 'Unknown'}>
-                                  {brand || 'Unknown'}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                      <select
+                        value={sortOption.direction}
+                        onChange={(e) => setSortOption({ ...sortOption, direction: e.target.value as 'asc' | 'desc' })}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                      >
+                        <option value="asc">Ascending</option>
+                        <option value="desc">Descending</option>
+                      </select>
 
-                          {/* Retailers */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Retailers</label>
-                            <select
-                              multiple
-                              value={filterOptions.retailers}
-                              onChange={(e) => setFilterOptions(prev => ({
-                                ...prev,
-                                retailers: Array.from(e.target.selectedOptions, option => option.value)
-                              }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                            >
-                              {getUniqueValues(products, 'sourceRetailer').map(retailer => (
-                                <option key={retailer?.toString() || 'unknown'} value={retailer || 'Unknown'}>
-                                  {retailer || 'Unknown'}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Price Range */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                placeholder="Min"
-                                value={filterOptions.priceRange.min || ''}
-                                onChange={(e) => setFilterOptions(prev => ({
-                                  ...prev,
-                                  priceRange: {
-                                    ...prev.priceRange,
-                                    min: Number(e.target.value) || 0
-                                  }
-                                }))}
-                                className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                              />
-                              <input
-                                type="number"
-                                placeholder="Max"
-                                value={filterOptions.priceRange.max === Infinity ? '' : filterOptions.priceRange.max}
-                                onChange={(e) => setFilterOptions(prev => ({
-                                  ...prev,
-                                  priceRange: {
-                                    ...prev.priceRange,
-                                    max: Number(e.target.value) || Infinity
-                                  }
-                                }))}
-                                className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Sizes */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Sizes</label>
-                            <select
-                              multiple
-                              value={filterOptions.sizes}
-                              onChange={(e) => setFilterOptions(prev => ({
-                                ...prev,
-                                sizes: Array.from(e.target.selectedOptions, option => option.value)
-                              }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                            >
-                              {getUniqueValues(products, 'size').map(size => (
-                                <option key={size?.toString() || 'no-size'} value={size || ''}>
-                                  {size || 'No Size'}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Colors */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Colors</label>
-                            <select
-                              multiple
-                              value={filterOptions.colors}
-                              onChange={(e) => setFilterOptions(prev => ({
-                                ...prev,
-                                colors: Array.from(e.target.selectedOptions, option => option.value)
-                              }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                            >
-                              {getUniqueValues(products, 'color').map(color => (
-                                <option key={color?.toString() || 'no-color'} value={color || ''}>
-                                  {color || 'No Color'}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Filter actions */}
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setFilterOptions({
-                              categories: [],
-                              brands: [],
-                              retailers: [],
-                              priceRange: { min: 0, max: Infinity },
-                              sizes: [],
-                              colors: []
-                            })}
-                            className="px-4 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                          >
-                            Clear Filters
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Update the WardrobeItem component to include selection */}
-                  <div className="space-y-4">
-                    {Object.entries(categorizeItems(getFilteredProducts()))
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([category, items]) => (
-                      <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => toggleCategory(category)}
-                          className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
-                        >
-                          <span className="font-medium text-gray-800">
-                            {category} ({items.length})
+                      <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filters
+                        {Object.values(filterOptions).some(v => Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity) && (
+                          <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            Active
                           </span>
-                          <svg
-                            className={`w-5 h-5 transform transition-transform ${
-                              expandedCategories[category] ? 'rotate-180' : ''
-                            }`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-
-                        {expandedCategories[category] && (
-                          <div className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {items.map((product, index) => {
-                                const globalIndex = products.findIndex(p => 
-                                  p.name === product.name && 
-                                  p.brand === product.brand && 
-                                  p.image === product.image
-                                );
-                                
-                                return (
-                                  <div key={`${category}-${index}`} className="relative group">
-                                    <div className="absolute top-2 left-2 z-10">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedItems.has(product.id)}
-                                        onChange={(e) => {
-                                          const newSelected = new Set(selectedItems);
-                                          if (e.target.checked) {
-                                            newSelected.add(product.id);
-                                          } else {
-                                            newSelected.delete(product.id);
-                                          }
-                                          setSelectedItems(newSelected);
-                                        }}
-                                        className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                                      />
-                                    </div>
-                                      <WardrobeItem 
-                                        product={product}
-                                        onDelete={() => setShowDeleteConfirm(globalIndex)}
-                                      />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
                         )}
-                      </div>
-                    ))}
+                      </button>
+
+                      {selectedItems.size > 0 && (
+                        <button
+                          onClick={() => setShowDeleteConfirm(null)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete Selected ({selectedItems.size})
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Add bulk delete confirmation modal */}
-                  {selectedItems.size > 0 && showDeleteConfirm === null && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                      <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-                        <h3 className="text-lg font-semibold mb-4">Delete Selected Items</h3>
-                        <p className="text-gray-600 mb-6">
-                          Are you sure you want to delete {selectedItems.size} selected items? This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end gap-4">
-                          <button
-                            onClick={() => setShowDeleteConfirm(null)}
-                            className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                  {/* Filter panel */}
+                  {showFilters && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* Categories */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
+                          <select
+                            multiple
+                            value={filterOptions.categories}
+                            onChange={(e) => setFilterOptions(prev => ({
+                              ...prev,
+                              categories: Array.from(e.target.selectedOptions, option => option.value)
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
                           >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleBulkDelete}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                          >
-                            Delete Selected
-                          </button>
+                            {getUniqueValues(products, 'category').map(category => (
+                              <option key={category?.toString() || 'uncategorized'} value={category || 'Uncategorized'}>
+                                {category || 'Uncategorized'}
+                              </option>
+                            ))}
+                          </select>
                         </div>
+
+                        {/* Brands */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Brands</label>
+                          <select
+                            multiple
+                            value={filterOptions.brands}
+                            onChange={(e) => setFilterOptions(prev => ({
+                              ...prev,
+                              brands: Array.from(e.target.selectedOptions, option => option.value)
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            {getUniqueValues(products, 'brand').map(brand => (
+                              <option key={brand?.toString() || 'unknown'} value={brand || 'Unknown'}>
+                                {brand || 'Unknown'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Retailers */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Retailers</label>
+                          <select
+                            multiple
+                            value={filterOptions.retailers}
+                            onChange={(e) => setFilterOptions(prev => ({
+                              ...prev,
+                              retailers: Array.from(e.target.selectedOptions, option => option.value)
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            {getUniqueValues(products, 'sourceRetailer').map(retailer => (
+                              <option key={retailer?.toString() || 'unknown'} value={retailer || 'Unknown'}>
+                                {retailer || 'Unknown'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Price Range */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              placeholder="Min"
+                              value={filterOptions.priceRange.min || ''}
+                              onChange={(e) => setFilterOptions(prev => ({
+                                ...prev,
+                                priceRange: {
+                                  ...prev.priceRange,
+                                  min: Number(e.target.value) || 0
+                                }
+                              }))}
+                              className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Max"
+                              value={filterOptions.priceRange.max === Infinity ? '' : filterOptions.priceRange.max}
+                              onChange={(e) => setFilterOptions(prev => ({
+                                ...prev,
+                                priceRange: {
+                                  ...prev.priceRange,
+                                  max: Number(e.target.value) || Infinity
+                                }
+                              }))}
+                              className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Sizes */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Sizes</label>
+                          <select
+                            multiple
+                            value={filterOptions.sizes}
+                            onChange={(e) => setFilterOptions(prev => ({
+                              ...prev,
+                              sizes: Array.from(e.target.selectedOptions, option => option.value)
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            {getUniqueValues(products, 'size').map(size => (
+                              <option key={size?.toString() || 'no-size'} value={size || ''}>
+                                {size || 'No Size'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Colors */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Colors</label>
+                          <select
+                            multiple
+                            value={filterOptions.colors}
+                            onChange={(e) => setFilterOptions(prev => ({
+                              ...prev,
+                              colors: Array.from(e.target.selectedOptions, option => option.value)
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                          >
+                            {getUniqueValues(products, 'color').map(color => (
+                              <option key={color?.toString() || 'no-color'} value={color || ''}>
+                                {color || 'No Color'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Filter actions */}
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setFilterOptions({
+                            categories: [],
+                            brands: [],
+                            retailers: [],
+                            priceRange: { min: 0, max: Infinity },
+                            sizes: [],
+                            colors: []
+                          })}
+                          className="px-4 py-2 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                        >
+                          Clear Filters
+                        </button>
                       </div>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* Add this before the closing main tag */}
-            {showProductOverlay && searchResults.length > 0 && (
-              <ProductOverlay
-                products={searchResults}
-                onSelect={handleProductSelect}
-                onClose={handleOverlayClose}
-              />
-            )}
+                {/* Update the WardrobeItem component to include selection */}
+                <div className="space-y-4">
+                  {Object.entries(categorizeItems(getFilteredProducts()))
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([category, items]) => (
+                    <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleCategory(category)}
+                        className="w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
+                      >
+                        <span className="font-medium text-gray-800">
+                          {category} ({items.length})
+                        </span>
+                        <svg
+                          className={`w-5 h-5 transform transition-transform ${
+                            expandedCategories[category] ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
 
-            {imagePreview && (
-              <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
-                <img 
-                  src={imagePreview} 
-                  alt="Uploaded preview" 
-                  className="w-24 h-24 object-cover rounded"
-                />
-                {isProcessingImage && (
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded">
-                    <div className="text-white text-sm">Processing...</div>
+                      {expandedCategories[category] && (
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {items.map((product, index) => {
+                              const globalIndex = products.findIndex(p => 
+                                p.name === product.name && 
+                                p.brand === product.brand && 
+                                p.image === product.image
+                              );
+                              
+                              return (
+                                <div key={`${category}-${index}`} className="relative group">
+                                  <div className="absolute top-2 left-2 z-10">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedItems.has(product.id)}
+                                      onChange={(e) => {
+                                        const newSelected = new Set(selectedItems);
+                                        if (e.target.checked) {
+                                          newSelected.add(product.id);
+                                        } else {
+                                          newSelected.delete(product.id);
+                                        }
+                                        setSelectedItems(newSelected);
+                                      }}
+                                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                    />
+                                  </div>
+                                    <WardrobeItem 
+                                      product={product}
+                                      onDelete={() => setShowDeleteConfirm(globalIndex)}
+                                    />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add bulk delete confirmation modal */}
+                {selectedItems.size > 0 && showDeleteConfirm === null && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                      <h3 className="text-lg font-semibold mb-4">Delete Selected Items</h3>
+                      <p className="text-gray-600 mb-6">
+                        Are you sure you want to delete {selectedItems.size} selected items? This action cannot be undone.
+                      </p>
+                      <div className="flex justify-end gap-4">
+                        <button
+                          onClick={() => setShowDeleteConfirm(null)}
+                          className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleBulkDelete}
+                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                        >
+                          Delete Selected
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             )}
-
-            {error && (
-              <div className="fixed bottom-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-
-            {pdfText && (
-              <div className="mt-8 w-full max-w-6xl">
-                <h2 className="text-2xl font-bold mb-4">Extracted Text from PDF</h2>
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                  <pre className="whitespace-pre-wrap font-mono text-sm">
-                    {pdfText}
-                  </pre>
-                </div>
-              </div>
-            )}
-
-            {saveSuccess && (
-              <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                {saveSuccess}
-              </div>
-            )}
-
-            {/* Delete All Confirmation Modal */}
-            {showDeleteAllConfirm && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-                  <h3 className="text-lg font-semibold mb-4">Delete All Items</h3>
-                  <p className="text-gray-600 mb-6">Are you sure you want to remove all {products.length} items from your wardrobe? This action cannot be undone.</p>
-                  <div className="flex justify-end gap-4">
-                    <button
-                      onClick={() => setShowDeleteAllConfirm(false)}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleDeleteAllItems}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                      disabled={isSaving}
-                    >
-                      {isSaving ? 'Deleting...' : 'Delete All'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteConfirm !== null && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-                  <h3 className="text-lg font-semibold mb-4">Delete Item</h3>
-                  <p className="text-gray-600 mb-6">Are you sure you want to remove this item from your wardrobe?</p>
-                  <div className="flex justify-end gap-4">
-                    <button
-                      onClick={() => setShowDeleteConfirm(null)}
-                      className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(showDeleteConfirm)}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Add this before the closing main tag */}
+          {showProductOverlay && searchResults.length > 0 && (
+            <ProductOverlay
+              products={searchResults}
+              onSelect={handleProductSelect}
+              onClose={handleOverlayClose}
+            />
+          )}
+
+          {imagePreview && (
+            <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
+              <img 
+                src={imagePreview} 
+                alt="Uploaded preview" 
+                className="w-24 h-24 object-cover rounded"
+              />
+              {isProcessingImage && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded">
+                  <div className="text-white text-sm">Processing...</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && (
+            <div className="fixed bottom-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          {pdfText && (
+            <div className="mt-8 w-full max-w-6xl">
+              <h2 className="text-2xl font-bold mb-4">Extracted Text from PDF</h2>
+              <div className="bg-white p-6 rounded-lg shadow-lg">
+                <pre className="whitespace-pre-wrap font-mono text-sm">
+                  {pdfText}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {saveSuccess && (
+            <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              {saveSuccess}
+            </div>
+          )}
+
+          {/* Delete All Confirmation Modal */}
+          {showDeleteAllConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4">Delete All Items</h3>
+                <p className="text-gray-600 mb-6">Are you sure you want to remove all {products.length} items from your wardrobe? This action cannot be undone.</p>
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowDeleteAllConfirm(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAllItems}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Deleting...' : 'Delete All'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {showDeleteConfirm !== null && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4">Delete Item</h3>
+                <p className="text-gray-600 mb-6">Are you sure you want to remove this item from your wardrobe?</p>
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(null)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(showDeleteConfirm)}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
