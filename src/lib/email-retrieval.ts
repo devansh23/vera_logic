@@ -28,7 +28,7 @@ export class EmailRetrievalService {
       const afterDate = options.afterDate || this.calculateAfterDate(options.daysBack || 30);
       
       // Build complete search query
-      let query = searchQuery;
+      let query = `(${searchQuery})`;
       if (options.onlyUnread) {
         query += ' is:unread';
       }
@@ -42,7 +42,8 @@ export class EmailRetrievalService {
       const response = await gmail.users.messages.list({
         userId: 'me',
         maxResults: options.maxResults || 10,
-        q: query
+        q: query,
+        includeSpamTrash: true,
       });
 
       const messages = response.data.messages || [];
@@ -93,14 +94,47 @@ export class EmailRetrievalService {
   }
 
   private buildRetailerSearchQuery(retailer: string, options: EmailFetchOptions): string {
-    const queries: Record<string, string> = {
-      'myntra': 'from:myntra.com subject:"confirmation"',
-      'h&m': 'from:delivery.hm.com subject:"confirmation"',
-      'hm': 'from:delivery.hm.com subject:"confirmation"',
-      'zara': 'from:noreply@zara.com subject:"Thank you for your purchase"'
-    };
+    const normalizedRetailer = retailer.toLowerCase();
 
-    return queries[retailer.toLowerCase()] || `from:${retailer}`;
+    // Define common order confirmation keywords
+    const orderConfirmationKeywords = [
+      'order confirmation',
+      'order confirmed',
+      'order placed',
+      'thank you for your order',
+      'your order',
+      'order number',
+      'order receipt',
+      'purchase confirmation',
+      'receipt'
+    ];
+
+    const confirmationKeywordQuery = orderConfirmationKeywords
+      .map(keyword => `subject:(${keyword})`)
+      .join(' OR ');
+
+    // Primary: retailer sender + specific subject heuristics (aligned with fetch-emails endpoint)
+    const primaryQuery = normalizedRetailer === 'myntra'
+      ? `from:myntra.com subject:"Your Myntra order item has been shipped"`
+      : (normalizedRetailer === 'h&m' || normalizedRetailer === 'hm')
+      ? `from:delivery.hm.com subject:"Order Confirmation"`
+      : normalizedRetailer === 'zara'
+      ? `from:noreply@zara.com subject:"Thank you for your purchase"`
+      : `from:${retailer} AND (${confirmationKeywordQuery})`;
+
+    // Forward-friendly: brand tokens + order keywords + Fwd/FW, search anywhere
+    const brandTokens = normalizedRetailer === 'myntra'
+      ? '(myntra OR myntra.com)'
+      : (normalizedRetailer === 'h&m' || normalizedRetailer === 'hm')
+      ? '("H&M" OR hm.com OR www2.hm.com OR delivery.hm.com)'
+      : normalizedRetailer === 'zara'
+      ? '(zara OR zara.com)'
+      : `(${retailer})`;
+
+    const forwardQuery = `in:anywhere ((${brandTokens}) AND ((${confirmationKeywordQuery}) OR subject:(FW OR Fwd OR FWD)))`;
+
+    // Combine both queries with OR
+    return `(${primaryQuery}) OR (${forwardQuery})`;
   }
 
   private calculateAfterDate(daysBack: number): Date {

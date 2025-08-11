@@ -205,3 +205,11 @@ A Next.js wardrobe management application that processes shopping emails from va
 - Result:
   - Cold hit ~5–6s; warm/cached hits faster.
 - Files touched: `src/lib/scrape-product.ts` (Zara path + performance), added `puppeteer` dependency. 
+
+### Batch email fetch now captures forwarded emails (August 11, 2025)
+
+- Fixed “Add all items to wardrobe” missing forwarded emails.
+  - Updated `src/lib/email-retrieval.ts` to use a dual-query strategy (primary retailer sender + forward-aware `in:anywhere` with brand tokens and FW/Fwd markers), aligned with `/api/gmail/fetch-emails`.
+  - Enabled `includeSpamTrash: true` and wrapped composed query to improve matching.
+- Impact: Forwarded H&M/Myntra/Zara emails are now discovered and processed in batch, matching single-email behavior.
+- Commit: fixed fetching in batch from forwarded emails 
