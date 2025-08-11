@@ -213,3 +213,12 @@ A Next.js wardrobe management application that processes shopping emails from va
   - Enabled `includeSpamTrash: true` and wrapped composed query to improve matching.
 - Impact: Forwarded H&M/Myntra/Zara emails are now discovered and processed in batch, matching single-email behavior.
 - Commit: fixed fetching in batch from forwarded emails 
+
+### Save function payload fix (August 11, 2025)
+
+- Addressed failures when saving large wardrobes due to oversized request/response payloads.
+  - Client now sends only diffs (create/update/delete) in small chunks; deletes use targeted DELETE calls.
+  - Server `POST /api/wardrobe/save` response trimmed to only `{ message, count }` to reduce response size.
+  - Updated `email-debug` add flow to post items in chunks to `/api/wardrobe`.
+- Impact: Reliable saves for large wardrobes; avoids 413/size limits and improves perceived performance.
+- Commit: save function fixed 
