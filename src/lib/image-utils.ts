@@ -99,6 +99,62 @@ export async function processItemImage(
   }
 }
 
+export interface ProcessedImageMeta {
+  buffer: Buffer;
+  detectionClass?: string;
+  detectionConfidence?: number;
+  cropMethod?: string;
+}
+
+export async function processItemImageWithMeta(
+  imageBuffer: Buffer,
+  rawItemName: string = 'auto',
+  mimeType: string = 'image/jpeg'
+): Promise<ProcessedImageMeta> {
+  try {
+    const FormData = (await import('form-data')).default;
+    const formData = new FormData();
+    formData.append('image', imageBuffer, {
+      filename: 'upload.jpg',
+      contentType: mimeType,
+    });
+    formData.append('itemName', rawItemName || 'auto');
+
+    const apiBaseUrl = typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXTAUTH_URL
+          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
+
+    const fetch = (await import('node-fetch')).default as unknown as (input: any, init?: any) => Promise<any>;
+    const response = await fetch(`${apiBaseUrl}/api/extract-item`, {
+      method: 'POST',
+      body: formData as any,
+    });
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Safely access headers across runtimes
+    const getHeader = (name: string) => {
+      try {
+        return (response.headers?.get && response.headers.get(name)) || undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
+    const cropMethod = getHeader('x-crop-method');
+    const detectionClass = getHeader('x-detection-class');
+    const detectionConfidenceRaw = getHeader('x-detection-confidence');
+    const detectionConfidence = detectionConfidenceRaw ? Number(detectionConfidenceRaw) : undefined;
+
+    return { buffer, detectionClass: detectionClass || undefined, detectionConfidence, cropMethod: cropMethod || undefined };
+  } catch (error) {
+    console.error('processItemImageWithMeta failed:', error);
+    return { buffer: imageBuffer };
+  }
+}
+
 /**
  * Helper function to attempt item extraction with a specific type
  */

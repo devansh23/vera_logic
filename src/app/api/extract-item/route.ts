@@ -229,13 +229,16 @@ export async function POST(request: NextRequest) {
 
     // Get original product name and extract base clothing type
     const originalItemName = itemName.toString();
-    const itemNameStr = extractBaseItemType(originalItemName).toLowerCase();
+    const isAutoMode = originalItemName.toLowerCase() === 'auto';
+    const itemNameStr = isAutoMode
+      ? 'auto'
+      : extractBaseItemType(originalItemName).toLowerCase();
     
     console.log(`Original item name: "${originalItemName}"`);
     console.log(`Extracted base clothing type: "${itemNameStr}"`);
 
     // Special case handling for ecru and jacquard shirts
-    if (itemNameStr === 'shirt' && (formData.get('specialCase') === 'ecru' || formData.get('specialCase') === 'jacquard')) {
+    if (!isAutoMode && itemNameStr === 'shirt' && (formData.get('specialCase') === 'ecru' || formData.get('specialCase') === 'jacquard')) {
       console.log('Processing special case for ecru/jacquard shirt');
       return mockCroppedImageResponse();
     }
@@ -274,7 +277,7 @@ export async function POST(request: NextRequest) {
         console.error('Roboflow API error:', errorText);
         
         // For specific item types, use mockCroppedImageResponse as fallback
-        if (itemNameStr === 'shirt') {
+        if (!isAutoMode && itemNameStr === 'shirt') {
           console.log('Using mock response for shirt as fallback');
           return mockCroppedImageResponse();
         }
@@ -331,42 +334,50 @@ export async function POST(request: NextRequest) {
       const CONFIDENCE_THRESHOLD = 0.5; // Log the confidence threshold we're using
       console.log(`Using confidence threshold: ${CONFIDENCE_THRESHOLD}`);
 
-      // Match item name to prediction classes through labelMap
-      let matchingPredictions = predictions.predictions.filter(pred => {
-        // Check if prediction confidence meets threshold
-        if (pred.confidence < CONFIDENCE_THRESHOLD) {
-          console.log(`Prediction for ${pred.class} filtered out due to low confidence: ${pred.confidence}`);
-          return false;
-        }
-        
-        // Direct match - if prediction class and itemName match directly (priority match)
-        if (pred.class.toLowerCase() === itemNameStr) {
-          console.log(`DIRECT MATCH: Prediction class '${pred.class}' exactly matches requested item '${itemNameStr}'`);
-          return true;
-        }
-        
-        // Forward mapping - Check if the class matches through labelMap
-        for (const [key, values] of Object.entries(labelMap)) {
-          if (values.includes(pred.class.toLowerCase()) && key === itemNameStr) {
-            console.log(`FORWARD MATCH: Prediction class '${pred.class}' maps to label '${key}' which matches requested item '${itemNameStr}'`);
+      // Determine matching predictions
+      let matchingPredictions = [] as RoboflowPrediction[];
+      if (isAutoMode) {
+        console.log('AUTO mode enabled: selecting highest-confidence prediction without class filtering');
+        matchingPredictions = predictions.predictions
+          .filter(pred => pred.confidence >= CONFIDENCE_THRESHOLD);
+      } else {
+        // Match item name to prediction classes through labelMap
+        matchingPredictions = predictions.predictions.filter(pred => {
+          // Check if prediction confidence meets threshold
+          if (pred.confidence < CONFIDENCE_THRESHOLD) {
+            console.log(`Prediction for ${pred.class} filtered out due to low confidence: ${pred.confidence}`);
+            return false;
+          }
+          
+          // Direct match - if prediction class and itemName match directly (priority match)
+          if (pred.class.toLowerCase() === itemNameStr) {
+            console.log(`DIRECT MATCH: Prediction class '${pred.class}' exactly matches requested item '${itemNameStr}'`);
             return true;
           }
           
-          if (values.includes(pred.class.toLowerCase())) {
-            console.log(`NO MATCH: Prediction class '${pred.class}' maps to label '${key}' but requested item is '${itemNameStr}'`);
+          // Forward mapping - Check if the class matches through labelMap
+          for (const [key, values] of Object.entries(labelMap)) {
+            if (values.includes(pred.class.toLowerCase()) && key === itemNameStr) {
+              console.log(`FORWARD MATCH: Prediction class '${pred.class}' maps to label '${key}' which matches requested item '${itemNameStr}'`);
+              return true;
+            }
+            
+            if (values.includes(pred.class.toLowerCase())) {
+              console.log(`NO MATCH: Prediction class '${pred.class}' maps to label '${key}' but requested item is '${itemNameStr}'`);
+            }
           }
-        }
-        
-        // Reverse mapping - Check if any entry in labelMap that includes the prediction class also includes the itemName
-        for (const [key, values] of Object.entries(labelMap)) {
-          if (values.includes(pred.class.toLowerCase()) && values.includes(itemNameStr)) {
-            console.log(`REVERSE MATCH: Both prediction class '${pred.class}' and requested item '${itemNameStr}' belong to label category '${key}'`);
-            return true;
+          
+          // Reverse mapping - Check if any entry in labelMap that includes the prediction class also includes the itemName
+          for (const [key, values] of Object.entries(labelMap)) {
+            if (values.includes(pred.class.toLowerCase()) && values.includes(itemNameStr)) {
+              console.log(`REVERSE MATCH: Both prediction class '${pred.class}' and requested item '${itemNameStr}' belong to label category '${key}'`);
+              return true;
+            }
           }
-        }
-        
-        return false;
-      });
+          
+          return false;
+        });
+      }
 
       // Additional debug for when no matches are found despite having predictions
       if (matchingPredictions.length === 0) {
@@ -459,20 +470,21 @@ export async function POST(request: NextRequest) {
       } else {
         console.log(`No matching predictions found for item: ${itemNameStr}`);
         
-        // Attempt to find any prediction of the requested class, regardless of name matching
-        const anyMatchingClass = predictions.predictions.find(pred => {
-          return Object.entries(labelMap).some(([key, values]) => {
-            return values.includes(pred.class.toLowerCase());
+        if (!isAutoMode) {
+          // Attempt to find any prediction of the requested class, regardless of name matching
+          const anyMatchingClass = predictions.predictions.find(pred => {
+            return Object.entries(labelMap).some(([key, values]) => {
+              return values.includes(pred.class.toLowerCase());
+            });
           });
-        });
-        
-        if (anyMatchingClass) {
-          console.log(`Found prediction for different item: ${anyMatchingClass.class}. Requested: ${itemNameStr}`);
+          if (anyMatchingClass) {
+            console.log(`Found prediction for different item: ${anyMatchingClass.class}. Requested: ${itemNameStr}`);
+          }
         }
         
         // Use manual fallback if no matching predictions
         console.log('Using manual fallback cropping since no matching predictions were found');
-        const manuallyProcessedImage = await manualFallbackCrop(imageBuffer, itemNameStr);
+        const manuallyProcessedImage = await manualFallbackCrop(imageBuffer, isAutoMode ? 'top' : itemNameStr);
         
         return new NextResponse(manuallyProcessedImage, {
           status: 200,
@@ -489,7 +501,7 @@ export async function POST(request: NextRequest) {
       console.error('Error calling Roboflow API:', roboflowError);
       
       // If this is a shirt, use mock response
-      if (itemNameStr === 'shirt') {
+      if (!isAutoMode && itemNameStr === 'shirt') {
         console.log('Using mock response for shirt due to Roboflow API error');
         return mockCroppedImageResponse();
       }

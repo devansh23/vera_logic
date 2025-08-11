@@ -10,6 +10,7 @@ import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
 import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 import { ConfirmationModal } from '@/components/ConfirmationFlow';
 import type { WardrobeItem as WardrobeItemType } from '@/types/wardrobe';
+import UploadWardrobeItems from '@/components/UploadWardrobeItems';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -1304,6 +1305,28 @@ export default function Home() {
     setPendingItems([]);
   };
 
+  const handleUploadedItemsSaved = (saved: any) => {
+    const createdItems = Array.isArray(saved) ? saved : [saved];
+    const addedProducts: MyntraProduct[] = createdItems.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      brand: s.brand,
+      price: s.price || '',
+      originalPrice: s.originalPrice || '',
+      discount: s.discount || '',
+      image: s.image || '',
+      productLink: s.productLink || '',
+      category: s.category || 'Uncategorized',
+      size: s.size || '',
+      color: s.color || '',
+      sourceRetailer: s.sourceRetailer || 'Unknown',
+      colorTag: s.colorTag,
+      dominantColor: s.dominantColor,
+      dateAdded: new Date().toISOString(),
+    }));
+    setProducts(prev => [...prev, ...addedProducts]);
+  };
+
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -1486,7 +1509,7 @@ export default function Home() {
                 <div>
                   <div className="flex flex-col md:flex-row items-center justify-between mb-6">
                     <div className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {isSaving && (
                         <span className="text-gray-500 flex items-center">
                           <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1512,6 +1535,8 @@ export default function Home() {
                       >
                         Delete All
                       </button>
+                      {/* Upload from photos CTA */}
+                      <UploadWardrobeItems onSaved={handleUploadedItemsSaved} />
                     </div>
                   </div>
                   

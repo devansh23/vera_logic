@@ -222,3 +222,23 @@ A Next.js wardrobe management application that processes shopping emails from va
   - Updated `email-debug` add flow to post items in chunks to `/api/wardrobe`.
 - Impact: Reliable saves for large wardrobes; avoids 413/size limits and improves perceived performance.
 - Commit: save function fixed 
+
+### Photo upload flow with smart cropping (August 11, 2025)
+
+- Implemented user-facing upload from photos with multi-image selection and review.
+- Cropping pipeline:
+  - Primary: Roboflow Detect API to get garment bbox; crop via sharp (headers: X-Detection-Class, X-Detection-Confidence, X-Crop-Method).
+  - Fallback: heuristic percent-based crops per item type when detection unavailable.
+  - Added `auto` mode in `/api/extract-item` to choose highest-confidence class without name bias.
+- UI/UX:
+  - New `UploadWardrobeItems` CTA with camera icon; opens file picker and processes images.
+  - Reuses existing `ConfirmationModal`; added per-item toggle to switch cropped/original image.
+  - Auto-naming currently from detected class (e.g., "shirt", "jeans"); user can edit in modal.
+- Persistence and immediacy:
+  - On confirm, items are posted to `/api/wardrobe` with `source: 'photo'`.
+  - Immediate UI update: appended saved items to `products` state (no refresh required).
+- Files:
+  - API: `src/app/api/extract-item/route.ts` (auto mode, fallbacks)
+  - UI: `src/components/UploadWardrobeItems.tsx` (new), `src/components/ConfirmationFlow/ConfirmationModal.tsx` (toggle)
+  - Page integration: `src/app/page.tsx` (CTA + onSaved append)
+- Status: Working end-to-end locally; build green. Next: optional color-aware names (e.g., "red shirt") via `getColorInfo`. 

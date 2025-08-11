@@ -122,7 +122,7 @@ export default function ConfirmationModal({ items, onConfirm, onCancel, isWardro
         initialValue = item.name;
         break;
       case 'category':
-        initialValue = item.category;
+        initialValue = item.category || '';
         break;
     }
     
@@ -280,6 +280,25 @@ export default function ConfirmationModal({ items, onConfirm, onCancel, isWardro
                       >
                         <PencilIcon className="h-4 w-4" />
                       </button>
+                      {/* Toggle between cropped and original if available */}
+                      {('imageOriginal' in item) && (item as any).imageOriginal && (
+                        <button
+                          className="absolute bottom-2 right-2 px-2 py-1 rounded bg-gray-800 text-white text-[10px] opacity-90 hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditedItems(prev => prev.map(it => {
+                              if (it.id !== item.id) return it;
+                              const currentIsOriginal = (it as any)._useOriginal === true;
+                              const nextUseOriginal = !currentIsOriginal;
+                              const nextImage = nextUseOriginal ? (it as any).imageOriginal : (it as any).imageCropped || it.image || it.imageUrl;
+                              return { ...it, image: nextImage, imageUrl: nextImage, ...( { _useOriginal: nextUseOriginal } as any) } as any;
+                            }));
+                          }}
+                          aria-label="Toggle original/cropped image"
+                        >
+                          Toggle Image
+                        </button>
+                      )}
                     </div>
 
                     {/* Brand field with inline edit */}
