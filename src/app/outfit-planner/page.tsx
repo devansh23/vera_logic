@@ -5,11 +5,11 @@ import { useSession } from 'next-auth/react';
 import { redirect, useSearchParams, useRouter } from 'next/navigation';
 import OutfitPlanner from '@/components/outfit-planner/OutfitPlanner';
 import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
-import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
 
 // Separate component that uses useSearchParams
 function OutfitPlannerContent() {
-  const [activeTab, setActiveTab] = useState<'create' | 'saved' | 'calendar'>('create');
+  const [activeTab, setActiveTab] = useState<'saved' | 'create'>('saved');
+  const [hasOutfits, setHasOutfits] = useState<boolean | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -23,57 +23,116 @@ function OutfitPlannerContent() {
     }
   }, [editId]);
 
+  // Check if user has any saved outfits
+  useEffect(() => {
+    const checkOutfits = async () => {
+      try {
+        const response = await fetch('/api/outfits');
+        if (response.ok) {
+          const data = await response.json();
+          setHasOutfits(data.length > 0);
+        } else {
+          setHasOutfits(false);
+        }
+      } catch (error) {
+        console.error('Error checking outfits:', error);
+        setHasOutfits(false);
+      }
+    };
+
+    checkOutfits();
+  }, []);
+
+  // If user has outfits, show saved outfits first
+  // If user has no outfits, show create outfit directly
+  // If still loading, show loading state
+  if (hasOutfits === null) {
+    return (
+      <div className="min-h-screen bg-[#fdfcfa] p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12 text-[#8b8681] font-inter">
+            Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If user has no outfits, show create outfit directly
+  if (hasOutfits === false) {
+    return (
+      <div className="min-h-screen bg-[#fdfcfa] p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-playfair font-normal text-[#2d2926] mb-2">
+                Outfit Planner
+              </h1>
+              <p className="text-[#8b8681] font-inter">
+                Design and organize your perfect outfits
+              </p>
+            </div>
+          </div>
+
+          {/* Content Area */}
+          <div className="bg-white rounded-lg border border-[rgba(45,41,38,0.1)] p-6">
+            <OutfitPlanner editId={editId} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If user has outfits, show saved outfits with option to create new
   return (
-    <div className="container mx-auto py-6 h-[calc(100vh-64px)]">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Outfit Planner</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setActiveTab('create')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'create'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 hover:bg-gray-200'
-            }`}
-          >
-            Create Outfit
-          </button>
+    <div className="min-h-screen bg-[#fdfcfa] p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-playfair font-normal text-[#2d2926] mb-2">
+              Outfit Planner
+            </h1>
+            <p className="text-[#8b8681] font-inter">
+              Design and organize your perfect outfits
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mb-8 flex space-x-3">
           <button
             onClick={() => setActiveTab('saved')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-6 py-3 rounded-full transition-colors font-inter text-sm ${
               activeTab === 'saved'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 hover:bg-gray-200'
+                ? 'bg-[#2d2926] text-white'
+                : 'bg-white text-[#2d2926] border border-[rgba(45,41,38,0.1)] hover:bg-[#f5f4f2]'
             }`}
           >
             Saved Outfits
           </button>
           <button
-            onClick={() => setActiveTab('calendar')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'calendar'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 hover:bg-gray-200'
+            onClick={() => setActiveTab('create')}
+            className={`px-6 py-3 rounded-full transition-colors font-inter text-sm ${
+              activeTab === 'create'
+                ? 'bg-[#2d2926] text-white'
+                : 'bg-white text-[#2d2926] border border-[rgba(45,41,38,0.1)] hover:bg-[#f5f4f2]'
             }`}
           >
-            Calendar
-          </button>
-          <button
-            onClick={() => router.push('/packs')}
-            className="px-4 py-2 rounded-lg transition-colors bg-gray-100 hover:bg-gray-200"
-          >
-            Packs
+            Create New Outfit
           </button>
         </div>
-      </div>
 
-      {activeTab === 'create' ? (
-        <OutfitPlanner editId={editId} />
-      ) : activeTab === 'saved' ? (
-        <SavedOutfits />
-      ) : (
-        <OutfitCalendar />
-      )}
+        {/* Content Area */}
+        <div className="bg-white rounded-lg border border-[rgba(45,41,38,0.1)] p-6">
+          {activeTab === 'saved' ? (
+            <SavedOutfits />
+          ) : (
+            <OutfitPlanner editId={editId} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -84,9 +143,12 @@ export default function OutfitPlannerPage() {
   // Show loading state
   if (status === "loading") {
     return (
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
-        <div className="text-center">Loading...</div>
+      <div className="min-h-screen bg-[#fdfcfa] p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12 text-[#8b8681] font-inter">
+            Loading...
+          </div>
+        </div>
       </div>
     );
   }
@@ -99,9 +161,12 @@ export default function OutfitPlannerPage() {
   
   return (
     <Suspense fallback={
-      <div className="container mx-auto py-6">
-        <h1 className="text-2xl font-bold mb-6">Outfit Planner</h1>
-        <div className="text-center">Loading...</div>
+      <div className="min-h-screen bg-[#fdfcfa] p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12 text-[#8b8681] font-inter">
+            Loading...
+          </div>
+        </div>
       </div>
     }>
       <OutfitPlannerContent />

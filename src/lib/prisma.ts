@@ -27,7 +27,7 @@ const prismaClientSingleton = () => {
   
   // Add detailed query logging ONLY in development environment
   if (process.env.NODE_ENV === 'development') {
-    client.$on('query', (e) => {
+    client.$on('query', (e: any) => {
       console.log('Prisma Query:', e.query);
       // Only log params in development and avoid logging sensitive data
       const sanitizedParams = e.params ? '[PARAMS_HIDDEN_FOR_SECURITY]' : '[]';
@@ -35,21 +35,6 @@ const prismaClientSingleton = () => {
       console.log('Prisma Duration:', `${e.duration}ms`);
     });
   }
-  
-  // Add error handling with security considerations
-  client.$use(async (params, next) => {
-    try {
-      return await next(params);
-    } catch (error) {
-      // In production, avoid logging sensitive error details
-      if (process.env.NODE_ENV === 'development') {
-        console.error(`Prisma Error in ${params.model}.${params.action}:`, error);
-      } else {
-        console.error(`Prisma Error in ${params.model}.${params.action}: Database operation failed`);
-      }
-      throw error;
-    }
-  });
   
   return client;
 }

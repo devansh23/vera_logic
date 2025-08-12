@@ -1,9 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    /* UI Redone Design System Colors */
+    --font-size: 14px;
+    --background: #fdfcfa;
+    --foreground: #2d2926;
+    --card: #ffffff;
+    --card-foreground: #2d2926;
+    --popover: #ffffff;
+    --popover-foreground: #2d2926;
+    --primary: #2d2926;
+    --primary-foreground: #fdfcfa;
+    --secondary: #f5f4f2;
+    --secondary-foreground: #2d2926;
+    --muted: #f0efed;
+    --muted-foreground: #8b8681;
+    --accent: #e8c5a0;
+    --accent-foreground: #2d2926;
+    --destructive: #d4183d;
+    --destructive-foreground: #ffffff;
+    --border: rgba(45, 41, 38, 0.1);
+    --input: transparent;
+    --input-background: #f8f7f5;
+    --switch-background: #cbced4;
+    --font-weight-medium: 500;
+    --font-weight-normal: 400;
+    --ring: rgba(45, 41, 38, 0.2);
+    --chart-1: #e8c5a0;
+    --chart-2: #d4a574;
+    --chart-3: #c19a68;
+    --chart-4: #a88660;
+    --chart-5: #8b7355;
+    --radius: 0.5rem;
+    --sidebar: #fdfcfa;
+    --sidebar-foreground: #2d2926;
+    --sidebar-primary: #2d2926;
+    --sidebar-primary-foreground: #fdfcfa;
+    --sidebar-accent: #f5f4f2;
+    --sidebar-accent-foreground: #2d2926;
+    --sidebar-border: rgba(45, 41, 38, 0.1);
+    --sidebar-ring: rgba(45, 41, 38, 0.2);
+    
+    /* Original Tailwind Colors (keeping for compatibility) */
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -58,11 +101,203 @@
   }
 }
 
+/* Prevent horizontal overflow globally */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Ensure main content area doesn't overflow */
+main {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Ensure all containers respect viewport width */
+.container, .w-full, .max-w-full {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for carousel components */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Ensure carousel containers don't cause horizontal scroll */
+.carousel-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+/* Ensure grid layouts don't overflow */
+.grid {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure flex containers don't overflow */
+.flex {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-size: var(--font-size);
   }
+  
+  /* Typography system */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+  
+  h1 {
+    @apply text-4xl font-medium tracking-tight;
+  }
+  
+  h2 {
+    @apply text-3xl font-medium tracking-tight;
+  }
+  
+  h3 {
+    @apply text-2xl font-medium tracking-tight;
+  }
+  
+  h4 {
+    @apply text-xl font-medium tracking-tight;
+  }
+  
+  h5 {
+    @apply text-lg font-medium tracking-tight;
+  }
+  
+  h6 {
+    @apply text-base font-medium tracking-tight;
+  }
+  
+  p, span, div, button, input, label {
+    @apply font-sans;
+  }
+  
+  /* UI Redone Typography System */
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 500;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    h4 {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.125rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    h5 {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    h6 {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    p {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    label {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    button {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    input {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+  }
+}
+
+@layer components {
+  .text-heading {
+    @apply font-serif font-medium tracking-tight;
+  }
+  
+  .text-body {
+    @apply font-sans;
+  }
+  
+  /* UI Redone Utilities */
+  .editorial-heading {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .ui-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .magazine-layout {
+    column-gap: 2rem;
+    row-gap: 3rem;
+  }
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 } 

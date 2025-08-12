@@ -1,17 +1,28 @@
 import './globals.css'
 import 'react-toastify/dist/ReactToastify.css'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import { Providers } from './providers'
-import Navigation from '@/components/Navigation'
 import { ToastContainer } from 'react-toastify'
+import { NewHeader } from "@/components/NewHeader";
+import { LeftNavigation } from "@/components/LeftNavigation";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter'
+})
+
+const playfair = Playfair_Display({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-playfair'
+})
 
 export const metadata: Metadata = {
-  title: 'Vera - Your Wardrobe Assistant',
-  description: 'Organize your wardrobe and elevate your style with Vera',
-}
+  title: "Vera - AI-Powered Wardrobe Management",
+  description: "Intelligent wardrobe management with AI-powered outfit suggestions",
+};
 
 export default function RootLayout({
   children,
@@ -19,16 +30,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.className}>
-      <body className="min-h-screen bg-gradient-to-b from-white to-gray-100" suppressHydrationWarning={true}>
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <body className="bg-[#fdfcfa] overflow-x-hidden">
         <Providers>
-          <Navigation />
-          <main className="flex min-h-screen flex-col items-center p-8">
-            <div className="w-full max-w-6xl mx-auto">
-              {children}
-            </div>
-          </main>
-          <ToastContainer position="bottom-right" />
+          <NewHeader />
+          <div className="flex min-h-screen">
+            <LeftNavigation />
+            <main className="flex-1 ml-64 pt-20 w-full max-w-none overflow-x-hidden">
+              <div className="w-full max-w-full overflow-hidden">
+                {children}
+              </div>
+              <ToastContainer position="bottom-right" />
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

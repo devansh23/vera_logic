@@ -164,18 +164,18 @@ export function SavedOutfits() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-3 overflow-hidden">
         {outfits.map((outfit) => (
           <div
             key={outfit.id}
-            className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow relative group cursor-pointer"
+            className="border rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow relative group cursor-pointer"
             onClick={() => handleEditOutfit(outfit.id)}
           >
-            <h3 className="font-semibold text-lg mb-2">{outfit.name}</h3>
-            <p className="text-sm text-gray-500 mb-2">
+            <h3 className="font-semibold text-lg mb-1">{outfit.name}</h3>
+            <p className="text-sm text-gray-500 mb-1">
               Created {new Date(outfit.createdAt).toLocaleDateString()}
             </p>
-            <div className="relative h-48 bg-gray-50 rounded-md overflow-hidden">
+            <div className="relative h-40 bg-gray-50 rounded-md overflow-hidden">
               {outfit.tryOnImage ? (
                 // If tryOnImage exists, use it as the thumbnail
                 <img

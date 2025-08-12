@@ -74,10 +74,10 @@ export default function FullBodyPhotoUpload() {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-4 bg-white rounded-lg shadow-md">
       <Toaster />
-      <h2 className="text-xl font-semibold mb-4">Upload Full Body Photo</h2>
-      <p className="text-gray-600 mb-4">
+      <h2 className="text-xl font-semibold mb-3">Upload Full Body Photo</h2>
+      <p className="text-gray-600 mb-3">
         Upload a full body photo to help with virtual try-on. Make sure the photo is well-lit and shows your full body clearly.
       </p>
 
