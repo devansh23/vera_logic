@@ -1,19 +1,25 @@
-'use client'
-import React, { useState, FormEvent, useRef, useEffect, ClipboardEvent as ReactClipboardEvent } from 'react'
-import { Inter } from 'next/font/google'
-import Image from 'next/image'
-import { useSession, signIn, signOut } from 'next-auth/react'
-import { prisma } from '@/lib/prisma'
-import FullBodyPhotoUpload from '@/components/FullBodyPhotoUpload';
-import { useWardrobe } from '@/contexts/WardrobeContext';
-import { SavedOutfits } from '@/components/outfit-planner/SavedOutfits';
-import { OutfitCalendar } from '@/components/outfit-planner/OutfitCalendar';
-import { ConfirmationModal } from '@/components/ConfirmationFlow';
-import type { WardrobeItem as WardrobeItemType } from '@/types/wardrobe';
-import UploadWardrobeItems from '@/components/UploadWardrobeItems';
-import { PacksList } from '@/components/packs/PacksList';
+"use client";
+import React, {
+  useState,
+  FormEvent,
+  useRef,
+  useEffect,
+  ClipboardEvent as ReactClipboardEvent,
+} from "react";
+import { Inter } from "next/font/google";
+import Image from "next/image";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { prisma } from "@/lib/prisma";
+import FullBodyPhotoUpload from "@/components/FullBodyPhotoUpload";
+import { useWardrobe } from "@/contexts/WardrobeContext";
+import { SavedOutfits } from "@/components/outfit-planner/SavedOutfits";
+import { OutfitCalendar } from "@/components/outfit-planner/OutfitCalendar";
+import { ConfirmationModal } from "@/components/ConfirmationFlow";
+import type { WardrobeItem as WardrobeItemType } from "@/types/wardrobe";
+import UploadWardrobeItems from "@/components/UploadWardrobeItems";
+import { PacksList } from "@/components/packs/PacksList";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
 interface LinkPreview {
   title: string;
@@ -23,9 +29,9 @@ interface LinkPreview {
 }
 
 interface MyntraProduct {
-  brand?: string;  // Made optional
+  brand?: string; // Made optional
   name: string;
-  price?: string;  // Made optional
+  price?: string; // Made optional
   originalPrice?: string;
   discount?: string;
   sizes?: string[];
@@ -33,7 +39,7 @@ interface MyntraProduct {
   images?: string[];
   description?: string;
   image?: string;
-  myntraLink?: string;  // Keep for backward compatibility
+  myntraLink?: string; // Keep for backward compatibility
   productLink?: string; // Add for H&M and other retailers
   category?: string;
   color?: string;
@@ -51,7 +57,7 @@ interface MyntraProduct {
 
 interface WardrobeItem {
   url: string;
-  type: 'youtube' | 'myntra' | 'other';
+  type: "youtube" | "myntra" | "other";
   videoId?: string;
   preview?: LinkPreview;
   myntraData?: MyntraProduct;
@@ -87,55 +93,68 @@ interface FilterOptions {
 }
 
 interface SortOption {
-  type: 'date' | 'name' | 'price';
-  direction: 'asc' | 'desc';
+  type: "date" | "name" | "price";
+  direction: "asc" | "desc";
 }
 
 function getYouTubeVideoId(url: string): string | null {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const regExp =
+    /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+  return match && match[2].length === 11 ? match[2] : null;
 }
 
 function isMyntraUrl(url: string): boolean {
-  return url.includes('myntra.com');
+  return url.includes("myntra.com");
 }
 
 // Add ProductOverlay component
-const ProductOverlay = ({ 
-  products, 
-  onSelect, 
-  onClose 
-}: { 
-  products: SearchResult[], 
-  onSelect: (url: string) => void, 
-  onClose: () => void 
+const ProductOverlay = ({
+  products,
+  onSelect,
+  onClose,
+}: {
+  products: SearchResult[];
+  onSelect: (url: string) => void;
+  onClose: () => void;
 }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Select a Product to Add to Your Wardrobe</h2>
-          <button 
+          <h2 className="text-xl font-semibold">
+            Select a Product to Add to Your Wardrobe
+          </h2>
+          <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 p-2"
             aria-label="Close"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {products.slice(0, 3).map((product, index) => (
-            <div 
+            <div
               key={index}
               className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
             >
               {product.image && (
                 <div className="relative">
-                  <img 
-                    src={product.image} 
+                  <img
+                    src={product.image}
                     alt={product.name}
                     className="w-full h-48 object-cover"
                   />
@@ -146,24 +165,30 @@ const ProductOverlay = ({
               )}
               <div className="p-4">
                 <h3 className="font-semibold text-lg mb-1">{product.brand}</h3>
-                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
+                <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                  {product.name}
+                </p>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="font-bold text-lg">{product.price}</span>
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-500 line-through">{product.originalPrice}</span>
+                    <span className="text-sm text-gray-500 line-through">
+                      {product.originalPrice}
+                    </span>
                   )}
                   {product.discount && (
-                    <span className="text-sm text-green-600 font-medium">{product.discount}</span>
+                    <span className="text-sm text-green-600 font-medium">
+                      {product.discount}
+                    </span>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button 
+                  <button
                     onClick={() => onSelect(product.url)}
                     className="w-full py-2 px-4 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                   >
                     Add to Wardrobe
                   </button>
-                  <a 
+                  <a
                     href={product.url}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -181,131 +206,141 @@ const ProductOverlay = ({
   );
 };
 
-const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete: () => void }) => {
+const WardrobeItem = ({
+  product,
+  onDelete,
+}: {
+  product: MyntraProduct;
+  onDelete: () => void;
+}) => {
   // Function to convert color names to CSS color values
   const getColorValue = (color?: string): string => {
-    if (!color) return 'transparent';
-    
+    if (!color) return "transparent";
+
     // If it's already a hex code, return it
-    if (color.startsWith('#')) {
+    if (color.startsWith("#")) {
       return color;
     }
-    
+
     // Normalize the color name: lowercase and trim
     const normalizedColor = color.toLowerCase().trim();
-    
+
     // Map of common color names to hex values
     const colorMap: Record<string, string> = {
       // Basic colors
-      'black': '#000000',
-      'white': '#FFFFFF',
-      'red': '#FF0000',
-      'green': '#008000',
-      'blue': '#0000FF',
-      'yellow': '#FFFF00',
-      'purple': '#800080',
-      'orange': '#FFA500',
-      'pink': '#FFC0CB',
-      'brown': '#A52A2A',
-      
+      black: "#000000",
+      white: "#FFFFFF",
+      red: "#FF0000",
+      green: "#008000",
+      blue: "#0000FF",
+      yellow: "#FFFF00",
+      purple: "#800080",
+      orange: "#FFA500",
+      pink: "#FFC0CB",
+      brown: "#A52A2A",
+
       // Grays
-      'gray': '#808080',
-      'grey': '#808080',
-      'dark gray': '#404040',
-      'dark grey': '#404040',
-      'light gray': '#D3D3D3',
-      'light grey': '#D3D3D3',
-      'charcoal': '#36454F',
-      'silver': '#C0C0C0',
-      
+      gray: "#808080",
+      grey: "#808080",
+      "dark gray": "#404040",
+      "dark grey": "#404040",
+      "light gray": "#D3D3D3",
+      "light grey": "#D3D3D3",
+      charcoal: "#36454F",
+      silver: "#C0C0C0",
+
       // Blues
-      'navy': '#000080',
-      'navy blue': '#000080',
-      'royal blue': '#4169E1',
-      'sky blue': '#87CEEB',
-      'light blue': '#ADD8E6',
-      'dark blue': '#00008B',
-      'teal': '#008080',
-      'turquoise': '#40E0D0',
-      'aqua': '#00FFFF',
-      
+      navy: "#000080",
+      "navy blue": "#000080",
+      "royal blue": "#4169E1",
+      "sky blue": "#87CEEB",
+      "light blue": "#ADD8E6",
+      "dark blue": "#00008B",
+      teal: "#008080",
+      turquoise: "#40E0D0",
+      aqua: "#00FFFF",
+
       // Reds
-      'maroon': '#800000',
-      'burgundy': '#800020',
-      'crimson': '#DC143C',
-      'coral': '#FF7F50',
-      'salmon': '#FA8072',
-      'dark red': '#8B0000',
-      
+      maroon: "#800000",
+      burgundy: "#800020",
+      crimson: "#DC143C",
+      coral: "#FF7F50",
+      salmon: "#FA8072",
+      "dark red": "#8B0000",
+
       // Greens
-      'olive': '#808000',
-      'lime': '#00FF00',
-      'dark green': '#006400',
-      'light green': '#90EE90',
-      'forest green': '#228B22',
-      'mint': '#98FB98',
-      'emerald': '#50C878',
-      
+      olive: "#808000",
+      lime: "#00FF00",
+      "dark green": "#006400",
+      "light green": "#90EE90",
+      "forest green": "#228B22",
+      mint: "#98FB98",
+      emerald: "#50C878",
+
       // Yellows & Browns
-      'gold': '#FFD700',
-      'khaki': '#F0E68C',
-      'beige': '#F5F5DC',
-      'tan': '#D2B48C',
-      'sand': '#C2B280',
-      'chocolate': '#D2691E',
-      'dark brown': '#5C4033',
-      'light brown': '#B5651D',
-      
+      gold: "#FFD700",
+      khaki: "#F0E68C",
+      beige: "#F5F5DC",
+      tan: "#D2B48C",
+      sand: "#C2B280",
+      chocolate: "#D2691E",
+      "dark brown": "#5C4033",
+      "light brown": "#B5651D",
+
       // Purples & Pinks
-      'magenta': '#FF00FF',
-      'violet': '#EE82EE',
-      'lavender': '#E6E6FA',
-      'plum': '#DDA0DD',
-      'dark purple': '#301934',
-      'light pink': '#FFB6C1',
-      'hot pink': '#FF69B4',
-      'fuchsia': '#FF00FF',
-      
+      magenta: "#FF00FF",
+      violet: "#EE82EE",
+      lavender: "#E6E6FA",
+      plum: "#DDA0DD",
+      "dark purple": "#301934",
+      "light pink": "#FFB6C1",
+      "hot pink": "#FF69B4",
+      fuchsia: "#FF00FF",
+
       // Common clothing colors
-      'indigo': '#4B0082',
-      'denim': '#1560BD',
-      'off white': '#F8F8FF',
-      'cream': '#FFFDD0',
-      'ivory': '#FFFFF0',
-      'camel': '#C19A6B',
-      'mustard': '#FFDB58',
+      indigo: "#4B0082",
+      denim: "#1560BD",
+      "off white": "#F8F8FF",
+      cream: "#FFFDD0",
+      ivory: "#FFFFF0",
+      camel: "#C19A6B",
+      mustard: "#FFDB58",
     };
-    
+
     // Try to find an exact match
     if (colorMap[normalizedColor]) {
       return colorMap[normalizedColor];
     }
-    
+
     // If no exact match, try to find a partial match
     for (const [colorName, colorValue] of Object.entries(colorMap)) {
       if (normalizedColor.includes(colorName)) {
         return colorValue;
       }
     }
-    
+
     // If we can't map it, use it directly (CSS might understand some color names)
     return normalizedColor;
   };
-  
+
   // Format color text to be more user-friendly
   const getColorText = (color?: string) => {
-    if (!color) return 'Unknown color';
+    if (!color) return "Unknown color";
     // If it's a hex code, make it more readable
-    if (color.startsWith('#')) {
+    if (color.startsWith("#")) {
       return `Color code: ${color}`;
     }
     // Otherwise return the color name
     return color;
   };
-  
-  const colorValue = getColorValue(product.color || product.colorTag || product.dominantColor);
-  const colorText = getColorText(product.color || product.colorTag || product.dominantColor);
-  
+
+  const colorValue = getColorValue(
+    product.color || product.colorTag || product.dominantColor,
+  );
+  const colorText = getColorText(
+    product.color || product.colorTag || product.dominantColor,
+  );
+
   return (
     <div className="relative group">
       <div className="aspect-square relative">
@@ -321,8 +356,18 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
           className="absolute top-2 left-2 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label="Delete item"
         >
-          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          <svg
+            className="w-5 h-5 text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
           </svg>
         </button>
       </div>
@@ -331,10 +376,10 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
           {/* Color Square with custom tooltip */}
           {(product.color || product.colorTag || product.dominantColor) && (
             <div className="relative group/color">
-              <div 
-                className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0" 
-                style={{ 
-                  backgroundColor: colorValue
+              <div
+                className="w-4 h-4 rounded-sm border border-gray-300 flex-shrink-0"
+                style={{
+                  backgroundColor: colorValue,
                 }}
               />
               {/* Custom tooltip */}
@@ -345,7 +390,9 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
           )}
           <h3 className="font-semibold">{product.brand}</h3>
         </div>
-        <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.name}</p>
+        <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+          {product.name}
+        </p>
         <div className="flex flex-col gap-2">
           {(product.productLink || product.myntraLink) && (
             <a
@@ -355,8 +402,18 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
               className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1"
             >
               <span>Visit {product.brand}</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
             </a>
           )}
@@ -369,186 +426,1625 @@ const WardrobeItem = ({ product, onDelete }: { product: MyntraProduct, onDelete:
 // Add a helper function to categorize items
 const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
   // Default category for items without a category
-  const defaultCategory = 'Uncategorized';
-  
+  const defaultCategory = "Uncategorized";
+
   // Define clothing categories following Myntra's official structure for both men and women
   const categoryKeywords: Record<string, string[]> = {
     // ====== MEN'S TOPWEAR ======
-    'T-Shirts': ['t-shirt', 't shirts', 't-shirts', 't shirt', 'tshirt', 'tshirts', 'tee', 'tees', 'men t-shirt', 'men tee', 'men t-shirts', 'tops'],
-    'Casual Shirts': ['casual shirt', 'casual shirts', 'linen shirt', 'linen shirts', 'denim shirt', 'denim shirts', 'oxford shirt', 'oxford shirts', 'chambray shirt', 'chambray shirts', 'men casual shirt', 'men casual shirts', 'shirts'],
-    'Formal Shirts': ['formal shirt', 'formal shirts', 'dress shirt', 'dress shirts', 'business shirt', 'business shirts', 'office shirt', 'office shirts', 'men formal shirt', 'men formal shirts'],
-    'Sweatshirts': ['sweatshirt', 'sweatshirts', 'pullover sweat', 'hooded sweatshirt', 'hooded sweatshirts', 'men sweatshirt', 'men sweatshirts', 'hoodie'],
-    'Sweaters': ['sweater', 'sweaters', 'pullover', 'pullovers', 'cardigan', 'cardigans', 'jumper', 'jumpers', 'knit', 'knits', 'men sweater', 'men sweaters'],
-    'Jackets': ['jacket', 'jackets', 'bomber', 'bombers', 'trucker jacket', 'trucker jackets', 'denim jacket', 'denim jackets', 'zip-up jacket', 'zip-up jackets', 'men jacket', 'men jackets', 'coats'],
-    'Blazers & Coats': ['blazer', 'blazers', 'coat', 'coats', 'sports coat', 'sports coats', 'suit jacket', 'suit jackets', 'overcoat', 'overcoats', 'trench coat', 'trench coats', 'men blazer', 'men blazers', 'men coat', 'men coats', 'suits'],
-    'Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
-    'Mens Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean'],
-    'Casual Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'trousers'],
-    'Mens Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts'],
-    'Track Pants & Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
-    'Mens Sleepwear & Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts'],
-    'Womens Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'tops'],
-    'Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses'],
-    'Womens Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim'],
-    'Trousers & Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants'],
-    'Shorts & Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts'],
-    'Rain Jackets': ['rain jacket', 'rain jackets', 'raincoat', 'raincoats', 'waterproof jacket', 'waterproof jackets', 'windcheater', 'windcheaters', 'men rain jacket', 'men rain jackets'],
+    "T-Shirts": [
+      "t-shirt",
+      "t shirts",
+      "t-shirts",
+      "t shirt",
+      "tshirt",
+      "tshirts",
+      "tee",
+      "tees",
+      "men t-shirt",
+      "men tee",
+      "men t-shirts",
+      "tops",
+    ],
+    "Casual Shirts": [
+      "casual shirt",
+      "casual shirts",
+      "linen shirt",
+      "linen shirts",
+      "denim shirt",
+      "denim shirts",
+      "oxford shirt",
+      "oxford shirts",
+      "chambray shirt",
+      "chambray shirts",
+      "men casual shirt",
+      "men casual shirts",
+      "shirts",
+    ],
+    "Formal Shirts": [
+      "formal shirt",
+      "formal shirts",
+      "dress shirt",
+      "dress shirts",
+      "business shirt",
+      "business shirts",
+      "office shirt",
+      "office shirts",
+      "men formal shirt",
+      "men formal shirts",
+    ],
+    Sweatshirts: [
+      "sweatshirt",
+      "sweatshirts",
+      "pullover sweat",
+      "hooded sweatshirt",
+      "hooded sweatshirts",
+      "men sweatshirt",
+      "men sweatshirts",
+      "hoodie",
+    ],
+    Sweaters: [
+      "sweater",
+      "sweaters",
+      "pullover",
+      "pullovers",
+      "cardigan",
+      "cardigans",
+      "jumper",
+      "jumpers",
+      "knit",
+      "knits",
+      "men sweater",
+      "men sweaters",
+    ],
+    Jackets: [
+      "jacket",
+      "jackets",
+      "bomber",
+      "bombers",
+      "trucker jacket",
+      "trucker jackets",
+      "denim jacket",
+      "denim jackets",
+      "zip-up jacket",
+      "zip-up jackets",
+      "men jacket",
+      "men jackets",
+      "coats",
+    ],
+    "Blazers & Coats": [
+      "blazer",
+      "blazers",
+      "coat",
+      "coats",
+      "sports coat",
+      "sports coats",
+      "suit jacket",
+      "suit jackets",
+      "overcoat",
+      "overcoats",
+      "trench coat",
+      "trench coats",
+      "men blazer",
+      "men blazers",
+      "men coat",
+      "men coats",
+      "suits",
+    ],
+    Overshirts: [
+      "overshirt",
+      "overshirts",
+      "shacket",
+      "shackets",
+      "men overshirt",
+      "men overshirts",
+    ],
+    "Mens Jeans": [
+      "jeans",
+      "denim jean",
+      "denim jeans",
+      "jean",
+      "men jeans",
+      "men jean",
+    ],
+    "Casual Trousers": [
+      "casual trouser",
+      "casual trousers",
+      "chinos",
+      "khakis",
+      "casual pant",
+      "casual pants",
+      "men casual trouser",
+      "men casual trousers",
+      "men chinos",
+      "trousers",
+    ],
+    "Mens Shorts": [
+      "short",
+      "shorts",
+      "bermuda",
+      "bermudas",
+      "cargo short",
+      "cargo shorts",
+      "denim short",
+      "denim shorts",
+      "men short",
+      "men shorts",
+    ],
+    "Track Pants & Joggers": [
+      "track pant",
+      "track pants",
+      "jogger",
+      "joggers",
+      "trackpant",
+      "trackpants",
+      "track bottom",
+      "track bottoms",
+      "athletic pant",
+      "athletic pants",
+      "sweatpant",
+      "sweatpants",
+      "drawstring pant",
+      "drawstring pants",
+      "dressy jogger",
+      "dressy joggers",
+      "men jogger",
+      "men joggers",
+    ],
+    "Mens Sleepwear & Loungewear": [
+      "sleepwear",
+      "loungewear",
+      "pajama",
+      "pajamas",
+      "pyjama",
+      "pyjamas",
+      "lounge pant",
+      "lounge pants",
+      "night suit",
+      "night suits",
+      "night dress",
+      "night dresses",
+      "sleep shirt",
+      "sleep shirts",
+      "men sleepwear",
+      "lounge short",
+      "lounge shorts",
+      "sleep short",
+      "sleep shorts",
+      "night short",
+      "night shorts",
+    ],
+    "Womens Tops": [
+      "women top",
+      "women tops",
+      "ladies top",
+      "ladies tops",
+      "fashion top",
+      "fashion tops",
+      "crop top",
+      "crop tops",
+      "camisole",
+      "camisoles",
+      "women blouse",
+      "women blouses",
+      "ladies blouse",
+      "ladies blouses",
+      "women shirt",
+      "women shirts",
+      "ladies shirt",
+      "ladies shirts",
+      "tops",
+    ],
+    Dresses: [
+      "dress",
+      "dresses",
+      "gown",
+      "gowns",
+      "maxi",
+      "maxis",
+      "midi dress",
+      "midi dresses",
+      "a-line dress",
+      "a-line dresses",
+      "bodycon",
+      "bodycons",
+      "shift dress",
+      "shift dresses",
+      "women dress",
+      "women dresses",
+    ],
+    "Womens Jeans": [
+      "women jeans",
+      "ladies jeans",
+      "skinny jeans",
+      "boyfriend jeans",
+      "straight leg jeans",
+      "women denim",
+    ],
+    "Trousers & Capris": [
+      "trouser",
+      "trousers",
+      "capri",
+      "capris",
+      "cropped pant",
+      "cropped pants",
+      "cigarette pant",
+      "cigarette pants",
+      "culottes",
+      "women trouser",
+      "women trousers",
+      "ladies pant",
+      "ladies pants",
+    ],
+    "Shorts & Skirts": [
+      "women short",
+      "women shorts",
+      "ladies short",
+      "ladies shorts",
+      "mini skirt",
+      "mini skirts",
+      "midi skirt",
+      "midi skirts",
+      "maxi skirt",
+      "maxi skirts",
+      "denim skirt",
+      "denim skirts",
+      "pleated skirt",
+      "pleated skirts",
+    ],
+    "Rain Jackets": [
+      "rain jacket",
+      "rain jackets",
+      "raincoat",
+      "raincoats",
+      "waterproof jacket",
+      "waterproof jackets",
+      "windcheater",
+      "windcheaters",
+      "men rain jacket",
+      "men rain jackets",
+    ],
 
     // ====== MEN'S BOTTOMWEAR ======
-    'Mens_Jeans': ['jeans', 'denim jean', 'denim jeans', 'jean', 'men jeans', 'men jean', 'H&M jeans'],
-    'Casual_Trousers': ['casual trouser', 'casual trousers', 'chinos', 'khakis', 'casual pant', 'casual pants', 'men casual trouser', 'men casual trousers', 'men chinos', 'H&M trousers'],
-    'Formal_Trousers': ['formal trouser', 'formal trousers', 'dress pant', 'dress pants', 'dress trouser', 'dress trousers', 'suit pant', 'suit pants', 'office trouser', 'office trousers', 'men formal trouser', 'men formal trousers'],
-    'Mens_Shorts': ['short', 'shorts', 'bermuda', 'bermudas', 'cargo short', 'cargo shorts', 'denim short', 'denim shorts', 'men short', 'men shorts', 'H&M shorts'],
-    'Track_Pants_Joggers': ['track pant', 'track pants', 'jogger', 'joggers', 'trackpant', 'trackpants', 'track bottom', 'track bottoms', 'athletic pant', 'athletic pants', 'sweatpant', 'sweatpants', 'drawstring pant', 'drawstring pants', 'dressy jogger', 'dressy joggers', 'men jogger', 'men joggers'],
+    Mens_Jeans: [
+      "jeans",
+      "denim jean",
+      "denim jeans",
+      "jean",
+      "men jeans",
+      "men jean",
+      "H&M jeans",
+    ],
+    Casual_Trousers: [
+      "casual trouser",
+      "casual trousers",
+      "chinos",
+      "khakis",
+      "casual pant",
+      "casual pants",
+      "men casual trouser",
+      "men casual trousers",
+      "men chinos",
+      "H&M trousers",
+    ],
+    Formal_Trousers: [
+      "formal trouser",
+      "formal trousers",
+      "dress pant",
+      "dress pants",
+      "dress trouser",
+      "dress trousers",
+      "suit pant",
+      "suit pants",
+      "office trouser",
+      "office trousers",
+      "men formal trouser",
+      "men formal trousers",
+    ],
+    Mens_Shorts: [
+      "short",
+      "shorts",
+      "bermuda",
+      "bermudas",
+      "cargo short",
+      "cargo shorts",
+      "denim short",
+      "denim shorts",
+      "men short",
+      "men shorts",
+      "H&M shorts",
+    ],
+    Track_Pants_Joggers: [
+      "track pant",
+      "track pants",
+      "jogger",
+      "joggers",
+      "trackpant",
+      "trackpants",
+      "track bottom",
+      "track bottoms",
+      "athletic pant",
+      "athletic pants",
+      "sweatpant",
+      "sweatpants",
+      "drawstring pant",
+      "drawstring pants",
+      "dressy jogger",
+      "dressy joggers",
+      "men jogger",
+      "men joggers",
+    ],
 
     // ====== MEN'S INNERWEAR & SLEEPWEAR ======
-    'Briefs_Trunks': ['brief', 'briefs', 'trunk', 'trunks', 'underwear', 'underwears', 'undergarment', 'undergarments', 'men brief', 'men briefs', 'men trunk', 'men trunks', 'H&M underwear'],
-    'Boxers': ['boxer', 'boxers', 'boxer brief', 'boxer briefs', 'boxer short', 'boxer shorts', 'men boxer', 'men boxers'],
-    'Vests': ['vest', 'vests', 'undershirt', 'undershirts', 'sleeveless undershirt', 'sleeveless undershirts', 'inner vest', 'inner vests', 'men vest', 'men vests'],
-    'Mens_Sleepwear_Loungewear': ['sleepwear', 'loungewear', 'pajama', 'pajamas', 'pyjama', 'pyjamas', 'lounge pant', 'lounge pants', 'night suit', 'night suits', 'night dress', 'night dresses', 'sleep shirt', 'sleep shirts', 'men sleepwear', 'lounge short', 'lounge shorts', 'sleep short', 'sleep shorts', 'night short', 'night shorts', 'H&M sleepwear'],
-    'Mens_Thermals': ['thermal', 'thermals', 'thermal wear', 'winter thermal', 'winter thermals', 'heat tech', 'warm underwear', 'men thermal', 'men thermals'],
+    Briefs_Trunks: [
+      "brief",
+      "briefs",
+      "trunk",
+      "trunks",
+      "underwear",
+      "underwears",
+      "undergarment",
+      "undergarments",
+      "men brief",
+      "men briefs",
+      "men trunk",
+      "men trunks",
+      "H&M underwear",
+    ],
+    Boxers: [
+      "boxer",
+      "boxers",
+      "boxer brief",
+      "boxer briefs",
+      "boxer short",
+      "boxer shorts",
+      "men boxer",
+      "men boxers",
+    ],
+    Vests: [
+      "vest",
+      "vests",
+      "undershirt",
+      "undershirts",
+      "sleeveless undershirt",
+      "sleeveless undershirts",
+      "inner vest",
+      "inner vests",
+      "men vest",
+      "men vests",
+    ],
+    Mens_Sleepwear_Loungewear: [
+      "sleepwear",
+      "loungewear",
+      "pajama",
+      "pajamas",
+      "pyjama",
+      "pyjamas",
+      "lounge pant",
+      "lounge pants",
+      "night suit",
+      "night suits",
+      "night dress",
+      "night dresses",
+      "sleep shirt",
+      "sleep shirts",
+      "men sleepwear",
+      "lounge short",
+      "lounge shorts",
+      "sleep short",
+      "sleep shorts",
+      "night short",
+      "night shorts",
+      "H&M sleepwear",
+    ],
+    Mens_Thermals: [
+      "thermal",
+      "thermals",
+      "thermal wear",
+      "winter thermal",
+      "winter thermals",
+      "heat tech",
+      "warm underwear",
+      "men thermal",
+      "men thermals",
+    ],
 
     // ====== MEN'S INDIAN & FESTIVE WEAR ======
-    'Kurtas & Kurta Sets': ['kurta', 'kurtas', 'kurta set', 'kurta sets', 'kurta pajama', 'kurta pajamas', 'kurta pyjama', 'kurta pyjamas', 'men kurta', 'men kurtas'],
-    'Sherwanis': ['sherwani', 'sherwanis', 'wedding sherwani', 'wedding sherwanis', 'groom sherwani', 'groom sherwanis'],
-    'Nehru Jackets': ['nehru jacket', 'nehru jackets', 'modi jacket', 'modi jackets', 'waistcoat', 'waistcoats', 'ethnic jacket', 'ethnic jackets', 'indian jacket', 'indian jackets'],
-    'Dhotis': ['dhoti', 'dhotis', 'dhoti pant', 'dhoti pants', 'ethnic bottom', 'ethnic bottoms', 'men dhoti', 'men dhotis'],
+    "Kurtas & Kurta Sets": [
+      "kurta",
+      "kurtas",
+      "kurta set",
+      "kurta sets",
+      "kurta pajama",
+      "kurta pajamas",
+      "kurta pyjama",
+      "kurta pyjamas",
+      "men kurta",
+      "men kurtas",
+    ],
+    Sherwanis: [
+      "sherwani",
+      "sherwanis",
+      "wedding sherwani",
+      "wedding sherwanis",
+      "groom sherwani",
+      "groom sherwanis",
+    ],
+    "Nehru Jackets": [
+      "nehru jacket",
+      "nehru jackets",
+      "modi jacket",
+      "modi jackets",
+      "waistcoat",
+      "waistcoats",
+      "ethnic jacket",
+      "ethnic jackets",
+      "indian jacket",
+      "indian jackets",
+    ],
+    Dhotis: [
+      "dhoti",
+      "dhotis",
+      "dhoti pant",
+      "dhoti pants",
+      "ethnic bottom",
+      "ethnic bottoms",
+      "men dhoti",
+      "men dhotis",
+    ],
 
     // ====== MEN'S PLUS SIZE ======
-    'Mens Plus Size': ['plus size', 'plus-size', 'oversized', 'plus fit', 'extended size', 'extended sizes', 'men plus size'],
-    
+    "Mens Plus Size": [
+      "plus size",
+      "plus-size",
+      "oversized",
+      "plus fit",
+      "extended size",
+      "extended sizes",
+      "men plus size",
+    ],
+
     // ====== MEN'S FOOTWEAR ======
-    'Mens Casual Shoes': ['casual shoe', 'casual shoes', 'everyday shoe', 'everyday shoes', 'lifestyle shoe', 'lifestyle shoes', 'men casual shoe', 'men casual shoes', 'espadrille', 'espadrilles', 'canvas shoe', 'canvas shoes'],
-    'Mens Sports Shoes': ['sports shoe', 'sports shoes', 'running shoe', 'running shoes', 'training shoe', 'training shoes', 'athletic shoe', 'athletic shoes', 'gym shoe', 'gym shoes', 'men sports shoe', 'men sports shoes'],
-    'Formal Shoes': ['formal shoe', 'formal shoes', 'oxford', 'oxfords', 'brogue', 'brogues', 'derby', 'derbies', 'loafer', 'loafers', 'monk shoe', 'monk shoes', 'dress shoe', 'dress shoes', 'men formal shoe', 'men formal shoes'],
-    'Sneakers': ['sneaker', 'sneakers', 'casual sneaker', 'casual sneakers', 'fashion sneaker', 'fashion sneakers', 'high-top', 'high-tops', 'low-top', 'low-tops', 'men sneaker', 'men sneakers'],
-    'Sandals & Floaters': ['sandal', 'sandals', 'floater', 'floaters', 'slider', 'sliders', 'open toe', 'open toes', 'men sandal', 'men sandals'],
-    'Flip Flops': ['flip flop', 'flip flops', 'thong', 'thongs', 'beach sandal', 'beach sandals', 'slipper', 'slippers', 'men flip flop', 'men flip flops'],
-    'Mens Socks': ['sock', 'socks', 'ankle sock', 'ankle socks', 'crew sock', 'crew socks', 'no-show sock', 'no-show socks', 'low cut sock', 'low cut socks', 'men sock', 'men socks'],
-    
+    "Mens Casual Shoes": [
+      "casual shoe",
+      "casual shoes",
+      "everyday shoe",
+      "everyday shoes",
+      "lifestyle shoe",
+      "lifestyle shoes",
+      "men casual shoe",
+      "men casual shoes",
+      "espadrille",
+      "espadrilles",
+      "canvas shoe",
+      "canvas shoes",
+    ],
+    "Mens Sports Shoes": [
+      "sports shoe",
+      "sports shoes",
+      "running shoe",
+      "running shoes",
+      "training shoe",
+      "training shoes",
+      "athletic shoe",
+      "athletic shoes",
+      "gym shoe",
+      "gym shoes",
+      "men sports shoe",
+      "men sports shoes",
+    ],
+    "Formal Shoes": [
+      "formal shoe",
+      "formal shoes",
+      "oxford",
+      "oxfords",
+      "brogue",
+      "brogues",
+      "derby",
+      "derbies",
+      "loafer",
+      "loafers",
+      "monk shoe",
+      "monk shoes",
+      "dress shoe",
+      "dress shoes",
+      "men formal shoe",
+      "men formal shoes",
+    ],
+    Sneakers: [
+      "sneaker",
+      "sneakers",
+      "casual sneaker",
+      "casual sneakers",
+      "fashion sneaker",
+      "fashion sneakers",
+      "high-top",
+      "high-tops",
+      "low-top",
+      "low-tops",
+      "men sneaker",
+      "men sneakers",
+    ],
+    "Sandals & Floaters": [
+      "sandal",
+      "sandals",
+      "floater",
+      "floaters",
+      "slider",
+      "sliders",
+      "open toe",
+      "open toes",
+      "men sandal",
+      "men sandals",
+    ],
+    "Flip Flops": [
+      "flip flop",
+      "flip flops",
+      "thong",
+      "thongs",
+      "beach sandal",
+      "beach sandals",
+      "slipper",
+      "slippers",
+      "men flip flop",
+      "men flip flops",
+    ],
+    "Mens Socks": [
+      "sock",
+      "socks",
+      "ankle sock",
+      "ankle socks",
+      "crew sock",
+      "crew socks",
+      "no-show sock",
+      "no-show socks",
+      "low cut sock",
+      "low cut socks",
+      "men sock",
+      "men socks",
+    ],
+
     // ====== PERSONAL CARE & GROOMING ======
-    'Personal Care & Grooming': ['grooming', 'personal care', 'skincare', 'face wash', 'face washes', 'moisturizer', 'moisturizers', 'sunscreen', 'sunscreens', 'men grooming'],
-    
+    "Personal Care & Grooming": [
+      "grooming",
+      "personal care",
+      "skincare",
+      "face wash",
+      "face washes",
+      "moisturizer",
+      "moisturizers",
+      "sunscreen",
+      "sunscreens",
+      "men grooming",
+    ],
+
     // ====== SUNGLASSES & FRAMES ======
-    'Sunglasses & Frames': ['sunglass', 'sunglasses', 'eyeglass', 'eyeglasses', 'spectacle', 'spectacles', 'frame', 'frames', 'sun glass', 'sun glasses', 'shade', 'shades'],
-    
+    "Sunglasses & Frames": [
+      "sunglass",
+      "sunglasses",
+      "eyeglass",
+      "eyeglasses",
+      "spectacle",
+      "spectacles",
+      "frame",
+      "frames",
+      "sun glass",
+      "sun glasses",
+      "shade",
+      "shades",
+    ],
+
     // ====== WATCHES ======
-    'Mens Watches': ['watch', 'watches', 'wristwatch', 'wristwatches', 'analog watch', 'analog watches', 'digital watch', 'digital watches', 'chronograph', 'chronographs', 'men watch', 'men watches'],
-    
+    "Mens Watches": [
+      "watch",
+      "watches",
+      "wristwatch",
+      "wristwatches",
+      "analog watch",
+      "analog watches",
+      "digital watch",
+      "digital watches",
+      "chronograph",
+      "chronographs",
+      "men watch",
+      "men watches",
+    ],
+
     // ====== SPORTS & ACTIVE WEAR ======
-    'Sports Sandals': ['sports sandal', 'sports sandals', 'hiking sandal', 'hiking sandals', 'outdoor sandal', 'outdoor sandals'],
-    'Active T-Shirts': ['active t-shirt', 'active t-shirts', 'gym t-shirt', 'gym t-shirts', 'workout tee', 'workout tees', 'sport tee', 'sport tees', 'training t-shirt', 'training t-shirts', 'dry fit', 'quick dry'],
-    'Track Pants & Shorts': ['track pant', 'track pants', 'athletic short', 'athletic shorts', 'running short', 'running shorts', 'gym short', 'gym shorts', 'workout pant', 'workout pants'],
-    'Tracksuits': ['tracksuit', 'tracksuits', 'training suit', 'training suits', 'warm up suit', 'warm up suits', 'athletic set', 'athletic sets'],
-    'Sports Jackets & Sweatshirts': ['sports jacket', 'sports jackets', 'athletic jacket', 'athletic jackets', 'hoodie', 'hoodies', 'workout sweatshirt', 'workout sweatshirts', 'gym hoodie', 'gym hoodies'],
-    'Mens Sports Accessories': ['sports accessory', 'sports accessories', 'wristband', 'wristbands', 'headband', 'headbands', 'sport sock', 'sport socks', 'gym glove', 'gym gloves'],
-    'Mens Swimwear': ['swimwear', 'swim trunk', 'swim trunks', 'swimming short', 'swimming shorts', 'swim brief', 'swim briefs', 'men swimwear'],
-    
+    "Sports Sandals": [
+      "sports sandal",
+      "sports sandals",
+      "hiking sandal",
+      "hiking sandals",
+      "outdoor sandal",
+      "outdoor sandals",
+    ],
+    "Active T-Shirts": [
+      "active t-shirt",
+      "active t-shirts",
+      "gym t-shirt",
+      "gym t-shirts",
+      "workout tee",
+      "workout tees",
+      "sport tee",
+      "sport tees",
+      "training t-shirt",
+      "training t-shirts",
+      "dry fit",
+      "quick dry",
+    ],
+    "Track Pants & Shorts": [
+      "track pant",
+      "track pants",
+      "athletic short",
+      "athletic shorts",
+      "running short",
+      "running shorts",
+      "gym short",
+      "gym shorts",
+      "workout pant",
+      "workout pants",
+    ],
+    Tracksuits: [
+      "tracksuit",
+      "tracksuits",
+      "training suit",
+      "training suits",
+      "warm up suit",
+      "warm up suits",
+      "athletic set",
+      "athletic sets",
+    ],
+    "Sports Jackets & Sweatshirts": [
+      "sports jacket",
+      "sports jackets",
+      "athletic jacket",
+      "athletic jackets",
+      "hoodie",
+      "hoodies",
+      "workout sweatshirt",
+      "workout sweatshirts",
+      "gym hoodie",
+      "gym hoodies",
+    ],
+    "Mens Sports Accessories": [
+      "sports accessory",
+      "sports accessories",
+      "wristband",
+      "wristbands",
+      "headband",
+      "headbands",
+      "sport sock",
+      "sport socks",
+      "gym glove",
+      "gym gloves",
+    ],
+    "Mens Swimwear": [
+      "swimwear",
+      "swim trunk",
+      "swim trunks",
+      "swimming short",
+      "swimming shorts",
+      "swim brief",
+      "swim briefs",
+      "men swimwear",
+    ],
+
     // ====== GADGETS ======
-    'Smart Wearables': ['smart watch', 'smart watches', 'fitness tracker', 'fitness trackers', 'smart band', 'smart bands', 'activity tracker', 'activity trackers'],
-    'Fitness Gadgets': ['fitness gadget', 'fitness gadgets', 'smart scale', 'smart scales', 'muscle massager', 'muscle massagers', 'fitness monitor', 'fitness monitors'],
-    'Headphones': ['headphone', 'headphones', 'earphone', 'earphones', 'earbud', 'earbuds', 'wireless earphone', 'wireless earphones', 'airpod', 'airpods'],
-    'Speakers': ['speaker', 'speakers', 'bluetooth speaker', 'bluetooth speakers', 'wireless speaker', 'wireless speakers', 'portable speaker', 'portable speakers'],
-    
+    "Smart Wearables": [
+      "smart watch",
+      "smart watches",
+      "fitness tracker",
+      "fitness trackers",
+      "smart band",
+      "smart bands",
+      "activity tracker",
+      "activity trackers",
+    ],
+    "Fitness Gadgets": [
+      "fitness gadget",
+      "fitness gadgets",
+      "smart scale",
+      "smart scales",
+      "muscle massager",
+      "muscle massagers",
+      "fitness monitor",
+      "fitness monitors",
+    ],
+    Headphones: [
+      "headphone",
+      "headphones",
+      "earphone",
+      "earphones",
+      "earbud",
+      "earbuds",
+      "wireless earphone",
+      "wireless earphones",
+      "airpod",
+      "airpods",
+    ],
+    Speakers: [
+      "speaker",
+      "speakers",
+      "bluetooth speaker",
+      "bluetooth speakers",
+      "wireless speaker",
+      "wireless speakers",
+      "portable speaker",
+      "portable speakers",
+    ],
+
     // ====== FASHION ACCESSORIES ======
-    'Mens Wallets': ['wallet', 'wallets', 'card holder', 'card holders', 'money clip', 'money clips', 'billfold', 'billfolds', 'men wallet', 'men wallets'],
-    'Mens Belts': ['belt', 'belts', 'leather belt', 'leather belts', 'casual belt', 'casual belts', 'formal belt', 'formal belts', 'men belt', 'men belts'],
-    'Mens Perfumes': ['perfume', 'perfumes', 'fragrance', 'fragrances', 'cologne', 'colognes', 'body mist', 'body mists', 'body spray', 'body sprays', 'eau de toilette', 'men perfume', 'men perfumes'],
-    'Trimmers': ['trimmer', 'trimmers', 'beard trimmer', 'beard trimmers', 'shaver', 'shavers', 'grooming kit', 'grooming kits'],
-    'Mens Deodorants': ['deodorant', 'deodorants', 'antiperspirant', 'antiperspirants', 'body spray', 'body sprays', 'deo stick', 'deo sticks', 'men deodorant', 'men deodorants'],
-    'Ties, Cufflinks & Pocket Squares': ['tie', 'ties', 'necktie', 'neckties', 'bow tie', 'bow ties', 'cufflink', 'cufflinks', 'pocket square', 'pocket squares', 'handkerchief', 'handkerchiefs'],
-    'Accessory Gift Sets': ['gift set', 'gift sets', 'accessory set', 'accessory sets', 'wallet belt set', 'wallet belt sets', 'tie cufflink set', 'tie cufflink sets'],
-    'Mens Caps & Hats': ['cap', 'caps', 'hat', 'hats', 'beanie', 'beanies', 'snapback', 'snapbacks', 'baseball cap', 'baseball caps', 'fedora', 'fedoras', 'men cap', 'men caps', 'men hat', 'men hats'],
-    'Mens Mufflers & Scarves': ['muffler', 'mufflers', 'scarf', 'scarves', 'glove', 'gloves', 'mitten', 'mittens', 'winter accessory', 'winter accessories', 'men scarf', 'men scarves', 'men glove', 'men gloves'],
-    'Phone Cases': ['phone case', 'phone cases', 'mobile cover', 'mobile covers', 'phone cover', 'phone covers', 'smartphone case', 'smartphone cases'],
-    'Mens Rings & Wristwear': ['ring', 'rings', 'bracelet', 'bracelets', 'wristband', 'wristbands', 'bangle', 'bangles', 'men bracelet', 'men bracelets', 'men ring', 'men rings'],
-    'Helmets': ['helmet', 'helmets', 'bike helmet', 'bike helmets', 'motorcycle helmet', 'motorcycle helmets'],
-    
+    "Mens Wallets": [
+      "wallet",
+      "wallets",
+      "card holder",
+      "card holders",
+      "money clip",
+      "money clips",
+      "billfold",
+      "billfolds",
+      "men wallet",
+      "men wallets",
+    ],
+    "Mens Belts": [
+      "belt",
+      "belts",
+      "leather belt",
+      "leather belts",
+      "casual belt",
+      "casual belts",
+      "formal belt",
+      "formal belts",
+      "men belt",
+      "men belts",
+    ],
+    "Mens Perfumes": [
+      "perfume",
+      "perfumes",
+      "fragrance",
+      "fragrances",
+      "cologne",
+      "colognes",
+      "body mist",
+      "body mists",
+      "body spray",
+      "body sprays",
+      "eau de toilette",
+      "men perfume",
+      "men perfumes",
+    ],
+    Trimmers: [
+      "trimmer",
+      "trimmers",
+      "beard trimmer",
+      "beard trimmers",
+      "shaver",
+      "shavers",
+      "grooming kit",
+      "grooming kits",
+    ],
+    "Mens Deodorants": [
+      "deodorant",
+      "deodorants",
+      "antiperspirant",
+      "antiperspirants",
+      "body spray",
+      "body sprays",
+      "deo stick",
+      "deo sticks",
+      "men deodorant",
+      "men deodorants",
+    ],
+    "Ties, Cufflinks & Pocket Squares": [
+      "tie",
+      "ties",
+      "necktie",
+      "neckties",
+      "bow tie",
+      "bow ties",
+      "cufflink",
+      "cufflinks",
+      "pocket square",
+      "pocket squares",
+      "handkerchief",
+      "handkerchiefs",
+    ],
+    "Accessory Gift Sets": [
+      "gift set",
+      "gift sets",
+      "accessory set",
+      "accessory sets",
+      "wallet belt set",
+      "wallet belt sets",
+      "tie cufflink set",
+      "tie cufflink sets",
+    ],
+    "Mens Caps & Hats": [
+      "cap",
+      "caps",
+      "hat",
+      "hats",
+      "beanie",
+      "beanies",
+      "snapback",
+      "snapbacks",
+      "baseball cap",
+      "baseball caps",
+      "fedora",
+      "fedoras",
+      "men cap",
+      "men caps",
+      "men hat",
+      "men hats",
+    ],
+    "Mens Mufflers & Scarves": [
+      "muffler",
+      "mufflers",
+      "scarf",
+      "scarves",
+      "glove",
+      "gloves",
+      "mitten",
+      "mittens",
+      "winter accessory",
+      "winter accessories",
+      "men scarf",
+      "men scarves",
+      "men glove",
+      "men gloves",
+    ],
+    "Phone Cases": [
+      "phone case",
+      "phone cases",
+      "mobile cover",
+      "mobile covers",
+      "phone cover",
+      "phone covers",
+      "smartphone case",
+      "smartphone cases",
+    ],
+    "Mens Rings & Wristwear": [
+      "ring",
+      "rings",
+      "bracelet",
+      "bracelets",
+      "wristband",
+      "wristbands",
+      "bangle",
+      "bangles",
+      "men bracelet",
+      "men bracelets",
+      "men ring",
+      "men rings",
+    ],
+    Helmets: [
+      "helmet",
+      "helmets",
+      "bike helmet",
+      "bike helmets",
+      "motorcycle helmet",
+      "motorcycle helmets",
+    ],
+
     // ====== BAGS & BACKPACKS ======
-    'Mens Bags & Backpacks': ['bag', 'bags', 'backpack', 'backpacks', 'laptop bag', 'laptop bags', 'messenger bag', 'messenger bags', 'duffel bag', 'duffel bags', 'gym bag', 'gym bags', 'sling bag', 'sling bags', 'men bag', 'men bags', 'men backpack', 'men backpacks'],
-    
+    "Mens Bags & Backpacks": [
+      "bag",
+      "bags",
+      "backpack",
+      "backpacks",
+      "laptop bag",
+      "laptop bags",
+      "messenger bag",
+      "messenger bags",
+      "duffel bag",
+      "duffel bags",
+      "gym bag",
+      "gym bags",
+      "sling bag",
+      "sling bags",
+      "men bag",
+      "men bags",
+      "men backpack",
+      "men backpacks",
+    ],
+
     // ====== LUGGAGES & TROLLEYS ======
-    'Mens Luggages': ['luggage', 'luggages', 'trolley', 'trolleys', 'suitcase', 'suitcases', 'cabin bag', 'cabin bags', 'travel bag', 'travel bags', 'hard case', 'hard cases'],
+    "Mens Luggages": [
+      "luggage",
+      "luggages",
+      "trolley",
+      "trolleys",
+      "suitcase",
+      "suitcases",
+      "cabin bag",
+      "cabin bags",
+      "travel bag",
+      "travel bags",
+      "hard case",
+      "hard cases",
+    ],
 
     // ====== WOMEN'S INDIAN & FUSION WEAR ======
-    'Kurtas & Suits': ['women kurta', 'women kurtas', 'women suit', 'women suits', 'ladies kurta', 'ladies kurtas', 'kurti', 'kurtis', 'salwar kameez', 'anarkali', 'anarkalis', 'women ethnic suit', 'women ethnic suits'],
-    'Kurtis, Tunics & Tops': ['kurti', 'kurtis', 'ethnic top', 'ethnic tops', 'tunic', 'tunics', 'ladies top', 'ladies tops', 'ethnic tunic', 'ethnic tunics', 'women kurti', 'women kurtis'],
-    'Sarees': ['saree', 'sarees', 'sari', 'saris', 'silk saree', 'silk sarees', 'cotton saree', 'cotton sarees', 'designer saree', 'designer sarees'],
-    'Ethnic Wear': ['ethnic wear', 'ethnic dress', 'ethnic dresses', 'lehenga', 'lehengas', 'choli', 'cholis', 'dupatta', 'dupattas', 'gown', 'gowns', 'women ethnic'],
-    'Leggings, Salwars & Churidars': ['legging', 'leggings', 'salwar', 'salwars', 'churidar', 'churidars', 'patiala', 'patialas', 'palazzo', 'palazzos', 'ethnic pant', 'ethnic pants', 'women legging', 'women leggings'],
-    'Skirts & Palazzos': ['skirt', 'skirts', 'palazzo pant', 'palazzo pants', 'ethnic skirt', 'ethnic skirts', 'long skirt', 'long skirts', 'maxi skirt', 'maxi skirts', 'women skirt', 'women skirts'],
-    'Dress Materials': ['dress material', 'dress materials', 'fabric', 'fabrics', 'unstitched', 'suit material', 'suit materials', 'ethnic fabric', 'ethnic fabrics'],
-    'Lehenga Cholis': ['lehenga', 'lehengas', 'lehenga choli', 'lehenga cholis', 'bridal lehenga', 'bridal lehengas', 'wedding lehenga', 'wedding lehengas', 'ghagra choli', 'ghagra cholis'],
-    'Dupattas & Shawls': ['dupatta', 'dupattas', 'shawl', 'shawls', 'stole', 'stoles', 'ethnic scarf', 'ethnic scarves', 'women shawl', 'women shawls'],
+    "Kurtas & Suits": [
+      "women kurta",
+      "women kurtas",
+      "women suit",
+      "women suits",
+      "ladies kurta",
+      "ladies kurtas",
+      "kurti",
+      "kurtis",
+      "salwar kameez",
+      "anarkali",
+      "anarkalis",
+      "women ethnic suit",
+      "women ethnic suits",
+    ],
+    "Kurtis, Tunics & Tops": [
+      "kurti",
+      "kurtis",
+      "ethnic top",
+      "ethnic tops",
+      "tunic",
+      "tunics",
+      "ladies top",
+      "ladies tops",
+      "ethnic tunic",
+      "ethnic tunics",
+      "women kurti",
+      "women kurtis",
+    ],
+    Sarees: [
+      "saree",
+      "sarees",
+      "sari",
+      "saris",
+      "silk saree",
+      "silk sarees",
+      "cotton saree",
+      "cotton sarees",
+      "designer saree",
+      "designer sarees",
+    ],
+    "Ethnic Wear": [
+      "ethnic wear",
+      "ethnic dress",
+      "ethnic dresses",
+      "lehenga",
+      "lehengas",
+      "choli",
+      "cholis",
+      "dupatta",
+      "dupattas",
+      "gown",
+      "gowns",
+      "women ethnic",
+    ],
+    "Leggings, Salwars & Churidars": [
+      "legging",
+      "leggings",
+      "salwar",
+      "salwars",
+      "churidar",
+      "churidars",
+      "patiala",
+      "patialas",
+      "palazzo",
+      "palazzos",
+      "ethnic pant",
+      "ethnic pants",
+      "women legging",
+      "women leggings",
+    ],
+    "Skirts & Palazzos": [
+      "skirt",
+      "skirts",
+      "palazzo pant",
+      "palazzo pants",
+      "ethnic skirt",
+      "ethnic skirts",
+      "long skirt",
+      "long skirts",
+      "maxi skirt",
+      "maxi skirts",
+      "women skirt",
+      "women skirts",
+    ],
+    "Dress Materials": [
+      "dress material",
+      "dress materials",
+      "fabric",
+      "fabrics",
+      "unstitched",
+      "suit material",
+      "suit materials",
+      "ethnic fabric",
+      "ethnic fabrics",
+    ],
+    "Lehenga Cholis": [
+      "lehenga",
+      "lehengas",
+      "lehenga choli",
+      "lehenga cholis",
+      "bridal lehenga",
+      "bridal lehengas",
+      "wedding lehenga",
+      "wedding lehengas",
+      "ghagra choli",
+      "ghagra cholis",
+    ],
+    "Dupattas & Shawls": [
+      "dupatta",
+      "dupattas",
+      "shawl",
+      "shawls",
+      "stole",
+      "stoles",
+      "ethnic scarf",
+      "ethnic scarves",
+      "women shawl",
+      "women shawls",
+    ],
 
     // ====== WOMEN'S WESTERN WEAR ======
-    'Womens_Dresses': ['dress', 'dresses', 'gown', 'gowns', 'maxi', 'maxis', 'midi dress', 'midi dresses', 'a-line dress', 'a-line dresses', 'bodycon', 'bodycons', 'shift dress', 'shift dresses', 'women dress', 'women dresses', 'H&M dress', 'H&M dresses'],
-    'Womens_Tops': ['women top', 'women tops', 'ladies top', 'ladies tops', 'fashion top', 'fashion tops', 'crop top', 'crop tops', 'camisole', 'camisoles', 'women blouse', 'women blouses', 'ladies blouse', 'ladies blouses', 'women shirt', 'women shirts', 'ladies shirt', 'ladies shirts', 'H&M top', 'H&M tops'],
-    'Womens_Tshirts': ['women t-shirt', 'women t-shirts', 'ladies tee', 'ladies tees', 'graphic tee', 'graphic tees', 'printed t-shirt', 'printed t-shirts', 'basic tee', 'basic tees', 'women tshirt', 'women tshirts'],
-    'Womens_Jeans': ['women jeans', 'ladies jeans', 'skinny jeans', 'boyfriend jeans', 'straight leg jeans', 'women denim', 'H&M jeans'],
-    'Womens_Trousers_Capris': ['trouser', 'trousers', 'capri', 'capris', 'cropped pant', 'cropped pants', 'cigarette pant', 'cigarette pants', 'culottes', 'women trouser', 'women trousers', 'ladies pant', 'ladies pants', 'H&M trousers'],
-    'Womens_Shorts_Skirts': ['women short', 'women shorts', 'ladies short', 'ladies shorts', 'mini skirt', 'mini skirts', 'midi skirt', 'midi skirts', 'maxi skirt', 'maxi skirts', 'denim skirt', 'denim skirts', 'pleated skirt', 'pleated skirts', 'H&M shorts'],
-    'Co-ords': ['co-ord', 'co-ords', 'matching set', 'matching sets', 'twin set', 'twin sets', 'two piece set', 'two piece sets', 'coordinate set', 'coordinate sets'],
-    'Playsuits': ['playsuit', 'playsuits', 'romper', 'rompers', 'short jumpsuit', 'short jumpsuits', 'beach playsuit', 'beach playsuits'],
-    'Jumpsuits': ['jumpsuit', 'jumpsuits', 'overall', 'overalls', 'dungaree', 'dungarees', 'women jumpsuit', 'women jumpsuits', 'ladies jumpsuit', 'ladies jumpsuits'],
-    'Shrugs': ['shrug', 'shrugs', 'bolero', 'boleros', 'cover up', 'cover ups', 'women shrug', 'women shrugs', 'ladies shrug', 'ladies shrugs'],
-    'Womens Sweaters & Sweatshirts': ['women sweater', 'women sweaters', 'ladies sweatshirt', 'ladies sweatshirts', 'women pullover', 'women pullovers', 'women cardigan', 'women cardigans', 'knit top', 'knit tops', 'H&M sweater', 'H&M cardigans'],
-    'Womens Jackets & Coats': ['women jacket', 'women jackets', 'ladies coat', 'ladies coats', 'women blazer', 'women blazers', 'parka', 'parkas', 'trench coat', 'trench coats', 'women outerwear', 'H&M jacket', 'H&M coats'],
-    'Blazers & Waistcoats': ['women blazer', 'women blazers', 'ladies waistcoat', 'ladies waistcoats', 'women vest', 'women vests', 'suit jacket', 'suit jackets'],
-    
+    Womens_Dresses: [
+      "dress",
+      "dresses",
+      "gown",
+      "gowns",
+      "maxi",
+      "maxis",
+      "midi dress",
+      "midi dresses",
+      "a-line dress",
+      "a-line dresses",
+      "bodycon",
+      "bodycons",
+      "shift dress",
+      "shift dresses",
+      "women dress",
+      "women dresses",
+      "H&M dress",
+      "H&M dresses",
+    ],
+    Womens_Tops: [
+      "women top",
+      "women tops",
+      "ladies top",
+      "ladies tops",
+      "fashion top",
+      "fashion tops",
+      "crop top",
+      "crop tops",
+      "camisole",
+      "camisoles",
+      "women blouse",
+      "women blouses",
+      "ladies blouse",
+      "ladies blouses",
+      "women shirt",
+      "women shirts",
+      "ladies shirt",
+      "ladies shirts",
+      "H&M top",
+      "H&M tops",
+    ],
+    Womens_Tshirts: [
+      "women t-shirt",
+      "women t-shirts",
+      "ladies tee",
+      "ladies tees",
+      "graphic tee",
+      "graphic tees",
+      "printed t-shirt",
+      "printed t-shirts",
+      "basic tee",
+      "basic tees",
+      "women tshirt",
+      "women tshirts",
+    ],
+    Womens_Jeans: [
+      "women jeans",
+      "ladies jeans",
+      "skinny jeans",
+      "boyfriend jeans",
+      "straight leg jeans",
+      "women denim",
+      "H&M jeans",
+    ],
+    Womens_Trousers_Capris: [
+      "trouser",
+      "trousers",
+      "capri",
+      "capris",
+      "cropped pant",
+      "cropped pants",
+      "cigarette pant",
+      "cigarette pants",
+      "culottes",
+      "women trouser",
+      "women trousers",
+      "ladies pant",
+      "ladies pants",
+      "H&M trousers",
+    ],
+    Womens_Shorts_Skirts: [
+      "women short",
+      "women shorts",
+      "ladies short",
+      "ladies shorts",
+      "mini skirt",
+      "mini skirts",
+      "midi skirt",
+      "midi skirts",
+      "maxi skirt",
+      "maxi skirts",
+      "denim skirt",
+      "denim skirts",
+      "pleated skirt",
+      "pleated skirts",
+      "H&M shorts",
+    ],
+    "Co-ords": [
+      "co-ord",
+      "co-ords",
+      "matching set",
+      "matching sets",
+      "twin set",
+      "twin sets",
+      "two piece set",
+      "two piece sets",
+      "coordinate set",
+      "coordinate sets",
+    ],
+    Playsuits: [
+      "playsuit",
+      "playsuits",
+      "romper",
+      "rompers",
+      "short jumpsuit",
+      "short jumpsuits",
+      "beach playsuit",
+      "beach playsuits",
+    ],
+    Jumpsuits: [
+      "jumpsuit",
+      "jumpsuits",
+      "overall",
+      "overalls",
+      "dungaree",
+      "dungarees",
+      "women jumpsuit",
+      "women jumpsuits",
+      "ladies jumpsuit",
+      "ladies jumpsuits",
+    ],
+    Shrugs: [
+      "shrug",
+      "shrugs",
+      "bolero",
+      "boleros",
+      "cover up",
+      "cover ups",
+      "women shrug",
+      "women shrugs",
+      "ladies shrug",
+      "ladies shrugs",
+    ],
+    "Womens Sweaters & Sweatshirts": [
+      "women sweater",
+      "women sweaters",
+      "ladies sweatshirt",
+      "ladies sweatshirts",
+      "women pullover",
+      "women pullovers",
+      "women cardigan",
+      "women cardigans",
+      "knit top",
+      "knit tops",
+      "H&M sweater",
+      "H&M cardigans",
+    ],
+    "Womens Jackets & Coats": [
+      "women jacket",
+      "women jackets",
+      "ladies coat",
+      "ladies coats",
+      "women blazer",
+      "women blazers",
+      "parka",
+      "parkas",
+      "trench coat",
+      "trench coats",
+      "women outerwear",
+      "H&M jacket",
+      "H&M coats",
+    ],
+    "Blazers & Waistcoats": [
+      "women blazer",
+      "women blazers",
+      "ladies waistcoat",
+      "ladies waistcoats",
+      "women vest",
+      "women vests",
+      "suit jacket",
+      "suit jackets",
+    ],
+
     // ====== WOMEN'S PLUS SIZE ======
-    'Womens Plus Size': ['women plus size', 'plus size dress', 'plus size dresses', 'plus size top', 'plus size tops', 'plus size jeans', 'curve', 'extended size women'],
-    
+    "Womens Plus Size": [
+      "women plus size",
+      "plus size dress",
+      "plus size dresses",
+      "plus size top",
+      "plus size tops",
+      "plus size jeans",
+      "curve",
+      "extended size women",
+    ],
+
     // ====== MATERNITY ======
-    'Maternity': ['maternity', 'pregnancy', 'prenatal', 'pregnant', 'nursing', 'maternal', 'maternity wear'],
-    
+    Maternity: [
+      "maternity",
+      "pregnancy",
+      "prenatal",
+      "pregnant",
+      "nursing",
+      "maternal",
+      "maternity wear",
+    ],
+
     // ====== WOMEN'S LINGERIE & SLEEPWEAR ======
-    'Bra': ['bra', 'bras', 'brassiere', 'brassieres', 'sports bra', 'sports bras', 'push up bra', 'push up bras', 'padded bra', 'padded bras', 'nursing bra', 'nursing bras', 'strapless bra', 'strapless bras'],
-    'Womens Briefs': ['women brief', 'women briefs', 'panty', 'panties', 'underwear', 'womens underwear', 'ladies brief', 'ladies briefs', 'bikini brief', 'bikini briefs'],
-    'Shapewear': ['shapewear', 'body shaper', 'body shapers', 'slimming underwear', 'control brief', 'control briefs', 'corset', 'corsets', 'waist trainer', 'waist trainers'],
-    'Womens Sleepwear': ['women sleepwear', 'nightdress', 'nightdresses', 'nightgown', 'nightgowns', 'pajama set', 'pajama sets', 'women loungewear', 'lounge pant women', 'lounge pants women', 'H&M sleepwear'],
-    'Womens Swimwear': ['women swimwear', 'swimsuit', 'swimsuits', 'bikini', 'bikinis', 'one piece', 'one pieces', 'swimming costume', 'swimming costumes', 'beachwear'],
-    'Camisoles & Thermals': ['camisole', 'camisoles', 'slip', 'slips', 'women thermal', 'women thermals', 'inner wear', 'tank top', 'tank tops', 'spaghetti top', 'spaghetti tops'],
+    Bra: [
+      "bra",
+      "bras",
+      "brassiere",
+      "brassieres",
+      "sports bra",
+      "sports bras",
+      "push up bra",
+      "push up bras",
+      "padded bra",
+      "padded bras",
+      "nursing bra",
+      "nursing bras",
+      "strapless bra",
+      "strapless bras",
+    ],
+    "Womens Briefs": [
+      "women brief",
+      "women briefs",
+      "panty",
+      "panties",
+      "underwear",
+      "womens underwear",
+      "ladies brief",
+      "ladies briefs",
+      "bikini brief",
+      "bikini briefs",
+    ],
+    Shapewear: [
+      "shapewear",
+      "body shaper",
+      "body shapers",
+      "slimming underwear",
+      "control brief",
+      "control briefs",
+      "corset",
+      "corsets",
+      "waist trainer",
+      "waist trainers",
+    ],
+    "Womens Sleepwear": [
+      "women sleepwear",
+      "nightdress",
+      "nightdresses",
+      "nightgown",
+      "nightgowns",
+      "pajama set",
+      "pajama sets",
+      "women loungewear",
+      "lounge pant women",
+      "lounge pants women",
+      "H&M sleepwear",
+    ],
+    "Womens Swimwear": [
+      "women swimwear",
+      "swimsuit",
+      "swimsuits",
+      "bikini",
+      "bikinis",
+      "one piece",
+      "one pieces",
+      "swimming costume",
+      "swimming costumes",
+      "beachwear",
+    ],
+    "Camisoles & Thermals": [
+      "camisole",
+      "camisoles",
+      "slip",
+      "slips",
+      "women thermal",
+      "women thermals",
+      "inner wear",
+      "tank top",
+      "tank tops",
+      "spaghetti top",
+      "spaghetti tops",
+    ],
 
     // ====== WOMEN'S FOOTWEAR ======
-    'Flats': ['flat', 'flats', 'ballet flat', 'ballet flats', 'moccasin', 'moccasins', 'loafer', 'loafers', 'women flat', 'women flats', 'ladies flat', 'ladies flats', 'slip on', 'slip ons', 'women shoe', 'women shoes'],
-    'Womens Casual Shoes': ['women casual shoe', 'women casual shoes', 'ladies sneaker', 'ladies sneakers', 'slip on shoe', 'slip on shoes', 'fashion sneaker', 'fashion sneakers', 'women everyday shoe', 'women everyday shoes'],
-    'Heels': ['heel', 'heels', 'stiletto', 'stilettos', 'pump', 'pumps', 'platform heel', 'platform heels', 'wedge', 'wedges', 'block heel', 'block heels', 'high heel', 'high heels', 'kitten heel', 'kitten heels'],
-    'Boots': ['women boot', 'women boots', 'ankle boot', 'ankle boots', 'knee high boot', 'knee high boots', 'ladies boot', 'ladies boots', 'winter boot', 'winter boots', 'chelsea boot', 'chelsea boots'],
-    'Womens Sports Shoes': ['women sports shoe', 'women sports shoes', 'ladies running shoe', 'ladies running shoes', 'women athletic shoe', 'women athletic shoes', 'women floater', 'women floaters'],
-    
+    Flats: [
+      "flat",
+      "flats",
+      "ballet flat",
+      "ballet flats",
+      "moccasin",
+      "moccasins",
+      "loafer",
+      "loafers",
+      "women flat",
+      "women flats",
+      "ladies flat",
+      "ladies flats",
+      "slip on",
+      "slip ons",
+      "women shoe",
+      "women shoes",
+    ],
+    "Womens Casual Shoes": [
+      "women casual shoe",
+      "women casual shoes",
+      "ladies sneaker",
+      "ladies sneakers",
+      "slip on shoe",
+      "slip on shoes",
+      "fashion sneaker",
+      "fashion sneakers",
+      "women everyday shoe",
+      "women everyday shoes",
+    ],
+    Heels: [
+      "heel",
+      "heels",
+      "stiletto",
+      "stilettos",
+      "pump",
+      "pumps",
+      "platform heel",
+      "platform heels",
+      "wedge",
+      "wedges",
+      "block heel",
+      "block heels",
+      "high heel",
+      "high heels",
+      "kitten heel",
+      "kitten heels",
+    ],
+    Boots: [
+      "women boot",
+      "women boots",
+      "ankle boot",
+      "ankle boots",
+      "knee high boot",
+      "knee high boots",
+      "ladies boot",
+      "ladies boots",
+      "winter boot",
+      "winter boots",
+      "chelsea boot",
+      "chelsea boots",
+    ],
+    "Womens Sports Shoes": [
+      "women sports shoe",
+      "women sports shoes",
+      "ladies running shoe",
+      "ladies running shoes",
+      "women athletic shoe",
+      "women athletic shoes",
+      "women floater",
+      "women floaters",
+    ],
+
     // ====== WOMEN'S SPORTS & ACTIVE WEAR ======
-    'Womens Sports Clothing': ['women sportswear', 'activewear', 'gym wear', 'workout clothing', 'yoga wear', 'fitness apparel'],
-    'Womens Sports Footwear': ['women sport shoe', 'women sport shoes', 'training shoe', 'training shoes', 'running shoe', 'running shoes', 'women gym shoe', 'women gym shoes', 'yoga shoe', 'yoga shoes'],
-    'Womens Sports Accessories': ['women sport accessory', 'women sport accessories', 'fitness accessory', 'fitness accessories', 'yoga mat', 'yoga mats', 'gym bag', 'gym bags', 'water bottle', 'water bottles'],
-    'Sports Equipment': ['sports equipment', 'fitness equipment', 'yoga prop', 'yoga props', 'exercise equipment', 'home gym'],
-    
+    "Womens Sports Clothing": [
+      "women sportswear",
+      "activewear",
+      "gym wear",
+      "workout clothing",
+      "yoga wear",
+      "fitness apparel",
+    ],
+    "Womens Sports Footwear": [
+      "women sport shoe",
+      "women sport shoes",
+      "training shoe",
+      "training shoes",
+      "running shoe",
+      "running shoes",
+      "women gym shoe",
+      "women gym shoes",
+      "yoga shoe",
+      "yoga shoes",
+    ],
+    "Womens Sports Accessories": [
+      "women sport accessory",
+      "women sport accessories",
+      "fitness accessory",
+      "fitness accessories",
+      "yoga mat",
+      "yoga mats",
+      "gym bag",
+      "gym bags",
+      "water bottle",
+      "water bottles",
+    ],
+    "Sports Equipment": [
+      "sports equipment",
+      "fitness equipment",
+      "yoga prop",
+      "yoga props",
+      "exercise equipment",
+      "home gym",
+    ],
+
     // ====== BEAUTY & PERSONAL CARE ======
-    'Makeup': ['makeup', 'cosmetic', 'cosmetics', 'foundation', 'foundations', 'lipstick', 'lipsticks', 'mascara', 'mascaras', 'eyeliner', 'eyeliners', 'blush', 'blushes', 'beauty product', 'beauty products'],
-    'Skincare': ['skincare', 'face cream', 'face creams', 'serum', 'serums', 'moisturizer', 'moisturizers', 'face wash', 'face washes', 'sunscreen', 'sunscreens', 'beauty treatment', 'beauty treatments'],
-    'Premium Beauty': ['premium beauty', 'luxury cosmetic', 'luxury cosmetics', 'high end makeup', 'designer beauty', 'prestige beauty'],
-    'Lipsticks': ['lipstick', 'lipsticks', 'lip color', 'lip colors', 'lip gloss', 'lip glosses', 'liquid lipstick', 'liquid lipsticks', 'lip stain', 'lip stains', 'lip product', 'lip products'],
-    'Fragrances': ['women perfume', 'women perfumes', 'ladies fragrance', 'ladies fragrances', 'eau de parfum', 'women cologne', 'women colognes', 'women body mist', 'women body mists', 'scent', 'scents'],
-    
+    Makeup: [
+      "makeup",
+      "cosmetic",
+      "cosmetics",
+      "foundation",
+      "foundations",
+      "lipstick",
+      "lipsticks",
+      "mascara",
+      "mascaras",
+      "eyeliner",
+      "eyeliners",
+      "blush",
+      "blushes",
+      "beauty product",
+      "beauty products",
+    ],
+    Skincare: [
+      "skincare",
+      "face cream",
+      "face creams",
+      "serum",
+      "serums",
+      "moisturizer",
+      "moisturizers",
+      "face wash",
+      "face washes",
+      "sunscreen",
+      "sunscreens",
+      "beauty treatment",
+      "beauty treatments",
+    ],
+    "Premium Beauty": [
+      "premium beauty",
+      "luxury cosmetic",
+      "luxury cosmetics",
+      "high end makeup",
+      "designer beauty",
+      "prestige beauty",
+    ],
+    Lipsticks: [
+      "lipstick",
+      "lipsticks",
+      "lip color",
+      "lip colors",
+      "lip gloss",
+      "lip glosses",
+      "liquid lipstick",
+      "liquid lipsticks",
+      "lip stain",
+      "lip stains",
+      "lip product",
+      "lip products",
+    ],
+    Fragrances: [
+      "women perfume",
+      "women perfumes",
+      "ladies fragrance",
+      "ladies fragrances",
+      "eau de parfum",
+      "women cologne",
+      "women colognes",
+      "women body mist",
+      "women body mists",
+      "scent",
+      "scents",
+    ],
+
     // ====== JEWELLERY ======
-    'Fashion Jewellery': ['fashion jewellery', 'costume jewellery', 'artificial jewellery', 'statement necklace', 'statement necklaces', 'fashion earring', 'fashion earrings'],
-    'Fine Jewellery': ['fine jewellery', 'gold jewellery', 'silver jewellery', 'pearl jewellery', 'precious stone', 'precious stones'],
-    'Earrings': ['earring', 'earrings', 'stud', 'studs', 'hoop earring', 'hoop earrings', 'drop earring', 'drop earrings', 'chandelier earring', 'chandelier earrings', 'ear cuff', 'ear cuffs'],
-    
+    "Fashion Jewellery": [
+      "fashion jewellery",
+      "costume jewellery",
+      "artificial jewellery",
+      "statement necklace",
+      "statement necklaces",
+      "fashion earring",
+      "fashion earrings",
+    ],
+    "Fine Jewellery": [
+      "fine jewellery",
+      "gold jewellery",
+      "silver jewellery",
+      "pearl jewellery",
+      "precious stone",
+      "precious stones",
+    ],
+    Earrings: [
+      "earring",
+      "earrings",
+      "stud",
+      "studs",
+      "hoop earring",
+      "hoop earrings",
+      "drop earring",
+      "drop earrings",
+      "chandelier earring",
+      "chandelier earrings",
+      "ear cuff",
+      "ear cuffs",
+    ],
+
     // ====== WOMEN'S ACCESSORIES ======
-    'Belts, Scarves & More': ['women belt', 'ladies scarf', 'women glove', 'women hair accessory', 'women fashion accessory'],
-    'Watches & Wearables': ['women watch', 'ladies wristwatch', 'women fitness tracker', 'women smart watch', 'fashion watch'],
-    'Womens Backpacks': ['women backpack', 'ladies backpack', 'fashion backpack', 'mini backpack', 'women rucksack'],
-    'Handbags, Bags & Wallets': ['handbag', 'purse', 'clutch', 'tote bag', 'shoulder bag', 'crossbody bag', 'women wallet'],
-    'Womens Luggages': ['women luggage', 'ladies suitcase', 'travel bag women', 'carry on', 'women trolley'],
-    'Mens_Overshirts': ['overshirt', 'overshirts', 'shacket', 'shackets', 'men overshirt', 'men overshirts'],
+    "Belts, Scarves & More": [
+      "women belt",
+      "ladies scarf",
+      "women glove",
+      "women hair accessory",
+      "women fashion accessory",
+    ],
+    "Watches & Wearables": [
+      "women watch",
+      "ladies wristwatch",
+      "women fitness tracker",
+      "women smart watch",
+      "fashion watch",
+    ],
+    "Womens Backpacks": [
+      "women backpack",
+      "ladies backpack",
+      "fashion backpack",
+      "mini backpack",
+      "women rucksack",
+    ],
+    "Handbags, Bags & Wallets": [
+      "handbag",
+      "purse",
+      "clutch",
+      "tote bag",
+      "shoulder bag",
+      "crossbody bag",
+      "women wallet",
+    ],
+    "Womens Luggages": [
+      "women luggage",
+      "ladies suitcase",
+      "travel bag women",
+      "carry on",
+      "women trolley",
+    ],
+    Mens_Overshirts: [
+      "overshirt",
+      "overshirts",
+      "shacket",
+      "shackets",
+      "men overshirt",
+      "men overshirts",
+    ],
   };
-  
+
   // Initialize categories
   const categories: CategoryMap = {};
-  
+
   // Sort items into categories
-  items.forEach(item => {
+  items.forEach((item) => {
     // Check if the item already has a category assigned
     if (item.category) {
       // Use the item's assigned category
@@ -559,98 +2055,116 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
       categories[category].push(item);
       return;
     }
-    
+
     // Try to determine category from name or description
-    const nameAndDesc = (item.name + ' ' + (item.description || '')).toLowerCase();
-    
+    const nameAndDesc = (
+      item.name +
+      " " +
+      (item.description || "")
+    ).toLowerCase();
+
     let matched = false;
-    
+
     // Special case: handle footwear first to avoid misclassification
     if (/\b(espadrille|canvas shoe|casual shoe)\b/i.test(nameAndDesc)) {
-      const category = 'Mens Casual Shoes';
+      const category = "Mens Casual Shoes";
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // Special case: handle shorts and loungewear first to avoid misclassification
     else if (/\b(shorts?|bermuda|cargo)\b/i.test(nameAndDesc)) {
-      let category = 'Mens Shorts';
-      
+      let category = "Mens Shorts";
+
       // Check if it's loungewear/sleepwear
       if (/\b(lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
-        category = 'Mens Sleepwear & Loungewear';
+        category = "Mens Sleepwear & Loungewear";
       }
-      
+
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // Special case: handle loungewear and sleepwear that aren't shorts
     else if (/\b(lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
-      const category = 'Mens Sleepwear & Loungewear';
+      const category = "Mens Sleepwear & Loungewear";
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // Special case: handle shirts to ensure proper classification
     else if (/\b(shirt)\b/i.test(nameAndDesc)) {
       // Determine if it's a women's shirt or men's shirt
-      let category = 'Casual Shirts';
-      
+      let category = "Casual Shirts";
+
       if (/\b(formal|dress|business|office)\b/i.test(nameAndDesc)) {
-        category = 'Formal Shirts';
+        category = "Formal Shirts";
       } else if (/\b(women|ladies|woman|female)\b/i.test(nameAndDesc)) {
-        category = 'Womens Tops';
+        category = "Womens Tops";
       }
-      
+
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // Special case: handle women's dresses to ensure proper classification
-    else if (/\b(dress|gown|maxi|bodycon|a-line|midi dress)\b/i.test(nameAndDesc) && 
-             !nameAndDesc.includes('night') && 
-             !nameAndDesc.includes('sleep') && 
-             !nameAndDesc.includes('bed')) {
-      const category = 'Dresses';
+    else if (
+      /\b(dress|gown|maxi|bodycon|a-line|midi dress)\b/i.test(nameAndDesc) &&
+      !nameAndDesc.includes("night") &&
+      !nameAndDesc.includes("sleep") &&
+      !nameAndDesc.includes("bed")
+    ) {
+      const category = "Dresses";
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // Special case: handle women's lingerie to ensure proper classification
-    else if (/\b(bra|brassiere|panty|underwear|lingerie|shapewear|bodysuit)\b/i.test(nameAndDesc) &&
-             !/\b(shorts?|bermuda|cargo|lounge|sleep|night|pajama|pyjama)\b/i.test(nameAndDesc)) {
-      let category = 'Briefs';
+    else if (
+      /\b(bra|brassiere|panty|underwear|lingerie|shapewear|bodysuit)\b/i.test(
+        nameAndDesc,
+      ) &&
+      !/\b(shorts?|bermuda|cargo|lounge|sleep|night|pajama|pyjama)\b/i.test(
+        nameAndDesc,
+      )
+    ) {
+      let category = "Briefs";
       // Only match exact word "bra", not part of other words
-      if (/\b(bra|brassiere)\b/i.test(nameAndDesc) && 
-          !/(brand|zebra|cobra|abrasive|abrasion|vibrant|calibrate|celebrate|fabric|library|vibrate)/i.test(nameAndDesc)) {
-        category = 'Bra';
-      } else if (/\b(shapewear|body\s*shaper|slimming|control)\b/i.test(nameAndDesc)) {
-        category = 'Shapewear';
+      if (
+        /\b(bra|brassiere)\b/i.test(nameAndDesc) &&
+        !/(brand|zebra|cobra|abrasive|abrasion|vibrant|calibrate|celebrate|fabric|library|vibrate)/i.test(
+          nameAndDesc,
+        )
+      ) {
+        category = "Bra";
+      } else if (
+        /\b(shapewear|body\s*shaper|slimming|control)\b/i.test(nameAndDesc)
+      ) {
+        category = "Shapewear";
       }
-      
+
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(item);
       matched = true;
     }
-    
+
     // General category matching
     if (!matched) {
       // First pass: search for exact matches using word boundaries and ensuring complete words
@@ -659,8 +2173,8 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
           // Split multi-word keywords and ensure each word is matched exactly
           const keywordParts = keyword.split(/\s+/);
           const keywordRegex = new RegExp(
-            keywordParts.map(part => `\\b${part}\\b`).join('\\s+'),
-            'i'
+            keywordParts.map((part) => `\\b${part}\\b`).join("\\s+"),
+            "i",
           );
           if (keywordRegex.test(nameAndDesc)) {
             if (!categories[category]) {
@@ -673,11 +2187,11 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
         }
         if (matched) break;
       }
-      
+
       // Remove the second pass that was doing partial matches
       // This prevents incorrect categorization based on substrings
     }
-    
+
     // If no match found, place in default category
     if (!matched) {
       if (!categories[defaultCategory]) {
@@ -686,45 +2200,56 @@ const categorizeItems = (items: MyntraProduct[]): CategoryMap => {
       categories[defaultCategory].push(item);
     }
   });
-  
+
   return categories;
 };
 
 export default function Home() {
-  const { data: session, status } = useSession()
-  const [inputValue, setInputValue] = useState('')
-  const [products, setProducts] = useState<MyntraProduct[]>([])
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [isProcessingImage, setIsProcessingImage] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
-  const [showProductOverlay, setShowProductOverlay] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
-  const [pdfText, setPdfText] = useState<string | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
-  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null)
+  const { data: session, status } = useSession();
+  const [inputValue, setInputValue] = useState("");
+  const [products, setProducts] = useState<MyntraProduct[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const [showProductOverlay, setShowProductOverlay] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(
+    null,
+  );
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [pdfText, setPdfText] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(
+    null,
+  );
   const { setAutosaveEnabled, autosaveEnabled } = useWardrobe();
   // Add state for expanded categories
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({})
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
   // Add state for wardrobe search/filter
-  const [wardrobeFilter, setWardrobeFilter] = useState('')
-  const [sortOption, setSortOption] = useState<SortOption>({ type: 'date', direction: 'desc' });
+  const [wardrobeFilter, setWardrobeFilter] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>({
+    type: "date",
+    direction: "desc",
+  });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     categories: [],
     brands: [],
     retailers: [],
     priceRange: { min: 0, max: Infinity },
     sizes: [],
-    colors: []
+    colors: [],
   });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [collapsedCategories, setCollapsedCategories] = useState<
+    Record<string, boolean>
+  >({});
   // Confirmation modal state for URL-based add
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingItems, setPendingItems] = useState<WardrobeItemType[]>([]);
@@ -732,10 +2257,10 @@ export default function Home() {
 
   useEffect(() => {
     // Fetch global app config (threshold)
-    fetch('/api/app-config')
-      .then(r => r.json())
-      .then(d => {
-        if (typeof d?.onboardingThreshold === 'number') {
+    fetch("/api/app-config")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d?.onboardingThreshold === "number") {
           setOnboardingThreshold(d.onboardingThreshold);
         }
       })
@@ -755,9 +2280,9 @@ export default function Home() {
       const categories = categorizeItems(products);
       const firstCategory = Object.keys(categories)[0];
       if (firstCategory) {
-        setExpandedCategories(prev => ({
+        setExpandedCategories((prev) => ({
           ...prev,
-          [firstCategory]: true
+          [firstCategory]: true,
         }));
       }
     }
@@ -767,19 +2292,19 @@ export default function Home() {
   useEffect(() => {
     // Don't save if autosave is disabled, there are no products, or no session
     if (!autosaveEnabled || !products.length || !session?.user?.id) return;
-    
+
     // Clear any existing timeout to prevent multiple saves
     if (autoSaveTimeout) {
       clearTimeout(autoSaveTimeout);
     }
-    
+
     // Set a new timeout to save after a short delay (debounce)
     const timeout = setTimeout(() => {
       saveWardrobe(false); // false means don't show success message for routine autosaves
     }, 1500); // 1.5 second delay
-    
+
     setAutoSaveTimeout(timeout);
-    
+
     // Cleanup function to clear timeout if component unmounts
     return () => {
       if (autoSaveTimeout) {
@@ -790,22 +2315,22 @@ export default function Home() {
 
   const loadUserWardrobe = async () => {
     try {
-      const response = await fetch('/api/wardrobe');
-        if (!response.ok) {
-        throw new Error('Failed to load wardrobe');
-        }
+      const response = await fetch("/api/wardrobe");
+      if (!response.ok) {
+        throw new Error("Failed to load wardrobe");
+      }
       const data = await response.json();
       setProducts(data);
     } catch (error) {
-      console.error('Error loading wardrobe:', error);
-      setError('Failed to load your wardrobe');
+      console.error("Error loading wardrobe:", error);
+      setError("Failed to load your wardrobe");
     }
   };
 
   // Save the entire wardrobe state
   const saveWardrobe = async (showMessage = true) => {
     if (!session) {
-      setError('Please sign in to save your wardrobe');
+      setError("Please sign in to save your wardrobe");
       return;
     }
 
@@ -815,38 +2340,40 @@ export default function Home() {
         setSaveSuccess(null);
       }
       setError(null);
-      
+
       // Simply send the current state to the server
-      const response = await fetch('/api/wardrobe/save', {
-        method: 'POST',
+      const response = await fetch("/api/wardrobe/save", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ items: products }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save wardrobe');
+        throw new Error("Failed to save wardrobe");
       }
-      
+
       const data = await response.json();
-      
+
       // Update our state with the latest data from the server
       if (data.updatedItems) {
         setProducts(data.updatedItems);
       }
-      
+
       if (showMessage) {
         setSaveSuccess(`Wardrobe saved successfully! (${data.count} items)`);
-        
+
         // Clear success message after 3 seconds
         setTimeout(() => {
           setSaveSuccess(null);
         }, 3000);
       }
     } catch (error) {
-      console.error('Error saving wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save wardrobe');
+      console.error("Error saving wardrobe:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to save wardrobe",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -855,7 +2382,7 @@ export default function Home() {
   // Find the function that's handling the product updates
   const handleAddProduct = async (productUrl: string) => {
     if (!session) {
-      setError('Please sign in to add products');
+      setError("Please sign in to add products");
       return;
     }
 
@@ -864,36 +2391,40 @@ export default function Home() {
       setError(null);
 
       // Fetch product details without creating, then show confirmation
-      const resp = await fetch(`/api/extractProductFromURL?url=${encodeURIComponent(productUrl)}`);
+      const resp = await fetch(
+        `/api/extractProductFromURL?url=${encodeURIComponent(productUrl)}`,
+      );
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to fetch product details');
+        throw new Error(err.error || "Failed to fetch product details");
       }
       const product = await resp.json();
 
       // Map to WardrobeItem shape for the confirmation modal
       const item: WardrobeItemType = {
         id: `temp-${Date.now()}-${Math.random()}`,
-        name: product.name || 'Unknown Product',
-        brand: product.brand || 'Unknown',
-        price: product.price || '',
-        originalPrice: product.originalPrice || '',
-        discount: product.discount || '',
-        imageUrl: product.image || product.imageUrl || '',
-        image: product.image || product.imageUrl || '',
-        size: product.size || '',
-        color: product.color || '',
+        name: product.name || "Unknown Product",
+        brand: product.brand || "Unknown",
+        price: product.price || "",
+        originalPrice: product.originalPrice || "",
+        discount: product.discount || "",
+        imageUrl: product.image || product.imageUrl || "",
+        image: product.image || product.imageUrl || "",
+        size: product.size || "",
+        color: product.color || "",
         productLink: product.productLink || productUrl,
-        category: product.category || 'Uncategorized',
-        sourceRetailer: product.sourceRetailer || product.brand || 'Unknown',
+        category: product.category || "Uncategorized",
+        sourceRetailer: product.sourceRetailer || product.brand || "Unknown",
         userId: session.user.id,
       } as WardrobeItemType;
 
       setPendingItems([item]);
       setShowConfirmation(true);
     } catch (error) {
-      console.error('Error preparing product:', error);
-      setError(error instanceof Error ? error.message : 'Failed to prepare product');
+      console.error("Error preparing product:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to prepare product",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -901,111 +2432,119 @@ export default function Home() {
 
   // Check if the handleSubmit function is causing the issue
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!inputValue) return
-    
+    e.preventDefault();
+    if (!inputValue) return;
+
     try {
-      setIsLoading(true)
-      setError(null)
-      
+      setIsLoading(true);
+      setError(null);
+
       // Myntra search flow
-      if (inputValue.includes('myntra.com') || 
-          inputValue.includes('zara.com') || 
-          inputValue.includes('hm.com') || 
-          inputValue.includes('2.hm.com')) {
+      if (
+        inputValue.includes("myntra.com") ||
+        inputValue.includes("zara.com") ||
+        inputValue.includes("hm.com") ||
+        inputValue.includes("2.hm.com")
+      ) {
         // Direct product URL - add to wardrobe
         await handleAddProduct(inputValue);
       } else {
         // Search term - search Myntra for results
-        const response = await fetch(`/api/myntra-search?query=${encodeURIComponent(inputValue)}`)
+        const response = await fetch(
+          `/api/myntra-search?query=${encodeURIComponent(inputValue)}`,
+        );
         if (!response.ok) {
-          throw new Error('Failed to search Myntra')
+          throw new Error("Failed to search Myntra");
         }
-        const data = await response.json()
-        
+        const data = await response.json();
+
         if (data.length === 0) {
-          setError('No results found')
+          setError("No results found");
         } else {
-          setSearchResults(data)
-          setShowProductOverlay(true)
+          setSearchResults(data);
+          setShowProductOverlay(true);
         }
       }
     } catch (error) {
-      console.error('Error:', error)
-      setError(error instanceof Error ? error.message : 'Failed to process request')
+      console.error("Error:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to process request",
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Handle direct product selection from search results
   const handleProductSelect = async (url: string) => {
     await handleAddProduct(url);
-  }
+  };
 
   const handleImageUpload = async (file: File) => {
     try {
-      setIsProcessingImage(true)
-      setError(null)
-      setSearchResults([])
+      setIsProcessingImage(true);
+      setError(null);
+      setSearchResults([]);
 
       // Create preview
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
 
       // Process image
-      const formData = new FormData()
-      formData.append('image', file)
+      const formData = new FormData();
+      formData.append("image", file);
 
-      const response = await fetch('/api/process-image', {
-        method: 'POST',
-        body: formData
-      })
+      const response = await fetch("/api/process-image", {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to process image')
+        const error = await response.json();
+        throw new Error(error.error || "Failed to process image");
       }
 
-      const data = await response.json()
+      const data = await response.json();
       if (data.searchResults && data.searchResults.length > 0) {
-        setSearchResults(data.searchResults)
-        setShowProductOverlay(true)  // Show overlay when results are available
+        setSearchResults(data.searchResults);
+        setShowProductOverlay(true); // Show overlay when results are available
       } else {
-        throw new Error('No matching products found')
+        throw new Error("No matching products found");
       }
     } catch (error) {
-      console.error('Error processing image:', error)
-      setError(error instanceof Error ? error.message : 'Failed to process image')
+      console.error("Error processing image:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to process image",
+      );
     } finally {
-      setIsProcessingImage(false)
+      setIsProcessingImage(false);
     }
-  }
+  };
 
   const handlePdfUpload = async (file: File) => {
     try {
       setError(null);
       setPdfText(null);
-      console.log('Processing PDF:', file.name);
+      console.log("Processing PDF:", file.name);
 
       const formData = new FormData();
-      formData.append('pdf', file);
+      formData.append("pdf", file);
 
-      const response = await fetch('/api/process-pdf', {
-        method: 'POST',
-        body: formData
+      const response = await fetch("/api/process-pdf", {
+        method: "POST",
+        body: formData,
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to process PDF');
+        throw new Error(error.error || "Failed to process PDF");
       }
 
       const data = await response.json();
-      console.log('PDF processing result:', data);
+      console.log("PDF processing result:", data);
 
       // Set the extracted text
       setPdfText(data.extractedText);
@@ -1013,86 +2552,97 @@ export default function Home() {
       // Add extracted items to wardrobe
       if (data.items && data.items.length > 0) {
         const newProducts = data.items.map((item: any) => ({
-          brand: item.brand || 'Unknown Brand',
-          name: item.name || 'Unknown Product',
-          price: item.price || '',
-          originalPrice: item.originalPrice || '',
-          discount: item.discount || '',
-          image: item.image || '',
-          size: item.size || '',
-          quantity: item.quantity || '',
-          seller: item.seller || '',
-          productLink: item.productLink || item.myntraLink || '', // Handle both types of links
-          myntraLink: item.myntraLink || '', // Keep for backward compatibility
+          brand: item.brand || "Unknown Brand",
+          name: item.name || "Unknown Product",
+          price: item.price || "",
+          originalPrice: item.originalPrice || "",
+          discount: item.discount || "",
+          image: item.image || "",
+          size: item.size || "",
+          quantity: item.quantity || "",
+          seller: item.seller || "",
+          productLink: item.productLink || item.myntraLink || "", // Handle both types of links
+          myntraLink: item.myntraLink || "", // Keep for backward compatibility
           dateAdded: new Date().toISOString(),
-          id: item.id || '',
+          id: item.id || "",
         }));
 
-        setProducts(prevProducts => [...prevProducts, ...newProducts]);
+        setProducts((prevProducts) => [...prevProducts, ...newProducts]);
         // Autosave will be triggered by the useEffect
-        setError(`Successfully added ${newProducts.length} items to your wardrobe.`);
+        setError(
+          `Successfully added ${newProducts.length} items to your wardrobe.`,
+        );
       } else {
-        setError('No items found in the PDF.');
+        setError("No items found in the PDF.");
       }
     } catch (error) {
-      console.error('Error processing PDF:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process PDF');
+      console.error("Error processing PDF:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to process PDF",
+      );
     }
-  }
+  };
 
-  const handlePaste = async (e: ReactClipboardEvent<HTMLDivElement> | ClipboardEvent) => {
-    const items = e.clipboardData?.items
-    if (!items) return
+  const handlePaste = async (
+    e: ReactClipboardEvent<HTMLDivElement> | ClipboardEvent,
+  ) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
 
     for (const item of Array.from(items)) {
-      if (item.type.includes('image')) {
-        const file = item.getAsFile()
+      if (item.type.includes("image")) {
+        const file = item.getAsFile();
         if (file) {
-          await handleImageUpload(file)
-          break
+          await handleImageUpload(file);
+          break;
         }
       }
     }
-  }
+  };
 
   const handleOverlayClose = () => {
-    setShowProductOverlay(false)
-    setSearchResults([])
-    setImagePreview(null)
-  }
+    setShowProductOverlay(false);
+    setSearchResults([]);
+    setImagePreview(null);
+  };
 
   const handleDeleteProduct = async (index: number) => {
     if (!session) {
-      setError('Please sign in to manage your wardrobe');
+      setError("Please sign in to manage your wardrobe");
       return;
     }
 
     try {
       setIsSaving(true);
       setError(null);
-      
+
       // Update local state first
       const currentProducts = products;
-      setProducts(prevProducts => prevProducts.filter((_, i) => i !== index));
-      
+      setProducts((prevProducts) => prevProducts.filter((_, i) => i !== index));
+
       // Save the updated state to the backend
       const itemToDelete = currentProducts[index];
       if (itemToDelete?.id) {
-        const response = await fetch(`/api/wardrobe?id=${encodeURIComponent(itemToDelete.id)}`, { method: 'DELETE' });
+        const response = await fetch(
+          `/api/wardrobe?id=${encodeURIComponent(itemToDelete.id)}`,
+          { method: "DELETE" },
+        );
         if (!response.ok) {
-          throw new Error('Failed to delete item');
+          throw new Error("Failed to delete item");
         }
       }
-      
-      setSaveSuccess('Item successfully removed from your wardrobe');
-      
+
+      setSaveSuccess("Item successfully removed from your wardrobe");
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSaveSuccess(null);
       }, 3000);
     } catch (error) {
-      console.error('Error deleting item:', error);
-      setError(error instanceof Error ? error.message : 'Failed to delete item');
+      console.error("Error deleting item:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to delete item",
+      );
     } finally {
       setIsSaving(false);
       setShowDeleteConfirm(null);
@@ -1101,36 +2651,42 @@ export default function Home() {
 
   const handleDeleteAllItems = async () => {
     if (!session) {
-      setError('Please sign in to manage your wardrobe');
+      setError("Please sign in to manage your wardrobe");
       return;
     }
 
     try {
       setIsSaving(true);
       setError(null);
-      
+
       // Empty the products array and save the empty state
       setProducts([]);
-      
+
       // Delete all via API
-      const currentResp = await fetch('/api/wardrobe');
-      if (!currentResp.ok) throw new Error('Failed to load wardrobe');
+      const currentResp = await fetch("/api/wardrobe");
+      if (!currentResp.ok) throw new Error("Failed to load wardrobe");
       const currentItems = await currentResp.json();
       await Promise.all(
         currentItems.map((i: any) =>
-          i.id ? fetch(`/api/wardrobe?id=${encodeURIComponent(i.id)}`, { method: 'DELETE' }) : Promise.resolve()
-        )
+          i.id
+            ? fetch(`/api/wardrobe?id=${encodeURIComponent(i.id)}`, {
+                method: "DELETE",
+              })
+            : Promise.resolve(),
+        ),
       );
-      
-      setSaveSuccess('All items successfully removed from your wardrobe');
-      
+
+      setSaveSuccess("All items successfully removed from your wardrobe");
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSaveSuccess(null);
       }, 3000);
     } catch (error) {
-      console.error('Error clearing wardrobe:', error);
-      setError(error instanceof Error ? error.message : 'Failed to clear wardrobe');
+      console.error("Error clearing wardrobe:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to clear wardrobe",
+      );
     } finally {
       setIsSaving(false);
       setShowDeleteAllConfirm(false);
@@ -1141,47 +2697,52 @@ export default function Home() {
     const handleDocumentPaste = (e: ClipboardEvent) => {
       handlePaste(e);
     };
-    
-    document.addEventListener('paste', handleDocumentPaste);
-    return () => document.removeEventListener('paste', handleDocumentPaste);
+
+    document.addEventListener("paste", handleDocumentPaste);
+    return () => document.removeEventListener("paste", handleDocumentPaste);
   }, []);
 
   // Add function to toggle category expansion
   const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => ({
+    setExpandedCategories((prev) => ({
       ...prev,
-      [category]: !prev[category]
+      [category]: !prev[category],
     }));
   };
 
   // Add helper function to extract unique values
-  const getUniqueValues = (products: MyntraProduct[], key: keyof MyntraProduct) => {
-    return Array.from(new Set(products.map(product => product[key]).filter(Boolean)));
+  const getUniqueValues = (
+    products: MyntraProduct[],
+    key: keyof MyntraProduct,
+  ) => {
+    return Array.from(
+      new Set(products.map((product) => product[key]).filter(Boolean)),
+    );
   };
 
   // Add function to get price as number
   const getPriceAsNumber = (price: string) => {
-    return Number(price.replace(/[^0-9.-]+/g, '')) || 0;
+    return Number(price.replace(/[^0-9.-]+/g, "")) || 0;
   };
 
   // Add sorting function
   const getSortedProducts = (products: MyntraProduct[]) => {
     return [...products].sort((a, b) => {
       switch (sortOption.type) {
-        case 'date':
+        case "date":
           const dateA = new Date(a.dateAdded || 0);
           const dateB = new Date(b.dateAdded || 0);
-          return sortOption.direction === 'asc' 
+          return sortOption.direction === "asc"
             ? dateA.getTime() - dateB.getTime()
             : dateB.getTime() - dateA.getTime();
-        case 'name':
-          return sortOption.direction === 'asc'
-            ? (a.name || '').localeCompare(b.name || '')
-            : (b.name || '').localeCompare(a.name || '');
-        case 'price':
-          const priceA = getPriceAsNumber(a.price || '0');
-          const priceB = getPriceAsNumber(b.price || '0');
-          return sortOption.direction === 'asc'
+        case "name":
+          return sortOption.direction === "asc"
+            ? (a.name || "").localeCompare(b.name || "")
+            : (b.name || "").localeCompare(a.name || "");
+        case "price":
+          const priceA = getPriceAsNumber(a.price || "0");
+          const priceB = getPriceAsNumber(b.price || "0");
+          return sortOption.direction === "asc"
             ? priceA - priceB
             : priceB - priceA;
         default:
@@ -1192,58 +2753,82 @@ export default function Home() {
 
   // Add filtering function with proper types
   const getFilteredProducts = () => {
-    if (!wardrobeFilter.trim() && !Object.values(filterOptions).some(v => 
-      Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity
-    )) {
+    if (
+      !wardrobeFilter.trim() &&
+      !Object.values(filterOptions).some((v) =>
+        Array.isArray(v) ? v.length > 0 : v.min !== 0 || v.max !== Infinity,
+      )
+    ) {
       return getSortedProducts(products);
     }
-    
-    return getSortedProducts(products.filter(product => {
-      // Text search
-      const searchMatch = !wardrobeFilter.trim() || [
-        product.name,
-        product.brand,
-        product.color,
-        product.size
-      ].some(field => field?.toLowerCase().includes(wardrobeFilter.toLowerCase()));
 
-      // Category filter
-      const categoryMatch = filterOptions.categories.length === 0 || 
-        filterOptions.categories.includes(product.category || 'Uncategorized');
+    return getSortedProducts(
+      products.filter((product) => {
+        // Text search
+        const searchMatch =
+          !wardrobeFilter.trim() ||
+          [product.name, product.brand, product.color, product.size].some(
+            (field) =>
+              field?.toLowerCase().includes(wardrobeFilter.toLowerCase()),
+          );
 
-      // Brand filter
-      const brandMatch = filterOptions.brands.length === 0 ||
-        (product.brand ? filterOptions.brands.includes(product.brand) : false);
+        // Category filter
+        const categoryMatch =
+          filterOptions.categories.length === 0 ||
+          filterOptions.categories.includes(
+            product.category || "Uncategorized",
+          );
 
-      // Retailer filter
-      const retailerMatch = filterOptions.retailers.length === 0 ||
-        filterOptions.retailers.includes(product.sourceRetailer || 'Unknown');
+        // Brand filter
+        const brandMatch =
+          filterOptions.brands.length === 0 ||
+          (product.brand
+            ? filterOptions.brands.includes(product.brand)
+            : false);
 
-      // Price filter
-      const price = getPriceAsNumber(product.price || '0');
-      const priceMatch = price >= filterOptions.priceRange.min && 
-        price <= filterOptions.priceRange.max;
+        // Retailer filter
+        const retailerMatch =
+          filterOptions.retailers.length === 0 ||
+          filterOptions.retailers.includes(product.sourceRetailer || "Unknown");
 
-      // Size filter
-      const sizeMatch = filterOptions.sizes.length === 0 ||
-        filterOptions.sizes.includes(product.size || '');
+        // Price filter
+        const price = getPriceAsNumber(product.price || "0");
+        const priceMatch =
+          price >= filterOptions.priceRange.min &&
+          price <= filterOptions.priceRange.max;
 
-      // Color filter
-      const colorMatch = filterOptions.colors.length === 0 ||
-        filterOptions.colors.includes(product.color || '');
+        // Size filter
+        const sizeMatch =
+          filterOptions.sizes.length === 0 ||
+          filterOptions.sizes.includes(product.size || "");
 
-      return searchMatch && categoryMatch && brandMatch && retailerMatch && 
-        priceMatch && sizeMatch && colorMatch;
-    }));
+        // Color filter
+        const colorMatch =
+          filterOptions.colors.length === 0 ||
+          filterOptions.colors.includes(product.color || "");
+
+        return (
+          searchMatch &&
+          categoryMatch &&
+          brandMatch &&
+          retailerMatch &&
+          priceMatch &&
+          sizeMatch &&
+          colorMatch
+        );
+      }),
+    );
   };
 
   // Add bulk delete function with proper types
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return;
-    
-    const updatedProducts = products.filter(product => !selectedItems.has(product.id));
+
+    const updatedProducts = products.filter(
+      (product) => !selectedItems.has(product.id),
+    );
     setProducts(updatedProducts);
-      setSelectedItems(new Set());
+    setSelectedItems(new Set());
   };
 
   // Confirm handler to persist pending items
@@ -1254,28 +2839,30 @@ export default function Home() {
 
       // Persist edited items directly with chosen category and details
       const payload = items.map((it) => ({
-        brand: it.brand || '',
-        name: it.name || '',
-        price: it.price || '',
-        originalPrice: it.originalPrice || '',
-        discount: it.discount || '',
-        size: it.size || '',
-        color: it.color || '',
-        imageUrl: it.imageUrl || it.image || '',
-        productLink: it.productLink || '',
-        category: it.category || 'Uncategorized',
-        source: 'url',
-        sourceRetailer: it.sourceRetailer || 'Unknown',
+        brand: it.brand || "",
+        name: it.name || "",
+        price: it.price || "",
+        originalPrice: it.originalPrice || "",
+        discount: it.discount || "",
+        size: it.size || "",
+        color: it.color || "",
+        imageUrl: it.imageUrl || it.image || "",
+        productLink: it.productLink || "",
+        category: it.category || "Uncategorized",
+        source: "url",
+        sourceRetailer: it.sourceRetailer || "Unknown",
       }));
 
-      const saveResp = await fetch('/api/wardrobe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const saveResp = await fetch("/api/wardrobe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload.length === 1 ? payload[0] : payload),
       });
-      const created = await saveResp.json().catch(() => ([]));
+      const created = await saveResp.json().catch(() => []);
       if (!saveResp.ok) {
-        throw new Error(created?.error || created?.message || 'Failed to add product');
+        throw new Error(
+          created?.error || created?.message || "Failed to add product",
+        );
       }
 
       const createdItems = Array.isArray(created) ? created : [created];
@@ -1285,15 +2872,15 @@ export default function Home() {
         id: saved.id,
         name: saved.name,
         brand: saved.brand,
-        price: saved.price || '',
-        originalPrice: saved.originalPrice || '',
-        discount: saved.discount || '',
-        image: saved.image || '',
-        productLink: saved.productLink || '',
-        category: saved.category || 'Uncategorized',
-        size: saved.size || '',
-        color: saved.color || '',
-        sourceRetailer: saved.sourceRetailer || 'Unknown',
+        price: saved.price || "",
+        originalPrice: saved.originalPrice || "",
+        discount: saved.discount || "",
+        image: saved.image || "",
+        productLink: saved.productLink || "",
+        category: saved.category || "Uncategorized",
+        size: saved.size || "",
+        color: saved.color || "",
+        sourceRetailer: saved.sourceRetailer || "Unknown",
         colorTag: saved.colorTag,
         dominantColor: saved.dominantColor,
         dateAdded: new Date().toISOString(),
@@ -1302,13 +2889,15 @@ export default function Home() {
       // Append without full refresh to keep UI snappy
       setProducts((prev) => [...prev, ...addedProducts]);
 
-      setInputValue('');
+      setInputValue("");
       setShowProductOverlay(false);
       setShowConfirmation(false);
       setPendingItems([]);
     } catch (error) {
-      console.error('Error confirming URL items:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add product');
+      console.error("Error confirming URL items:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to add product",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -1325,20 +2914,20 @@ export default function Home() {
       id: s.id,
       name: s.name,
       brand: s.brand,
-      price: s.price || '',
-      originalPrice: s.originalPrice || '',
-      discount: s.discount || '',
-      image: s.image || '',
-      productLink: s.productLink || '',
-      category: s.category || 'Uncategorized',
-      size: s.size || '',
-      color: s.color || '',
-      sourceRetailer: s.sourceRetailer || 'Unknown',
+      price: s.price || "",
+      originalPrice: s.originalPrice || "",
+      discount: s.discount || "",
+      image: s.image || "",
+      productLink: s.productLink || "",
+      category: s.category || "Uncategorized",
+      size: s.size || "",
+      color: s.color || "",
+      sourceRetailer: s.sourceRetailer || "Unknown",
       colorTag: s.colorTag,
       dominantColor: s.dominantColor,
       dateAdded: new Date().toISOString(),
     }));
-    setProducts(prev => [...prev, ...addedProducts]);
+    setProducts((prev) => [...prev, ...addedProducts]);
   };
 
   return (
@@ -1348,40 +2937,63 @@ export default function Home() {
           {/* Existing content */}
           <div className="space-y-8">
             {/* Auth controls are shown in the header; no duplicate here */}
-            
+
             {(() => {
               const count = products.length;
               const showOnboarding = count < onboardingThreshold;
-              if (!session) return (
-                <div className="text-center mt-8">
-                  <p className="mb-4 text-gray-600">Sign in to manage your wardrobe</p>
-                  <button 
-                    onClick={() => signIn('google')}
-                    className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    <Image src="/google.svg" alt="Google" width={18} height={18} />
-                    Sign in with Google
-                  </button>
-                </div>
-              );
+              if (!session)
+                return (
+                  <div className="text-center mt-8">
+                    <p className="mb-4 text-gray-600">
+                      Sign in to manage your wardrobe
+                    </p>
+                    <button
+                      onClick={() => signIn("google")}
+                      className="flex items-center gap-2 bg-white border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
+                    >
+                      <Image
+                        src="/google.svg"
+                        alt="Google"
+                        width={18}
+                        height={18}
+                      />
+                      Sign in with Google
+                    </button>
+                  </div>
+                );
 
               if (showOnboarding) {
                 return (
                   <>
                     <h1 className="text-4xl font-bold text-center text-purple-600 mb-2">
-                      Organize Your Wardrobe, <br />Elevate Your Style
+                      Organize Your Wardrobe, <br />
+                      Elevate Your Style
                     </h1>
                     <p className="text-center text-gray-600 mb-8 max-w-xl mx-auto">
-                      Your personal wardrobe assistant that helps you manage, style, and optimize your clothing collection.
+                      Your personal wardrobe assistant that helps you manage,
+                      style, and optimize your clothing collection.
                     </p>
                     <div className="relative max-w-2xl mx-auto mb-16">
-                      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        <a 
-                          href="/add" 
+                      <form
+                        onSubmit={handleSubmit}
+                        className="flex flex-col gap-4"
+                      >
+                        <a
+                          href="/add"
                           className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                            />
                           </svg>
                           Import or add items
                         </a>
@@ -1400,9 +3012,9 @@ export default function Home() {
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                if (file.type.startsWith('image/')) {
+                                if (file.type.startsWith("image/")) {
                                   handleImageUpload(file);
-                                } else if (file.type === 'application/pdf') {
+                                } else if (file.type === "application/pdf") {
                                   handlePdfUpload(file);
                                 }
                               }}
@@ -1415,17 +3027,27 @@ export default function Home() {
                               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
                               aria-label="Upload file"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                                />
                               </svg>
                             </button>
                           </div>
-                          <button 
+                          <button
                             type="submit"
                             className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
                             disabled={isLoading}
                           >
-                            {isLoading ? 'Loading...' : 'Add to Wardrobe'}
+                            {isLoading ? "Loading..." : "Add to Wardrobe"}
                           </button>
                         </div>
                         {error && (
@@ -1440,22 +3062,38 @@ export default function Home() {
               }
 
               // After threshold: greeting and lightweight carousel
-              const firstName = (session.user?.name || '').split(' ')[0] || session.user?.name || 'there';
+              const firstName =
+                (session.user?.name || "").split(" ")[0] ||
+                session.user?.name ||
+                "there";
               return (
                 <div className="w-full max-w-4xl mx-auto mb-8">
-                  <h1 className="text-2xl font-semibold text-center mb-6">Hello {firstName}, hope you are having a great day</h1>
+                  <h1 className="text-2xl font-semibold text-center mb-6">
+                    Hello {firstName}, hope you are having a great day
+                  </h1>
                   <div className="overflow-x-auto">
                     <div className="flex gap-4">
                       {products.slice(0, 3).map((p, i) => (
-                        <div key={i} className="min-w-[200px] bg-white rounded-lg border overflow-hidden">
+                        <div
+                          key={i}
+                          className="w-60 flex-none bg-white rounded-lg border overflow-hidden"
+                        >
                           {p.image && (
                             <div className="aspect-square bg-gray-50">
-                              <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
+                              <img
+                                src={p.image}
+                                alt={p.name}
+                                className="w-full h-full object-contain"
+                              />
                             </div>
                           )}
                           <div className="p-3">
-                            <div className="text-sm font-medium">{p.brand || 'Unknown'}</div>
-                            <div className="text-sm text-gray-600 line-clamp-2">{p.name}</div>
+                            <div className="text-sm font-medium">
+                              {p.brand || "Unknown"}
+                            </div>
+                            <div className="text-sm text-gray-600 line-clamp-2">
+                              {p.name}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1466,139 +3104,174 @@ export default function Home() {
             })()}
 
             {session && products.length < onboardingThreshold ? (
-              <div className="relative max-w-2xl mx-auto mb-16 hidden">{/* kept for structure; hidden after refactor */}
-                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                   <a 
--                      href="/email-fetcher" 
-+                      href="/add" 
-                       className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
-                   >
--                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
--                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
--                    </svg>
--                    Import Items from Your Email
-+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-+                    </svg>
-+                    Import or add items
-                   </a>
-                   <div className="flex flex-col sm:flex-row gap-4">
-                       <div className="relative flex-grow">
-                         <input
-                           type="text"
-                           placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
-                           value={inputValue}
-                           onChange={(e) => setInputValue(e.target.value)}
-                           className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                         />
-                         <input
-                           type="file"
-                           accept="image/*,application/pdf"
-                           onChange={(e) => {
-                             const file = e.target.files?.[0];
-                             if (!file) return;
-                             if (file.type.startsWith('image/')) {
-                               handleImageUpload(file);
-                             } else if (file.type === 'application/pdf') {
-                               handlePdfUpload(file);
-                             }
-                           }}
-                           className="hidden"
-                           ref={fileInputRef}
-                         />
-                         <button
-                           type="button"
-                           onClick={() => fileInputRef.current?.click()}
-                           className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                           aria-label="Upload file"
-                         >
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                           </svg>
-                         </button>
-                       </div>
-                       <button 
-                         type="submit"
-                         className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
-                         disabled={isLoading}
-                       >
-                         {isLoading ? 'Loading...' : 'Add to Wardrobe'}
-                       </button>
-                   </div>
+              <div className="relative max-w-2xl mx-auto mb-16 hidden">
+                {/* kept for structure; hidden after refactor */}
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  <a
+                    href="/add"
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Import or add items
+                  </a>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-grow">
+                      <input
+                        type="text"
+                        placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.type.startsWith("image/")) {
+                            handleImageUpload(file);
+                          } else if (file.type === "application/pdf") {
+                            handlePdfUpload(file);
+                          }
+                        }}
+                        className="hidden"
+                        ref={fileInputRef}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                        aria-label="Upload file"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Loading..." : "Add to Wardrobe"}
+                    </button>
+                  </div>
 
-                   {error && (
-                     <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
-                       {error}
-                     </div>
-                   )}
-                 </form>
-               </div>
+                  {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
+                      {error}
+                    </div>
+                  )}
+                </form>
+              </div>
             ) : (
-              <div className="relative max-w-2xl mx-auto mb-16 hidden">{/* legacy block hidden */}
-                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                   <a 
--                    href="/email-fetcher" 
-+                    href="/add" 
-                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
-                   >
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                     </svg>
--                    Import Items from Your Email
-+                    Import or add items
-                   </a>
-                   <div className="flex flex-col sm:flex-row gap-4">
-                     <div className="relative flex-grow">
-                       <input
-                         type="text"
-                         placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
-                         value={inputValue}
-                         onChange={(e) => setInputValue(e.target.value)}
-                         className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       />
-                       <input
-                         type="file"
-                         accept="image/*,application/pdf"
-                         onChange={(e) => {
-                           const file = e.target.files?.[0];
-                           if (!file) return;
-                           if (file.type.startsWith('image/')) {
-                             handleImageUpload(file);
-                           } else if (file.type === 'application/pdf') {
-                             handlePdfUpload(file);
-                           }
-                         }}
-                         className="hidden"
-                         ref={fileInputRef}
-                       />
-                       <button
-                         type="button"
-                         onClick={() => fileInputRef.current?.click()}
-                         className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                         aria-label="Upload file"
-                       >
-                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                         </svg>
-                       </button>
-                     </div>
-                     <button 
-                       type="submit"
-                       className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
-                       disabled={isLoading}
-                     >
-                       {isLoading ? 'Loading...' : 'Add to Wardrobe'}
-                     </button>
-                   </div>
+              <div className="relative max-w-2xl mx-auto mb-16 hidden">
+                {/* legacy block hidden */}
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  <a
+                    href="/add"
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg px-8 py-4 text-center hover:opacity-90 transition-all mb-4 flex items-center justify-center gap-2"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Import or add items
+                  </a>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-grow">
+                      <input
+                        type="text"
+                        placeholder="Enter Myntra URL or search for a product (e.g., 'blue cotton shirt')"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        className="w-full px-6 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.type.startsWith("image/")) {
+                            handleImageUpload(file);
+                          } else if (file.type === "application/pdf") {
+                            handlePdfUpload(file);
+                          }
+                        }}
+                        className="hidden"
+                        ref={fileInputRef}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                        aria-label="Upload file"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 whitespace-nowrap"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Loading..." : "Add to Wardrobe"}
+                    </button>
+                  </div>
 
-                   {error && (
-                     <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
-                       {error}
-                     </div>
-                   )}
-                 </form>
-               </div>
-             )}
+                  {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg mt-4">
+                      {error}
+                    </div>
+                  )}
+                </form>
+              </div>
+            )}
 
             {imagePreview && (
               <div className="mt-4 p-4 border border-gray-200 rounded-lg">
@@ -1616,21 +3289,25 @@ export default function Home() {
             {searchResults.length > 0 && (
               <div className="absolute z-10 w-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 max-h-[70vh] overflow-y-auto">
                 <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-800">Found {searchResults.length} Products</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Found {searchResults.length} Products
+                  </h2>
                   {imagePreview && (
-                    <p className="text-sm text-gray-600 mt-1">Results based on uploaded image</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Results based on uploaded image
+                    </p>
                   )}
                 </div>
                 <div className="divide-y divide-gray-100">
                   {searchResults.map((result, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       {result.image && (
                         <div className="relative w-24 h-24 flex-shrink-0">
-                          <img 
-                            src={result.image} 
+                          <img
+                            src={result.image}
                             alt={result.name}
                             className="w-full h-full object-cover rounded"
                           />
@@ -1642,27 +3319,37 @@ export default function Home() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{result.brand}</h3>
-                        <p className="text-sm text-gray-600 line-clamp-2">{result.name}</p>
+                        <h3 className="font-medium text-gray-900 truncate">
+                          {result.brand}
+                        </h3>
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {result.name}
+                        </p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="font-semibold text-gray-900">{result.price}</span>
+                          <span className="font-semibold text-gray-900">
+                            {result.price}
+                          </span>
                           {result.originalPrice && (
-                            <span className="text-sm text-gray-500 line-through">{result.originalPrice}</span>
+                            <span className="text-sm text-gray-500 line-through">
+                              {result.originalPrice}
+                            </span>
                           )}
                           {result.discount && (
-                            <span className="text-sm text-green-600 font-medium">{result.discount}</span>
+                            <span className="text-sm text-green-600 font-medium">
+                              {result.discount}
+                            </span>
                           )}
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <button 
+                        <button
                           className="px-4 py-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors whitespace-nowrap"
                           onClick={() => handleProductSelect(result.url)}
                           disabled={isLoading}
                         >
-                          {isLoading ? 'Adding...' : 'Add to Wardrobe'}
+                          {isLoading ? "Adding..." : "Add to Wardrobe"}
                         </button>
-                        <a 
+                        <a
                           href={result.url}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1689,9 +3376,9 @@ export default function Home() {
 
           {imagePreview && (
             <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
-              <img 
-                src={imagePreview} 
-                alt="Uploaded preview" 
+              <img
+                src={imagePreview}
+                alt="Uploaded preview"
                 className="w-24 h-24 object-cover rounded"
               />
               {isProcessingImage && (
@@ -1710,7 +3397,9 @@ export default function Home() {
 
           {pdfText && (
             <div className="mt-8 w-full max-w-6xl">
-              <h2 className="text-2xl font-bold mb-4">Extracted Text from PDF</h2>
+              <h2 className="text-2xl font-bold mb-4">
+                Extracted Text from PDF
+              </h2>
               <div className="bg-white p-6 rounded-lg shadow-lg">
                 <pre className="whitespace-pre-wrap font-mono text-sm">
                   {pdfText}
@@ -1730,7 +3419,10 @@ export default function Home() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
                 <h3 className="text-lg font-semibold mb-4">Delete All Items</h3>
-                <p className="text-gray-600 mb-6">Are you sure you want to remove all {products.length} items from your wardrobe? This action cannot be undone.</p>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to remove all {products.length} items
+                  from your wardrobe? This action cannot be undone.
+                </p>
                 <div className="flex justify-end gap-4">
                   <button
                     onClick={() => setShowDeleteAllConfirm(false)}
@@ -1743,7 +3435,7 @@ export default function Home() {
                     className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                     disabled={isSaving}
                   >
-                    {isSaving ? 'Deleting...' : 'Delete All'}
+                    {isSaving ? "Deleting..." : "Delete All"}
                   </button>
                 </div>
               </div>
@@ -1755,7 +3447,9 @@ export default function Home() {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
                 <h3 className="text-lg font-semibold mb-4">Delete Item</h3>
-                <p className="text-gray-600 mb-6">Are you sure you want to remove this item from your wardrobe?</p>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to remove this item from your wardrobe?
+                </p>
                 <div className="flex justify-end gap-4">
                   <button
                     onClick={() => setShowDeleteConfirm(null)}
@@ -1775,6 +3469,94 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Your Wardrobe - categorized, placed right after suggestions */}
+      {session && products.length > 0 && (
+        <section className="w-full mt-8 border-t pt-12">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-gray-500">{products.length} items</span>
+              <UploadWardrobeItems onSaved={handleUploadedItemsSaved} />
+              <button
+                type="button"
+                onClick={() => setShowDeleteAllConfirm(true)}
+                className="text-sm text-red-600 hover:text-red-700"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+
+          {/* Search and sort controls */}
+          <div className="mb-6 grid gap-4 md:grid-cols-3 w-full">
+            <input
+              type="text"
+              placeholder="Search your wardrobe (brand, name, color, size)"
+              value={wardrobeFilter}
+              onChange={(e) => setWardrobeFilter(e.target.value)}
+              className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">Sort by</label>
+              <select
+                value={`${sortOption.type}:${sortOption.direction}`}
+                onChange={(e) => {
+                  const [type, direction] = e.target.value.split(':') as [SortOption['type'], SortOption['direction']]
+                  setSortOption({ type, direction })
+                }}
+                className="px-3 py-2 rounded-md border border-gray-300 text-sm"
+              >
+                <option value="date:desc">Newest</option>
+                <option value="date:asc">Oldest</option>
+                <option value="name:asc">Name A→Z</option>
+                <option value="name:desc">Name Z→A</option>
+                <option value="price:asc">Price Low→High</option>
+                <option value="price:desc">Price High→Low</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Categorized list with dividers */}
+          <div className="divide-y divide-gray-200">
+            {Object.entries(categorizeItems(getFilteredProducts())).map(([category, items]) => (
+              <div key={category} className="py-6">
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(category)}
+                  className="w-full flex items-center justify-between py-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{category}</span>
+                    <span className="text-sm text-gray-500">({items.length})</span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${expandedCategories[category] ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {expandedCategories[category] && (
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {items.map((item) => (
+                      <WardrobeItem
+                        key={item.id}
+                        product={item}
+                        onDelete={() => {
+                          const idx = products.findIndex((p) => p.id === item.id)
+                          if (idx !== -1) setShowDeleteConfirm(idx)
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Add SavedOutfits section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t">
@@ -1809,5 +3591,5 @@ export default function Home() {
         />
       )}
     </main>
-  )
+  );
 }

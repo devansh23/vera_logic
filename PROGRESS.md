@@ -267,3 +267,16 @@ A Next.js wardrobe management application that processes shopping emails from va
 - Centered the home page hero and primary controls so the composition aligns to the middle of the page
 - Removed duplicate user avatar/name/Sign out row from the page body; auth controls are shown only in the header bar
 - No functional changes; visual polish only 
+
+### Home experience updates (August 12, 2025)
+- Added global onboarding threshold via `ONBOARDING_THRESHOLD` with `/api/app-config` endpoint to expose it to the client
+- Introduced `/add` page consolidating actions: Add via URL, Upload item, Import from Email; updated nav to a single `Add items` link
+- Home page now dynamically switches:
+  - Below threshold: onboarding hero with CTAs
+  - At/above threshold: greeting (first name) + 3-item suggestions carousel (fixed-size tiles for image consistency)
+- Reordered sections on home:
+  - Your Wardrobe (categorized accordion) now appears directly below suggestions and above Saved Outfits
+  - Restored and added dividers: top border above Wardrobe and per-category dividers
+- Removed duplicate auth controls from the page body (kept only in header)
+- Centered main composition; applied Prettier formatting to `src/app/page.tsx`
+- Packs, Outfit Calendar, and Saved Outfits remain functionally unchanged 
