@@ -47,29 +47,38 @@ export default function UploadWardrobeItems({ onSaved }: UploadWardrobeItemsProp
 
     setIsProcessing(true);
     toast.dismiss();
-    toast.loading(`Scanning ${files.length} photo${files.length > 1 ? 's' : ''}...`);
+    toast.loading(`Processing ${files.length} photo${files.length > 1 ? 's' : ''} with AI...`);
 
-    const prepared: (WardrobeItem & { imageOriginal?: string; imageCropped?: string })[] = [];
+    try {
+      const prepared: (WardrobeItem & { imageOriginal?: string; imageCropped?: string })[] = [];
 
-    for (const file of files) {
-      try {
-        // Call extract API with AUTO mode
-        const form = new FormData();
-        form.append('image', file);
-        form.append('itemName', 'auto');
-        const response = await fetch('/api/extract-item', { method: 'POST', body: form });
-        if (!response.ok) throw new Error(`Crop failed (${response.status})`);
-        const croppedArrayBuffer = await response.arrayBuffer();
-        const detectionClass = response.headers.get('x-detection-class') || undefined;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Call the server extract API
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('itemName', 'auto');
 
-        // Build names (color omitted in MVP; user can edit in modal)
-        const typeName = inferDisplayType(detectionClass) || 'item';
-        const displayName = `${typeName}`;
+        const response = await fetch('/api/extract-item', {
+          method: 'POST',
+          body: formData,
+        });
 
-        // Data URLs
-        const croppedDataUrl = arrayBufferToDataUrl(croppedArrayBuffer, 'image/png');
+        if (!response.ok) {
+          throw new Error(`Failed to process image ${i + 1}`);
+        }
+
+        const croppedBuffer = await response.arrayBuffer();
+        const croppedDataUrl = arrayBufferToDataUrl(croppedBuffer, 'image/png');
+        
+        // Get detection metadata from headers
+        const detectionClass = response.headers.get('x-detection-class');
         const originalArrayBuffer = await file.arrayBuffer();
         const originalDataUrl = arrayBufferToDataUrl(originalArrayBuffer, file.type || 'image/jpeg');
+
+        const typeName = inferDisplayType(detectionClass || '');
+        const displayName = `${typeName}`;
 
         const item: WardrobeItem & { imageOriginal?: string; imageCropped?: string } = {
           id: uuidv4(),
@@ -86,19 +95,21 @@ export default function UploadWardrobeItems({ onSaved }: UploadWardrobeItemsProp
         } as any;
 
         prepared.push(item);
-      } catch (err) {
-        console.error('Failed to process file', file.name, err);
-        toast.error(`Failed to process ${file.name}`);
       }
-    }
 
-    toast.dismiss();
-    setIsProcessing(false);
+      toast.dismiss();
+      setIsProcessing(false);
 
-    if (prepared.length > 0) {
-      setModalItems(prepared);
-    } else {
-      toast.error('No items could be prepared from the selected photos');
+      if (prepared.length > 0) {
+        setModalItems(prepared);
+      } else {
+        toast.error('No items could be prepared from the selected photos');
+      }
+    } catch (err) {
+      console.error('Failed to process files', err);
+      toast.dismiss();
+      toast.error('Processing failed. Please try again.');
+      setIsProcessing(false);
     }
   };
 

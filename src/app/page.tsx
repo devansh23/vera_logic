@@ -16,7 +16,6 @@ import { SavedOutfits } from "@/components/outfit-planner/SavedOutfits";
 import { OutfitCalendar } from "@/components/outfit-planner/OutfitCalendar";
 import { ConfirmationModal } from "@/components/ConfirmationFlow";
 import type { WardrobeItem as WardrobeItemType } from "@/types/wardrobe";
-import UploadWardrobeItems from "@/components/UploadWardrobeItems";
 import { PacksList } from "@/components/packs/PacksList";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -2908,28 +2907,6 @@ export default function Home() {
     setPendingItems([]);
   };
 
-  const handleUploadedItemsSaved = (saved: any) => {
-    const createdItems = Array.isArray(saved) ? saved : [saved];
-    const addedProducts: MyntraProduct[] = createdItems.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      brand: s.brand,
-      price: s.price || "",
-      originalPrice: s.originalPrice || "",
-      discount: s.discount || "",
-      image: s.image || "",
-      productLink: s.productLink || "",
-      category: s.category || "Uncategorized",
-      size: s.size || "",
-      color: s.color || "",
-      sourceRetailer: s.sourceRetailer || "Unknown",
-      colorTag: s.colorTag,
-      dominantColor: s.dominantColor,
-      dateAdded: new Date().toISOString(),
-    }));
-    setProducts((prev) => [...prev, ...addedProducts]);
-  };
-
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -3068,7 +3045,41 @@ export default function Home() {
                 "there";
               return (
                 <div className="w-full max-w-4xl mx-auto mb-8">
-                  <h1 className="text-2xl font-semibold text-center mb-6">
+                  {/* Place, Date, Time and Temperature Components */}
+                  <div className="flex flex-col sm:flex-row gap-4 mb-16 justify-center">
+                    {/* Place, Date, Time Component */}
+                    <div className="bg-white rounded-lg border p-4 shadow-sm flex-1 max-w-xs">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-700">Location & Time</span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <div className="font-medium">Mumbai, India</div>
+                        <div>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                        <div>{new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+                      </div>
+                    </div>
+
+                    {/* Temperature Component */}
+                    <div className="bg-white rounded-lg border p-4 shadow-sm flex-1 max-w-xs">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-700">Current Weather</span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <div className="font-medium text-2xl text-blue-600">28°C</div>
+                        <div>Partly Cloudy</div>
+                        <div>Feels like 30°C</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <h1 className="text-2xl font-semibold text-center mb-12">
                     Hello {firstName}, hope you are having a great day
                   </h1>
                   <div className="overflow-x-auto">
@@ -3477,7 +3488,6 @@ export default function Home() {
             <h2 className="text-2xl font-semibold mb-4 md:mb-0">Your Wardrobe</h2>
             <div className="flex items-center gap-3">
               <span className="text-gray-500">{products.length} items</span>
-              <UploadWardrobeItems onSaved={handleUploadedItemsSaved} />
               <button
                 type="button"
                 onClick={() => setShowDeleteAllConfirm(true)}
