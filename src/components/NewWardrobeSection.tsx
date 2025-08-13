@@ -5,6 +5,7 @@ import { Search, Filter, X, Edit3, Save, Plus } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { toast } from 'react-toastify';
 
 const categories = [
   'All', 'Tops', 'Bottoms', 'Dresses', 'Shoes', 'Bags', 'Jewellery', 'Outerwear', 'Active', 'Occasion'
@@ -32,9 +33,10 @@ interface WardrobeItem {
 interface NewWardrobeSectionProps {
   products: WardrobeItem[];
   onDelete: (index: number) => void;
+  onUpdate?: (updatedItem: WardrobeItem) => void; // Add update functionality
 }
 
-export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionProps) {
+export function NewWardrobeSection({ products, onDelete, onUpdate }: NewWardrobeSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<WardrobeItem | null>(null);
@@ -89,16 +91,39 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editingItem) {
-      // Here you would typically save the changes to your backend
-      // For now, we'll just update the local state
-      const updatedProducts = products.map(p => 
-        p.id === editingItem.id ? editingItem : p
-      );
-      // You might want to call a prop function to update the parent state
-      setSelectedItem(editingItem);
-      setIsEditing(false);
+      try {
+        // First, save to the database
+        const response = await fetch('/api/wardrobe', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(editingItem),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save to database');
+        }
+
+        const savedItem = await response.json();
+        
+        // Call the parent's onUpdate function to persist changes in parent state
+        if (onUpdate) {
+          onUpdate(savedItem);
+        }
+        
+        // Update the local selectedItem state to show the changes
+        setSelectedItem(savedItem);
+        setIsEditing(false);
+        
+        // Show success message
+        toast.success('Item updated successfully');
+      } catch (error) {
+        console.error('Error saving item:', error);
+        toast.error('Failed to save changes');
+      }
     }
   };
 
@@ -227,7 +252,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
         </div>
 
         {/* Wardrobe Grid - Images Only */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 overflow-hidden">
           {filteredProducts.map((item, index) => (
             <div
               key={item.id}
@@ -259,7 +284,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
       {/* Item Details Modal */}
       {isModalOpen && selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full">
+          <div className="bg-white rounded-lg w-96 max-w-[90vw]">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Item Details</h3>
@@ -276,7 +301,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
               <div className="flex gap-3">
                 {/* Item Image - Left Side */}
                 <div className="flex-shrink-0">
-                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 w-32">
+                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 w-24">
                     {selectedItem.image ? (
                       <img
                         src={selectedItem.image}
@@ -295,7 +320,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                 <div className="flex-1 space-y-2">
                   {/* Name */}
                   <div className="group relative">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1">
                         {isEditing ? (
                           <Input
@@ -313,7 +338,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                       {!isEditing && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-gray-100 rounded"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
                         >
                           <Edit3 className="h-4 w-4 text-gray-500" />
                         </button>
@@ -323,7 +348,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
 
                   {/* Brand */}
                   <div className="group relative">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1">
                         {isEditing ? (
                           <Input
@@ -341,7 +366,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                       {!isEditing && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-gray-100 rounded"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
                         >
                           <Edit3 className="h-4 w-4 text-gray-500" />
                         </button>
@@ -351,7 +376,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
 
                   {/* Category as Pill */}
                   <div className="group relative">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <div className="flex-1">
                         {isEditing ? (
                           <select
@@ -380,7 +405,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                       {!isEditing && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-gray-100 rounded"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
                         >
                           <Edit3 className="h-4 w-4 text-gray-500" />
                         </button>
@@ -391,7 +416,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                   {/* Size and Color */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="group relative">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <div className="flex-1">
                           {isEditing ? (
                             <Input
@@ -409,7 +434,7 @@ export function NewWardrobeSection({ products, onDelete }: NewWardrobeSectionPro
                         {!isEditing && (
                           <button
                             onClick={() => setIsEditing(true)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-gray-100 rounded"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
                           >
                             <Edit3 className="h-4 w-4 text-gray-500" />
                           </button>

@@ -603,6 +603,14 @@ export default function Home() {
     }
   };
 
+  const handleUpdateProduct = (updatedItem: any) => {
+    setProducts((prev) => 
+      prev.map((item) => 
+        item.id === updatedItem.id ? updatedItem : item
+      )
+    );
+  };
+
   const handleDeleteAllItems = async () => {
     if (!session) {
       setError("Please sign in to manage your wardrobe");
@@ -732,7 +740,7 @@ export default function Home() {
         <div className="w-full">
           <GreetingSection />
           <SuggestedOutfitsCarousel />
-          <NewWardrobeSection products={products} onDelete={handleDeleteProduct} />
+          <NewWardrobeSection products={products} onDelete={handleDeleteProduct} onUpdate={handleUpdateProduct} />
           
           {/* Existing sections adapted to new design */}
           <div className="mb-8">
