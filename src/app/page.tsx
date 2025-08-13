@@ -18,7 +18,6 @@ import type { WardrobeItem as WardrobeItemType } from "@/types/wardrobe";
 import { PacksList } from "@/components/packs/PacksList";
 import { GreetingSection } from "@/components/GreetingSection";
 import { SuggestedOutfitsCarousel } from "@/components/SuggestedOutfitsCarousel";
-import { NewWardrobeSection } from "@/components/NewWardrobeSection";
 import { Badge } from "@/components/ui/badge";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -603,14 +602,6 @@ export default function Home() {
     }
   };
 
-  const handleUpdateProduct = (updatedItem: any) => {
-    setProducts((prev) => 
-      prev.map((item) => 
-        item.id === updatedItem.id ? updatedItem : item
-      )
-    );
-  };
-
   const handleDeleteAllItems = async () => {
     if (!session) {
       setError("Please sign in to manage your wardrobe");
@@ -740,7 +731,6 @@ export default function Home() {
         <div className="w-full">
           <GreetingSection />
           <SuggestedOutfitsCarousel />
-          <NewWardrobeSection products={products} onDelete={handleDeleteProduct} onUpdate={handleUpdateProduct} />
           
           {/* Existing sections adapted to new design */}
           <div className="mb-8">

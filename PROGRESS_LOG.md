@@ -9,6 +9,15 @@
 
 ## 🎯 **Recent Major Changes (August 13, 2025)**
 
+### **New: Wardrobe Page + Editor & UI Improvements**
+- **Wardrobe page**: Moved the wardrobe section from the home dashboard to a dedicated route ` /wardrobe ` and wired the left nav link. Kept search/filters intact. Removed duplicate titles and matched heading style with Outfits/Calendar.
+- **Header glass + search**: Implemented frosted glass header (`bg-[#fdfcfa]/80`, `backdrop-blur-md`, subtle border) and matched the search input to `@UI redone` with `bg-input-background`, muted placeholder, rounded-full, and proper focus ring outside the container (no cropping).
+- **Suggested Outfits**: Now renders real saved outfits from `/api/outfits`. If none exist, it generates fallback suggestions by collaging random wardrobe items from `/api/wardrobe`. Removed match/tags; kept name and description. Added CTAs: "Schedule" (calendar icon) and "Pack" (package icon).
+- **Outfit thumbnails (auto)**: On save, if no try-on image exists, we capture a high-DPI screenshot of the outfit canvas and save it as the thumbnail. Implemented smart-crop: compute tight bounding box of placed items and crop with a small margin so items are centered with minimal whitespace.
+- **Prevent overlay persistence**: The saved try-on/thumbnail is no longer placed back onto the canvas when loading an outfit. Also excluded any temporary overlays from screenshots and clear them after save to avoid them being captured or re-saved.
+- **Wardrobe API fix**: Standardized to Prisma `Wardrobe` model and consistent `authOptions` import; resolves "Failed to load wardrobe" errors.
+- **Modal/CTA polish**: Rounded "Save"/"Cancel" in item modal to match other CTAs.
+
 ### **1. Database Persistence Fix for Wardrobe Updates - COMPLETED**
 - **Status**: ✅ **COMPLETED** - Fixed wardrobe item updates not persisting after page refresh
 - **Problem**: Changes made in the item details modal were only saved to local state, not to the database

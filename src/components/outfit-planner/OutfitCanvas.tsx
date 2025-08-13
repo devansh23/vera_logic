@@ -8,6 +8,7 @@ import { WardrobeItem, CanvasItem, TryOnImage } from "@/types/wardrobe";
 import { Pin, ArrowUp, ArrowDown, Trash2, Calendar } from "lucide-react";
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
+import html2canvas from 'html2canvas';
 
 interface OutfitCanvasProps {
   items: CanvasItem[];
@@ -232,7 +233,8 @@ export default function OutfitCanvas({
       setIsSaving(true);
       setError(null);
       
-      const result = await onSave(outfitName, positionedItems, tryOnImage ? tryOnImage.url : null, saveAsNew);
+      const fallbackThumb = tryOnImage ? tryOnImage.url : await captureCanvasImage();
+      const result = await onSave(outfitName, positionedItems, fallbackThumb, saveAsNew);
       
       // Consider the save successful if either:
       // 1. result.success is true (for new outfits)
@@ -260,6 +262,8 @@ export default function OutfitCanvas({
           setOutfitName('');
         }
         setSaveAsNew(false);
+        // Clear any temporary try-on overlay from the canvas after saving
+        setTryOnImage(null);
       } else {
         // Handle case where save was not successful
         console.error('Save operation did not return valid result:', result);
@@ -512,6 +516,79 @@ export default function OutfitCanvas({
 
   const handleDeleteTryOn = () => {
     setTryOnImage(null);
+  };
+
+  const captureCanvasImage = async (): Promise<string | null> => {
+    try {
+      if (!canvasRef.current) return null;
+      if (!positionedItems.length) return null;
+
+      const node = canvasRef.current;
+      const scale = 2; // high-DPI thumbnail
+
+      // Compute tight bounding box around all items
+      let minLeft = Infinity;
+      let minTop = Infinity;
+      let maxRight = -Infinity;
+      let maxBottom = -Infinity;
+
+      for (const it of positionedItems) {
+        const left = Math.max(0, it.left);
+        const top = Math.max(0, it.top);
+        const right = left + Math.max(1, it.width || 0);
+        const bottom = top + Math.max(1, it.height || 0);
+        if (left < minLeft) minLeft = left;
+        if (top < minTop) minTop = top;
+        if (right > maxRight) maxRight = right;
+        if (bottom > maxBottom) maxBottom = bottom;
+      }
+
+      // Add margin but clamp to canvas bounds
+      const margin = 24;
+      const rect = node.getBoundingClientRect();
+      const canvasW = rect.width;
+      const canvasH = rect.height;
+      const cropX = Math.max(0, Math.floor(minLeft - margin));
+      const cropY = Math.max(0, Math.floor(minTop - margin));
+      const cropW = Math.min(canvasW - cropX, Math.ceil(maxRight - minLeft + margin * 2));
+      const cropH = Math.min(canvasH - cropY, Math.ceil(maxBottom - minTop + margin * 2));
+
+      // Render full canvas, ignoring try-on overlays and UI controls
+      const full = await html2canvas(node, { 
+        backgroundColor: '#ffffff', 
+        scale, 
+        useCORS: true,
+        ignoreElements: (el) => {
+          return el instanceof HTMLElement && el.dataset && el.dataset.ignoreCapture === 'true';
+        }
+      });
+
+      // Create offscreen canvas for cropped image
+      const out = document.createElement('canvas');
+      out.width = Math.max(1, Math.floor(cropW * scale));
+      out.height = Math.max(1, Math.floor(cropH * scale));
+      const ctx = out.getContext('2d');
+      if (!ctx) return null;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(
+        full,
+        Math.floor(cropX * scale),
+        Math.floor(cropY * scale),
+        Math.floor(cropW * scale),
+        Math.floor(cropH * scale),
+        0,
+        0,
+        out.width,
+        out.height
+      );
+
+      return out.toDataURL('image/png');
+    } catch (e) {
+      console.error('Failed to capture canvas thumbnail:', e);
+      return null;
+    }
   };
 
   const scheduleOutfit = async () => {

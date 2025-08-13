@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const wardrobeItems = await prisma.wardrobeItem.findMany({
+    const wardrobeItems = await prisma.wardrobe.findMany({
       where: {
         userId: session.user.id
       },
@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
     const createdItems = [];
     
     for (const item of items) {
-      const createdItem = await prisma.wardrobeItem.create({
+      const createdItem = await prisma.wardrobe.create({
         data: {
+          userId: session.user.id,
           name: item.name || 'Unknown Product',
           brand: item.brand || 'Unknown',
           price: item.price || '',
@@ -52,9 +53,9 @@ export async function POST(request: NextRequest) {
           size: item.size || '',
           color: item.color || '',
           productLink: item.productLink || '',
+          myntraLink: item.myntraLink || '',
           category: item.category || 'Uncategorized',
-          sourceRetailer: item.sourceRetailer || 'Unknown',
-          userId: session.user.id,
+          sourceRetailer: item.sourceRetailer || item.brand || null,
         }
       });
       createdItems.push(createdItem);
@@ -83,7 +84,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify the item belongs to the user
-    const existingItem = await prisma.wardrobeItem.findFirst({
+    const existingItem = await prisma.wardrobe.findFirst({
       where: {
         id: id,
         userId: session.user.id
@@ -95,7 +96,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the item
-    const updatedItem = await prisma.wardrobeItem.update({
+    const updatedItem = await prisma.wardrobe.update({
       where: {
         id: id
       },
@@ -109,6 +110,7 @@ export async function PUT(request: NextRequest) {
         size: updateData.size,
         color: updateData.color,
         productLink: updateData.productLink,
+        myntraLink: updateData.myntraLink,
         category: updateData.category,
         sourceRetailer: updateData.sourceRetailer,
         updatedAt: new Date()
@@ -138,7 +140,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify the item belongs to the user before deleting
-    const existingItem = await prisma.wardrobeItem.findFirst({
+    const existingItem = await prisma.wardrobe.findFirst({
       where: {
         id: id,
         userId: session.user.id
@@ -149,7 +151,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Item not found or unauthorized' }, { status: 404 });
     }
 
-    await prisma.wardrobeItem.delete({
+    await prisma.wardrobe.delete({
       where: {
         id: id
       }

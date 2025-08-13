@@ -34,9 +34,10 @@ interface NewWardrobeSectionProps {
   products: WardrobeItem[];
   onDelete: (index: number) => void;
   onUpdate?: (updatedItem: WardrobeItem) => void; // Add update functionality
+  showTitle?: boolean; // allow hiding the internal title when embedded on the wardrobe page
 }
 
-export function NewWardrobeSection({ products, onDelete, onUpdate }: NewWardrobeSectionProps) {
+export function NewWardrobeSection({ products, onDelete, onUpdate, showTitle = true }: NewWardrobeSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<WardrobeItem | null>(null);
@@ -149,7 +150,9 @@ export function NewWardrobeSection({ products, onDelete, onUpdate }: NewWardrobe
       <section className="mb-8 overflow-hidden">
         {/* Section Header */}
         <div className="mb-6">
-          <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Your Wardrobe</h2>
+          {showTitle && (
+            <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Your Wardrobe</h2>
+          )}
           
           {/* Category Filter Pills */}
           <div className="flex flex-wrap gap-1 mb-4">
@@ -462,7 +465,7 @@ export function NewWardrobeSection({ products, onDelete, onUpdate }: NewWardrobe
             <div className="flex items-center justify-between p-3 border-t border-gray-200">
               <div className="flex gap-1">
                 {isEditing ? (
-                  <Button onClick={handleSave} className="flex items-center gap-1">
+                  <Button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-[#2d2926] text-[#fdfcfa] rounded-full hover:bg-[#2d2926]/90 transition-colors">
                     <Save className="h-4 w-4" />
                     Save
                   </Button>
@@ -480,6 +483,7 @@ export function NewWardrobeSection({ products, onDelete, onUpdate }: NewWardrobe
                 <Button 
                   onClick={() => setIsEditing(false)} 
                   variant="outline"
+                  className="px-4 py-2 border-2 border-[#2d2926] text-[#2d2926] rounded-full hover:bg-[#2d2926] hover:text-[#fdfcfa] transition-colors"
                 >
                   Cancel
                 </Button>

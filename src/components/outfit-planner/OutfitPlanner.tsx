@@ -94,19 +94,9 @@ export default function OutfitPlanner({ editId }: OutfitPlannerProps) {
           // Set the outfit name
           setOutfitName(outfit.name || 'Unnamed Outfit');
           
-          // Set the virtual try-on image if it exists
-          if (outfit.tryOnImage) {
-            console.log('Setting try-on image:', outfit.tryOnImage);
-            setTryOnImage({
-              url: outfit.tryOnImage,
-              position: { x: 0, y: 0 }, // Default position
-              size: { width: 400, height: 600 } // Default size
-            });
-          } else {
-            // Explicitly clear any existing try-on image
-            console.log('No try-on image found, clearing any existing one');
-            setTryOnImage(null);
-          }
+          // Do not place saved try-on/thumbnail image back onto the canvas.
+          // Thumbnails should exist for listing, but the editor starts clean.
+          setTryOnImage(null);
           
           // Map the outfit items to the canvas format
           const canvasItems = outfit.items.map((item: any) => {
