@@ -10,7 +10,6 @@ import { Inter } from "next/font/google";
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { prisma } from "@/lib/prisma";
-import FullBodyPhotoUpload from "@/components/FullBodyPhotoUpload";
 import { useWardrobe } from "@/contexts/WardrobeContext";
 import { SavedOutfits } from "@/components/outfit-planner/SavedOutfits";
 import { ConfirmationModal } from "@/components/ConfirmationFlow";
@@ -741,14 +740,9 @@ export default function Home() {
           <div className="mb-8">
             <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Packs</h2>
             <PacksList />
-                          </div>
-
-          <div className="mb-8">
-            <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Full Body Photo Upload</h2>
-            <FullBodyPhotoUpload />
-                      </div>
-                      </div>
-                    </div>
+          </div>
+        </div>
+      </div>
 
       {/* Keep existing modals and overlays */}
           {showProductOverlay && searchResults.length > 0 && (

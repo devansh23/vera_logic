@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Shirt, Palette, Calendar, Package, Plus } from 'lucide-react';
+import { Home, Shirt, Palette, Calendar, Package, Plus, Image } from 'lucide-react';
 import { Button } from './ui/button';
 
 const navigationItems = [
@@ -12,6 +12,7 @@ const navigationItems = [
   { icon: Palette, label: 'Outfits', href: '/outfit-planner' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Package, label: 'Packs', href: '/packs' },
+  { icon: Image, label: 'My Gallery', href: '/gallery' },
 ];
 
 export function LeftNavigation() {
