@@ -31,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="bg-[#fdfcfa] overflow-x-hidden">
+      <body className="bg-[#fdfcfa] overflow-x-hidden" suppressHydrationWarning={true}>
         <Providers>
           <NewHeader />
           <div className="flex min-h-screen pt-16">

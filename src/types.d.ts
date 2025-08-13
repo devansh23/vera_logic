@@ -1,3 +1,6 @@
+/// <reference types="react" />
+/// <reference types="react-dom" />
+
 declare module '@/types/outfit' {
   export interface WardrobeItem {
     id: string;
