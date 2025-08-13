@@ -34,9 +34,9 @@ export default function RootLayout({
       <body className="bg-[#fdfcfa] overflow-x-hidden">
         <Providers>
           <NewHeader />
-          <div className="flex min-h-screen">
+          <div className="flex min-h-screen pt-16">
             <LeftNavigation />
-            <main className="flex-1 ml-64 pt-20 w-full max-w-none overflow-x-hidden">
+            <main className="flex-1 ml-64 w-full max-w-none overflow-x-hidden">
               <div className="w-full max-w-full overflow-hidden">
                 {children}
               </div>

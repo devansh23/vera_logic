@@ -42,18 +42,7 @@ export function SavedOutfits() {
           throw new Error('Failed to fetch outfits');
         }
         const data = await response.json();
-        
-        // Debug log to check which items have missing images
-        data.forEach((outfit: SavedOutfit) => {
-          const missingImages = outfit.items.filter(item => !item.wardrobeItem.image);
-          if (missingImages.length > 0) {
-            console.log(`Outfit '${outfit.name}' has ${missingImages.length} items with missing images:`);
-            missingImages.forEach((item, index) => {
-              console.log(`  Item ${index + 1}: Name = ${item.wardrobeItem.name || 'Unnamed'}`);
-            });
-          }
-        });
-        
+        // The API may omit items for performance; we'll handle that gracefully in the UI
         setOutfits(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load outfits');
@@ -177,22 +166,18 @@ export function SavedOutfits() {
             </p>
             <div className="relative h-40 bg-gray-50 rounded-md overflow-hidden">
               {outfit.tryOnImage ? (
-                // If tryOnImage exists, use it as the thumbnail
                 <img
                   src={outfit.tryOnImage}
                   alt={`${outfit.name} preview`}
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    // Fallback if tryOnImage fails to load
-                    console.log(`Try-on image failed to load for outfit ${outfit.name}, falling back to items`);
                     const target = e.target as HTMLImageElement;
                     target.src = fallbackImage;
                   }}
                 />
-              ) : (
-                // Otherwise use the existing item-based thumbnail logic
+              ) : Array.isArray((outfit as any).items) && (outfit as any).items.length > 0 ? (
                 <div className="absolute inset-0">
-                  {outfit.items.map((item, index) => (
+                  {(outfit as any).items.map((item: any, index: number) => (
                     <div
                       key={index}
                       className="absolute"
@@ -204,14 +189,12 @@ export function SavedOutfits() {
                       }}
                     >
                       <img
-                        src={item.wardrobeItem.image || fallbackImage}
-                        alt={item.wardrobeItem.name || 'Clothing item'}
+                        src={item.wardrobeItem?.image || fallbackImage}
+                        alt={item.wardrobeItem?.name || 'Clothing item'}
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         onError={(e) => {
-                          // If the image fails to load, use fallback
                           const target = e.target as HTMLImageElement;
                           if (target.src !== fallbackImage) {
-                            console.log(`Image failed to load for ${item.wardrobeItem.name}, using fallback`);
                             target.src = fallbackImage;
                           }
                         }}
@@ -219,6 +202,12 @@ export function SavedOutfits() {
                     </div>
                   ))}
                 </div>
+              ) : (
+                <img
+                  src={fallbackImage}
+                  alt={`${outfit.name} preview placeholder`}
+                  className="w-full h-full object-contain"
+                />
               )}
             </div>
             {/* Delete button */}

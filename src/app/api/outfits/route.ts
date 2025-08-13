@@ -58,17 +58,12 @@ export async function GET(request: NextRequest) {
         where: {
           userId: session.user.id
         },
-        include: {
-          items: {
-            include: {
-              wardrobeItem: {
-                select: {
-                  name: true,
-                  image: true
-                }
-              }
-            }
-          }
+        select: {
+          id: true,
+          name: true,
+          tryOnImage: true,
+          createdAt: true,
+          updatedAt: true
         },
         orderBy: {
           createdAt: 'desc'

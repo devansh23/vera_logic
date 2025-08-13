@@ -195,14 +195,14 @@ export function PackCreator({ packId }: { packId?: string }) {
   const fallbackImage = '/placeholder-clothing.svg';
 
   return (
-    <div className="max-w-5xl mx-auto p-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-6">
+    <div className="w-full max-w-none p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-normal mb-6 text-gray-900 font-serif">
           {isEditing ? 'Edit Pack' : 'Create New Pack'}
         </h1>
         
-        <div className="mb-4">
-          <label htmlFor="packName" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="mb-6">
+          <label htmlFor="packName" className="block text-sm font-medium text-gray-700 mb-2">
             Pack Name *
           </label>
           <input
@@ -210,21 +210,21 @@ export function PackCreator({ packId }: { packId?: string }) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
             placeholder="Enter pack name"
             required
           />
         </div>
         
-        <div className="mb-4">
-          <label htmlFor="packDescription" className="block text-sm font-medium text-gray-700 mb-1">
+        <div className="mb-6">
+          <label htmlFor="packDescription" className="block text-sm font-medium text-gray-700 mb-2">
             Description (optional)
           </label>
           <textarea
             id="packDescription"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400"
             placeholder="Add a description for your pack"
             rows={3}
           />
@@ -232,22 +232,22 @@ export function PackCreator({ packId }: { packId?: string }) {
       </div>
       
       {/* Selection counts */}
-      <div className="flex gap-4 items-center mb-4">
-        <div className="text-sm">
-          <span className="font-medium">{selectedOutfitIds.length}</span> outfits selected
+      <div className="flex gap-6 items-center mb-6">
+        <div className="text-sm text-gray-600">
+          <span className="font-medium text-gray-900">{selectedOutfitIds.length}</span> outfits selected
         </div>
-        <div className="text-sm">
-          <span className="font-medium">{selectedItemIds.length}</span> items selected
+        <div className="text-sm text-gray-600">
+          <span className="font-medium text-gray-900">{selectedItemIds.length}</span> items selected
         </div>
       </div>
       
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 mb-8">
         <div className="flex">
           <button
-            className={`py-2 px-4 font-medium text-sm ${
+            className={`py-3 px-6 font-medium text-sm transition-colors ${
               activeTab === 'outfits'
-                ? 'border-b-2 border-blue-500 text-blue-600'
+                ? 'border-b-2 border-gray-900 text-gray-900'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => setActiveTab('outfits')}
@@ -255,9 +255,9 @@ export function PackCreator({ packId }: { packId?: string }) {
             Outfits
           </button>
           <button
-            className={`py-2 px-4 font-medium text-sm ${
+            className={`py-3 px-6 font-medium text-sm transition-colors ${
               activeTab === 'items'
-                ? 'border-b-2 border-blue-500 text-blue-600'
+                ? 'border-b-2 border-gray-900 text-gray-900'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => setActiveTab('items')}
@@ -272,37 +272,43 @@ export function PackCreator({ packId }: { packId?: string }) {
         {activeTab === 'outfits' ? (
           <div>
             {outfits.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-12 text-gray-500">
                 You don't have any outfits yet. Create outfits first to add them to your pack.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {outfits.map((outfit) => (
                   <div 
                     key={outfit.id} 
-                    className={`border rounded-lg p-3 relative cursor-pointer ${
+                    className={`border-2 rounded-xl p-4 relative cursor-pointer transition-all ${
                       selectedOutfitIds.includes(outfit.id) 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'hover:border-gray-400'
+                        ? 'border-gray-900 bg-gray-50' 
+                        : 'border-gray-200 hover:border-gray-400 hover:shadow-md'
                     }`}
                     onClick={() => toggleOutfit(outfit.id)}
                   >
-                    <div className="h-32 bg-gray-100 rounded-md mb-2 overflow-hidden">
-                      <img
-                        src={outfit.tryOnImage || fallbackImage}
-                        alt={outfit.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = fallbackImage;
-                        }}
-                      />
+                    <div className="h-40 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                      {outfit.tryOnImage ? (
+                        <img
+                          src={outfit.tryOnImage}
+                          alt={outfit.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = fallbackImage;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
                     </div>
-                    <h3 className="text-sm font-medium truncate">{outfit.name}</h3>
+                    <h3 className="text-sm font-medium truncate text-gray-900">{outfit.name}</h3>
                     
                     {/* Selection indicator */}
                     {selectedOutfitIds.includes(outfit.id) && (
-                      <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1">
+                      <div className="absolute top-3 right-3 bg-gray-900 rounded-full p-1.5">
                         <Check size={16} className="text-white" />
                       </div>
                     )}
@@ -314,7 +320,7 @@ export function PackCreator({ packId }: { packId?: string }) {
         ) : (
           <div>
             {wardrobeItems.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-12 text-gray-500">
                 You don't have any wardrobe items yet.
               </div>
             ) : (
@@ -322,30 +328,36 @@ export function PackCreator({ packId }: { packId?: string }) {
                 {wardrobeItems.map((item) => (
                   <div 
                     key={item.id} 
-                    className={`border rounded-lg p-2 relative cursor-pointer ${
+                    className={`border-2 rounded-lg p-3 relative cursor-pointer transition-all ${
                       selectedItemIds.includes(item.id) 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'hover:border-gray-400'
+                        ? 'border-gray-900 bg-gray-50' 
+                        : 'border-gray-200 hover:border-gray-400 hover:shadow-md'
                     }`}
                     onClick={() => toggleItem(item.id)}
                   >
-                    <div className="h-24 bg-gray-100 rounded-md mb-2 overflow-hidden">
-                      <img
-                        src={item.image || fallbackImage}
-                        alt={item.name}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = fallbackImage;
-                        }}
-                      />
+                    <div className="h-28 bg-gray-100 rounded-md mb-2 overflow-hidden">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = fallbackImage;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
                     </div>
-                    <h3 className="text-xs font-medium truncate">{item.name}</h3>
+                    <h3 className="text-xs font-medium truncate text-gray-900">{item.name}</h3>
                     <p className="text-xs text-gray-500 truncate">{item.brand}</p>
                     
                     {/* Selection indicator */}
                     {selectedItemIds.includes(item.id) && (
-                      <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-1">
+                      <div className="absolute top-2 right-2 bg-gray-900 rounded-full p-1">
                         <Check size={12} className="text-white" />
                       </div>
                     )}
@@ -358,17 +370,17 @@ export function PackCreator({ packId }: { packId?: string }) {
       </div>
       
       {/* Action buttons */}
-      <div className="flex justify-end gap-3 mt-6">
+      <div className="flex justify-end gap-4 mt-8">
         <button
           onClick={handleCancel}
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+          className="px-6 py-3 border-2 border-[#2d2926] text-[#2d2926] rounded-full hover:bg-[#2d2926] hover:text-[#fdfcfa] transition-colors font-medium"
           disabled={saving}
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center gap-2"
+          className="px-6 py-3 bg-[#2d2926] text-[#fdfcfa] rounded-full hover:bg-[#2d2926]/90 transition-colors flex items-center gap-2 font-medium"
           disabled={saving}
         >
           {saving ? (
