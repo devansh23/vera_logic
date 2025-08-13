@@ -45,6 +45,7 @@ model User {
   gmailRefreshToken String?
   gmailTokenExpiry  DateTime?
   fullBodyPhoto     String?
+  onboardingCompleted Boolean       @default(false)
   accounts          Account[]
   calendarEvents    CalendarEvent[]
   outfits           Outfit[]

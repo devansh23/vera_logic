@@ -17,6 +17,8 @@ export default function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowPro
   const handleGmailSuccess = () => {
     setGmailConnected(true);
     setCurrentStep(3);
+    // Mark onboarding as completed
+    markOnboardingCompleted();
     setTimeout(() => {
       onComplete?.();
     }, 2000);
@@ -28,7 +30,22 @@ export default function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowPro
   };
 
   const handleSkip = () => {
+    // Mark onboarding as completed when skipped
+    markOnboardingCompleted();
     onSkip?.();
+  };
+
+  const markOnboardingCompleted = async () => {
+    try {
+      await fetch('/api/user/onboarding-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Error marking onboarding as completed:', error);
+    }
   };
 
   if (!session?.user) {

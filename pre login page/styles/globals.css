@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 14px;
+  --background: #fdfcfa;
+  --foreground: #2d2926;
+  --card: #ffffff;
+  --card-foreground: #2d2926;
+  --popover: #ffffff;
+  --popover-foreground: #2d2926;
+  --primary: #2d2926;
+  --primary-foreground: #fdfcfa;
+  --secondary: #f5f4f2;
+  --secondary-foreground: #2d2926;
+  --muted: #f0efed;
+  --muted-foreground: #8b8681;
+  --accent: #e8c5a0;
+  --accent-foreground: #2d2926;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(45, 41, 38, 0.1);
+  --input: transparent;
+  --input-background: #f8f7f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: rgba(45, 41, 38, 0.2);
+  --chart-1: #e8c5a0;
+  --chart-2: #d4a574;
+  --chart-3: #c19a68;
+  --chart-4: #a88660;
+  --chart-5: #8b7355;
+  --radius: 0.5rem;
+  --sidebar: #fdfcfa;
+  --sidebar-foreground: #2d2926;
+  --sidebar-primary: #2d2926;
+  --sidebar-primary-foreground: #fdfcfa;
+  --sidebar-accent: #f5f4f2;
+  --sidebar-accent-foreground: #2d2926;
+  --sidebar-border: rgba(45, 41, 38, 0.1);
+  --sidebar-ring: rgba(45, 41, 38, 0.2);
+}
+
+.dark {
+  --background: #1a1816;
+  --foreground: #fdfcfa;
+  --card: #1a1816;
+  --card-foreground: #fdfcfa;
+  --popover: #1a1816;
+  --popover-foreground: #fdfcfa;
+  --primary: #fdfcfa;
+  --primary-foreground: #1a1816;
+  --secondary: #2d2926;
+  --secondary-foreground: #fdfcfa;
+  --muted: #2d2926;
+  --muted-foreground: #8b8681;
+  --accent: #e8c5a0;
+  --accent-foreground: #1a1816;
+  --destructive: #d4183d;
+  --destructive-foreground: #fdfcfa;
+  --border: rgba(253, 252, 250, 0.1);
+  --input: rgba(253, 252, 250, 0.1);
+  --ring: rgba(253, 252, 250, 0.2);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+  }
+}
+
+/**
+ * Base typography with editorial styling
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      font-weight: 500;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 500;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    h4 {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.125rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    h5 {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    h6 {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    p {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    label {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    button {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    input {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Custom utilities for fashion aesthetic */
+.editorial-heading {
+  font-family: 'Playfair Display', serif;
+}
+
+.ui-text {
+  font-family: 'Inter', sans-serif;
+}
+
+.magazine-layout {
+  column-gap: 2rem;
+  row-gap: 3rem;
+}
+
+/* Custom scrollbar utilities */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

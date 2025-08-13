@@ -6,6 +6,7 @@ import { Providers } from './providers'
 import { ToastContainer } from 'react-toastify'
 import { NewHeader } from "@/components/NewHeader";
 import { LeftNavigation } from "@/components/LeftNavigation";
+import { AuthLayout } from "@/components/AuthLayout";
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -33,16 +34,10 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body className="bg-[#fdfcfa] overflow-x-hidden" suppressHydrationWarning={true}>
         <Providers>
-          <NewHeader />
-          <div className="flex min-h-screen pt-16">
-            <LeftNavigation />
-            <main className="flex-1 ml-64 w-full max-w-none overflow-x-hidden">
-              <div className="w-full max-w-full overflow-hidden">
-                {children}
-              </div>
-              <ToastContainer position="bottom-right" />
-            </main>
-          </div>
+          <AuthLayout>
+            {children}
+          </AuthLayout>
+          <ToastContainer position="bottom-right" />
         </Providers>
       </body>
     </html>

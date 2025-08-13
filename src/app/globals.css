@@ -101,6 +101,15 @@
   }
 }
 
+/* Font utility classes */
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
 /* Prevent horizontal overflow globally */
 html, body {
   overflow-x: hidden;

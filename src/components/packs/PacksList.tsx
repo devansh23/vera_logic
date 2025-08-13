@@ -111,24 +111,15 @@ export function PacksList() {
 
   return (
     <>
-      <div className="mb-4 flex justify-between items-center">
-        <h2 className="text-xl font-playfair font-normal text-[#2d2926]">Your Packs</h2>
-        <button
-          onClick={handleCreatePack}
-          className="px-4 py-2 bg-[#2d2926] text-white rounded-md hover:bg-[#2d2926]/90 flex items-center gap-2 font-inter text-sm"
-        >
-          <Plus size={18} /> New Pack
-        </button>
-      </div>
-
       {packs.length === 0 ? (
-        <div className="text-[#8b8681] text-center py-12 border-2 border-dashed border-[rgba(45,41,38,0.1)] rounded-lg">
-          <Package className="mx-auto mb-4" size={48} />
-          <p className="text-lg font-inter">You don't have any packs yet.</p>
-          <p className="mb-4 font-inter">Create a pack to organize your outfits for trips and events.</p>
+        <div className="text-[#8b8681] text-center py-16 border-2 border-dashed border-[rgba(45,41,38,0.1)] rounded-lg bg-[#f8f7f5]/30">
+          <Package className="mx-auto mb-6" size={64} />
+          <h3 className="text-2xl font-playfair font-normal mb-3 text-[#2d2926]">Start Packing Smarter</h3>
+          <p className="text-lg font-inter mb-2">Create packs to streamline your trips and events</p>
+          <p className="mb-6 font-inter text-base">Organize outfits by destination, occasion, or season for effortless packing</p>
           <button
             onClick={handleCreatePack}
-            className="px-4 py-2 bg-[#2d2926] text-white rounded-md hover:bg-[#2d2926]/90 font-inter"
+            className="px-6 py-3 bg-[#2d2926] text-white rounded-md hover:bg-[#2d2926]/90 font-inter font-medium text-base"
           >
             Create Your First Pack
           </button>
@@ -219,6 +210,18 @@ export function PacksList() {
               </button>
             </div>
           ))}
+
+          {/* Add Pack Button - As part of the carousel grid */}
+          <button
+            onClick={handleCreatePack}
+            className="w-full h-full min-h-[200px] bg-white text-[#2d2926] rounded-lg hover:bg-gray-50 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 group border-2 border-dashed border-gray-300"
+            aria-label="Create new pack"
+          >
+            <div className="text-center">
+              <Plus size={32} className="mx-auto mb-2 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-sm font-medium">Add Pack</span>
+            </div>
+          </button>
         </div>
       )}
 

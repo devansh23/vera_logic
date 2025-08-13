@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trash2, Calendar } from 'lucide-react';
+import { Trash2, Calendar, Plus, Shirt } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 
@@ -145,8 +145,17 @@ export function SavedOutfits() {
 
   if (outfits.length === 0) {
     return (
-      <div className="text-gray-500 text-center py-4">
-        No saved outfits yet. Create and save an outfit to see it here!
+      <div className="text-[#8b8681] text-center py-16 border-2 border-dashed border-[rgba(45,41,38,0.1)] rounded-lg bg-[#f8f7f5]/30">
+        <Shirt className="mx-auto mb-6" size={64} />
+        <h3 className="text-2xl font-playfair font-normal mb-3 text-[#2d2926]">Start Creating Outfits</h3>
+        <p className="text-lg font-inter mb-2">Design and save your perfect outfit combinations</p>
+        <p className="mb-6 font-inter text-base">Mix and match your wardrobe items to create stunning looks for any occasion</p>
+        <button
+          onClick={() => router.push('/outfit-planner')}
+          className="px-6 py-3 bg-[#2d2926] text-white rounded-md hover:bg-[#2d2926]/90 font-inter font-medium text-base"
+        >
+          Create Your First Outfit
+        </button>
       </div>
     );
   }
@@ -160,7 +169,7 @@ export function SavedOutfits() {
             className="border rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow relative group cursor-pointer"
             onClick={() => handleEditOutfit(outfit.id)}
           >
-            <h3 className="font-semibold text-lg mb-1">{outfit.name}</h3>
+            <h3 className="font-playfair font-normal text-lg mb-1 text-[#2d2926]">{outfit.name}</h3>
             <p className="text-sm text-gray-500 mb-1">
               Created {new Date(outfit.createdAt).toLocaleDateString()}
             </p>
@@ -232,6 +241,18 @@ export function SavedOutfits() {
             </button>
           </div>
         ))}
+
+        {/* Add Outfit Button - As part of the carousel grid */}
+        <button
+          onClick={() => router.push('/outfit-planner')}
+          className="w-full h-full min-h-[200px] bg-white text-[#2d2926] rounded-lg hover:bg-gray-50 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 group border-2 border-dashed border-gray-300"
+          aria-label="Create new outfit"
+        >
+          <div className="text-center">
+            <Plus size={32} className="mx-auto mb-2 group-hover:scale-110 transition-transform duration-200" />
+            <span className="text-sm font-medium">Add Outfit</span>
+          </div>
+        </button>
       </div>
 
       {/* Confirmation Dialog */}

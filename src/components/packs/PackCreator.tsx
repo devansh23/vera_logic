@@ -197,10 +197,6 @@ export function PackCreator({ packId }: { packId?: string }) {
   return (
     <div className="w-full max-w-none p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-normal mb-6 text-gray-900 font-serif">
-          {isEditing ? 'Edit Pack' : 'Create New Pack'}
-        </h1>
-        
         <div className="mb-6">
           <label htmlFor="packName" className="block text-sm font-medium text-gray-700 mb-2">
             Pack Name *

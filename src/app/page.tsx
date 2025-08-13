@@ -19,6 +19,7 @@ import { GreetingSection } from "@/components/GreetingSection";
 import { SuggestedOutfitsCarousel } from "@/components/SuggestedOutfitsCarousel";
 import { Badge } from "@/components/ui/badge";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import { LandingPage } from "@/components/LandingPage";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -294,11 +295,12 @@ export default function Home() {
     if (!session?.user?.id) return;
     
     try {
-      const response = await fetch('/api/auth/gmail/status');
+      // Check if user has already completed onboarding
+      const response = await fetch('/api/user/onboarding-status');
       if (response.ok) {
         const data = await response.json();
-        // Only show onboarding if Gmail is not connected
-        setShowOnboarding(!data.connected);
+        // Only show onboarding if it hasn't been completed
+        setShowOnboarding(!data.onboardingCompleted);
       } else {
         // If we can't check status, default to not showing onboarding
         setShowOnboarding(false);
@@ -747,47 +749,14 @@ export default function Home() {
     setPendingItems([]);
   };
 
-  // Render loading state
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-[#fdfcfa] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Render sign-in page for unauthenticated users
+  // If no session, show landing page
   if (!session) {
-    return (
-      <div className="min-h-screen bg-[#fdfcfa] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">👗</span>
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-4">Welcome to Vera</h1>
-          <p className="text-gray-600 mb-6">
-            Your AI-powered wardrobe management assistant. Sign in to start organizing your style.
-          </p>
-          <button
-            onClick={() => signIn()}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            Sign in with Google
-          </button>
-          <p className="text-sm text-gray-500 mt-4">
-            We'll help you organize your wardrobe and create amazing outfits
-          </p>
-        </div>
-      </div>
-    );
+    return <LandingPage />;
   }
 
   // Render main authenticated content
   return (
-    <div className="min-h-screen bg-[#fdfcfa] p-4">
+    <div className="min-h-screen bg-[#fdfcfa] p-8">
       <div className="w-full max-w-full overflow-hidden">
         <div className="w-full">
           <GreetingSection />
@@ -797,10 +766,10 @@ export default function Home() {
           <div className="mb-8">
             <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Saved Outfits</h2>
             <SavedOutfits />
-                  </div>
+          </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Packs</h2>
+            <h2 className="text-2xl font-normal mb-4 text-gray-900 font-serif">Your Packs</h2>
             <PacksList />
           </div>
         </div>
